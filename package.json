@@ -1,0 +1,28 @@
+{
+  "name": "quanlytangca",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.18",
+    "firebase": "^12.4.0",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.548.0",
+    "next": "14.2.0",
+    "react": "18.2.0",
+    "react-datepicker": "^8.8.0",
+    "react-dom": "18.2.0",
+    "recharts": "^3.3.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "10.4.14",
+    "postcss": "8.4.24",
+    "tailwindcss": "3.4.3"
+  }
+}
