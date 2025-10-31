@@ -19,22 +19,24 @@ function formatHours(n) {
 }
 
 export default function OverMember({
-    user = null,
-    overtimes = [], // mảng tăng ca
-    limit = {}, // overtime limit object
-    selectedMonth,
-    selectedYear,
+  user = null,
+  overtimes = [], // mảng tăng ca
+  limit = {}, // overtime limit object
+  selectedMonth,
+  selectedYear,
+  members = [],
+  setMembers = () => {},
 }) {
-    const [open, setOpen] = useState(false);
-    const [members, setMembers] = useState([]);
-    const modalRef = useRef();
-    const [form, setForm] = useState({
-        realName: "",
-        nickname: "",
-        shift: "Ca ngày",
-        shiftStart: "07:00",
-    });
-    const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const modalRef = useRef();
+  const [form, setForm] = useState({
+    realName: "",
+    nickname: "",
+    shift: "Ca ngày",
+    shiftStart: "07:00",
+  });
+  const [saving, setSaving] = useState(false);
+
 
     // Load members + overtimeLimit
     useEffect(() => {
@@ -147,59 +149,59 @@ export default function OverMember({
 
     // 🔍 Kiểm tra trạng thái hôm nay (và tự tính tăng ca)
     const getTodayStatus = (member) => {
-    const now = new Date();
-    const todayY = now.getFullYear();
-    const todayM = now.getMonth();
-    const todayD = now.getDate();
+        const now = new Date();
+        const todayY = now.getFullYear();
+        const todayM = now.getMonth();
+        const todayD = now.getDate();
 
-    // 🔹 Ưu tiên dữ liệu từ members
-    if (member.checkIn || member.checkOut) {
-        const hours = member.checkOut
-            ? calcOvertimeHours(member.shiftStart || "07:00", member.checkOut)
-            : 0;
+        // 🔹 Ưu tiên dữ liệu từ members
+        if (member.checkIn || member.checkOut) {
+            const hours = member.checkOut
+                ? calcOvertimeHours(member.shiftStart || "07:00", member.checkOut)
+                : 0;
 
-        let text = `Lên ca: ${member.checkIn || "..." } • Xuống ca: ${member.checkOut || "..."}`;
-        if (hours > 0 && member.checkIn && member.checkOut)
-            text += ` • +${hours}h`;
+            let text = `Lên ca: ${member.checkIn || "..."} • Xuống ca: ${member.checkOut || "..."}`;
+            if (hours > 0 && member.checkIn && member.checkOut)
+                text += ` • +${hours}h`;
 
-        let color = "text-gray-400";
-        if (member.checkIn && !member.checkOut) color = "text-green-600";
-        else if (member.checkIn && member.checkOut) color = hours > 0 ? "text-blue-600" : "text-gray-500";
+            let color = "text-gray-400";
+            if (member.checkIn && !member.checkOut) color = "text-green-600";
+            else if (member.checkIn && member.checkOut) color = hours > 0 ? "text-blue-600" : "text-gray-500";
 
-        return { text, color, overtime: hours };
-    }
+            return { text, color, overtime: hours };
+        }
 
-    // 🔹 Nếu không có checkIn/checkOut, kiểm tra overtime record
-    const todayOvertime = overtimes.find(o => {
-        const d = o.date ? new Date(o.date) : o.createdAt?.toDate?.() || null;
-        if (!d || o.memberId !== member.id) return false;
-        return (
-            d.getFullYear() === todayY &&
-            d.getMonth() === todayM &&
-            d.getDate() === todayD
-        );
-    });
+        // 🔹 Nếu không có checkIn/checkOut, kiểm tra overtime record
+        const todayOvertime = overtimes.find(o => {
+            const d = o.date ? new Date(o.date) : o.createdAt?.toDate?.() || null;
+            if (!d || o.memberId !== member.id) return false;
+            return (
+                d.getFullYear() === todayY &&
+                d.getMonth() === todayM &&
+                d.getDate() === todayD
+            );
+        });
 
-    if (todayOvertime) {
-        const { checkIn, checkOut } = todayOvertime;
-        const hours = checkOut
-            ? calcOvertimeHours(member.shiftStart || "07:00", checkOut)
-            : 0;
+        if (todayOvertime) {
+            const { checkIn, checkOut } = todayOvertime;
+            const hours = checkOut
+                ? calcOvertimeHours(member.shiftStart || "07:00", checkOut)
+                : 0;
 
-        let text = `Lên ca: ${checkIn || "..." } • Xuống ca: ${checkOut || "..."}`;
-        if (hours > 0 && checkIn && checkOut)
-            text += ` • +${hours}h`;
+            let text = `Lên ca: ${checkIn || "..."} • Xuống ca: ${checkOut || "..."}`;
+            if (hours > 0 && checkIn && checkOut)
+                text += ` • +${hours}h`;
 
-        let color = "text-gray-400";
-        if (checkIn && !checkOut) color = "text-green-600";
-        else if (checkIn && checkOut) color = hours > 0 ? "text-blue-600" : "text-gray-500";
+            let color = "text-gray-400";
+            if (checkIn && !checkOut) color = "text-green-600";
+            else if (checkIn && checkOut) color = hours > 0 ? "text-blue-600" : "text-gray-500";
 
-        return { text, color, overtime: hours };
-    }
+            return { text, color, overtime: hours };
+        }
 
-    // 🔹 Nếu hoàn toàn chưa có dữ liệu hôm nay
-    return { text: "Lên ca: null • Xuống ca: null", color: "text-gray-400", overtime: 0 };
-};
+        // 🔹 Nếu hoàn toàn chưa có dữ liệu hôm nay
+        return { text: "Lên ca: null • Xuống ca: null", color: "text-gray-400", overtime: 0 };
+    };
 
 
     return (

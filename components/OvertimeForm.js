@@ -5,22 +5,24 @@ import Toast from "./Toast";
 import NewStaffModal from "./NewStaffModal";
 import useOvertimeParser from "../hooks/useOvertimeParser";
 
-export default function OvertimeForm({ user, members: parentMembers = [], setMembers: setParentMembers }) {
+export default function OvertimeForm({
+  user,
+  members = [],
+  setMembers,
+  setItems, // thêm nếu cần cập nhật overtimes
+  selectedMonth,
+  selectedYear,
+  selectedDate,
+}) {
   const [formOpen, setFormOpen] = useState(false);
   const [dayText, setDayText] = useState("");
   const [nightText, setNightText] = useState("");
   const modalRef = useRef();
-  
+
 
   // Dùng hook riêng cho toàn bộ xử lý chấm công
-  const {
-    toast,
-    newStaffDetected,
-    setNewStaffDetected,
-    parseText,
-    addNewStaffConfirmed,
-  } = useOvertimeParser({ user, parentMembers, setParentMembers });
-
+  const { toast, newStaffDetected, setNewStaffDetected, parseText, addNewStaffConfirmed } =
+    useOvertimeParser({ user, members, setMembers, setItems, selectedMonth, selectedYear, selectedDate });
   return (
     <>
       {toast.message && <Toast message={toast.message} type={toast.type} />}

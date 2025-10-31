@@ -35,6 +35,9 @@ export default function Home() {
   const [showRemaining, setShowRemaining] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [toast, setToast] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const [members, setMembers] = useState([]); // ✅ danh sách nhân viên
 
   const chartRef = useRef(null);
 
@@ -127,6 +130,43 @@ export default function Home() {
     }));
   };
 
+  // 🔢 Tổng hợp dữ liệu ngày tăng ca để hiển thị trên OvertimeMonth
+  const overtimeData = overtimeItems.reduce((acc, it) => {
+    let dateKey = null;
+
+    if (it.date) {
+      if (typeof it.date === "string") dateKey = it.date;
+      else if (typeof it.date.toDate === "function")
+        dateKey = it.date.toDate().toISOString().slice(0, 10);
+      else if (it.date instanceof Date)
+        dateKey = it.date.toISOString().slice(0, 10);
+    }
+
+    if (
+      !dateKey &&
+      typeof it.year !== "undefined" &&
+      typeof it.month !== "undefined" &&
+      typeof it.day !== "undefined"
+    ) {
+      const monNum = Number(it.month);
+      const monthStr =
+        monNum > 11
+          ? String(monNum).padStart(2, "0")
+          : String(monNum + 1).padStart(2, "0");
+      const dayStr = String(Number(it.day)).padStart(2, "0");
+      dateKey = `${it.year}-${monthStr}-${dayStr}`;
+    }
+
+    if (!dateKey && it.createdAt && typeof it.createdAt.toDate === "function") {
+      dateKey = it.createdAt.toDate().toISOString().slice(0, 10);
+    }
+
+    if (!dateKey) return acc;
+
+    acc[dateKey] = (acc[dateKey] || 0) + Number(it.hours || 0);
+    return acc;
+  }, {});
+
   // =======================
   // 🖥️ Giao diện Login
   // =======================
@@ -202,7 +242,9 @@ export default function Home() {
                 💹 Tổng giờ tăng ca {selectedYear}:
               </span>
               <span className="font-semibold text-indigo-600">
-                {showRemaining ? `${totalOvertimeYear.toLocaleString()} giờ` : "••••••"}
+                {showRemaining
+                  ? `${totalOvertimeYear.toLocaleString()} giờ`
+                  : "••••••"}
               </span>
               <button
                 onClick={() => setShowRemaining((p) => !p)}
@@ -235,91 +277,15 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 🧩 Popup đăng xuất */}
-        {showLogoutPopup && (
-          <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-            onClick={() => setShowLogoutPopup(false)}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl p-6 w-80 text-center animate-fadeIn"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">
-                Bạn có chắc muốn đăng xuất?
-              </h2>
-              <div className="flex justify-center gap-3 mt-4">
-                <button
-                  onClick={async () => {
-                    await handleLogout();
-                    setShowLogoutPopup(false);
-                  }}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
-                >
-                  Đăng xuất
-                </button>
-                <button
-                  onClick={() => setShowLogoutPopup(false)}
-                  className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
-                >
-                  Hủy
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 🧹 Popup xác nhận xóa dữ liệu */}
-        {showDeletePopup && (
-          <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-            onClick={() => setShowDeletePopup(false)}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl p-6 w-80 text-center animate-fadeIn"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-lg font-semibold text-red-600 mb-3">
-                Xóa toàn bộ dữ liệu
-              </h2>
-              <p className="text-sm text-gray-600 mb-4">
-                Xóa toàn bộ dữ liệu tăng ca tháng{" "}
-                <b>
-                  {selectedMonth + 1}/{selectedYear}
-                </b>
-                ?
-              </p>
-              <div className="flex justify-center gap-3">
-                <button
-                  onClick={async () => {
-                    setShowDeletePopup(false);
-                    await handleDeleteAll();
-                  }}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
-                >
-                  Xóa
-                </button>
-                <button
-                  onClick={() => setShowDeletePopup(false)}
-                  className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
-                >
-                  Hủy
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 👤 Popup tài khoản */}
-        {showAccount && <AccountPopup user={user} onClose={handleCloseAccountPopup} />}
-
-        {/* 📊 Quản lý Tăng Ca */}
+        {/* 👤 Quản lý nhân viên */}
         <OverMember
           user={user}
           overtimes={overtimeItems}
           limit={overtimeLimit}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
+          members={members}
+          setMembers={setMembers}
         />
 
         <OvertimeSummary
@@ -337,6 +303,8 @@ export default function Home() {
               setSelectedMonth={setSelectedMonth}
               selectedYear={selectedYear}
               setSelectedYear={setSelectedYear}
+              overtimeData={overtimeData}
+              onDateSelect={(date) => setSelectedDate(date.toDate())} // ⬅️ thêm dòng này
             />
             <OvertimeLimit
               user={user}
@@ -349,10 +317,14 @@ export default function Home() {
 
           <OvertimeForm
             user={user}
+            members={members}
+            setMembers={setMembers}
             setItems={setOvertimeItems}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
+            selectedDate={selectedDate} // ✅ thêm
           />
+
 
           <OvertimeList
             user={user}
@@ -363,7 +335,10 @@ export default function Home() {
           />
 
           <div ref={chartRef} className="w-full">
-            <OvertimeChart overtimes={overtimeItems} selectedYear={selectedYear} />
+            <OvertimeChart
+              overtimes={overtimeItems}
+              selectedYear={selectedYear}
+            />
           </div>
         </div>
 

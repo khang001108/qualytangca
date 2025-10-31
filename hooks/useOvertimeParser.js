@@ -1,5 +1,5 @@
-// hooks/useOvertimeParser.js
 import { useState } from "react";
+import { db } from "../lib/firebase";
 import {
   collection,
   query,
@@ -10,179 +10,108 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../lib/firebase";
 
-export default function useOvertimeParser({ user, parentMembers, setParentMembers }) {
-  const [toast, setToast] = useState({ message: "", type: "info" });
-  const [newStaffDetected, setNewStaffDetected] = useState([]);
+/**
+ * Hook xử lý nhập dữ liệu tăng ca theo text
+ * - Mỗi ngày chỉ 1 bản ghi / nhân viên
+ * - Nếu ngày đó chưa có -> tạo mới
+ * - Nếu có rồi -> update checkIn / checkOut
+ */
+export default function useOvertimeParser({
+  user,
+  members = [],
+  setMembers,
+  setItems,
+  selectedMonth,
+  selectedYear,
+  selectedDate,
+}) {
+  const [toast, setToast] = useState(null);
 
-  const showToast = (msg, type = "info") => {
-    setToast({ message: msg, type });
-    setTimeout(() => setToast({ message: "", type: "info" }), 3000);
-  };
+  /**
+   * 🔹 parseText(rawText)
+   *  - rawText: dữ liệu text copy từ bảng chấm công (1 dòng = 1 nhân viên)
+   *  - Tự động ghi vào Firestore đúng ngày được chọn
+   */
+  const parseText = async (rawText) => {
+    if (!rawText.trim() || !user) return;
 
-  const handleExistingMemberCheckIn = (memberId, time) => {
-    setParentMembers((prev) => {
-      const updated = prev.map((m) =>
-        m.id === memberId ? { ...m, checkIn: time } : m
-      );
-      return updated;
-    });
-  };
+    try {
+      const lines = rawText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
 
-  // ====== HÀM XỬ LÝ CHẤM CÔNG ======
-  const parseText = async (text, mode = "checkin") => {
-    setNewStaffDetected([]);
-    if (!user) return showToast("⚠️ Bạn chưa đăng nhập", "error");
-    if (!text.trim()) return showToast("⚠️ Dán dữ liệu chấm công trước", "error");
+      if (lines.length === 0) return;
 
-    const q = query(collection(db, "members"), where("userId", "==", user.uid));
-    const snap = await getDocs(q);
-    const existingMembers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const dateObj = selectedDate ? new Date(selectedDate) : new Date();
+      const currentDate = dateObj.toISOString().split("T")[0];
+      const month = dateObj.getMonth();
+      const year = dateObj.getFullYear();
 
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-    const updatedList = [];
-    const newDetected = [];
-    const today = new Date();
-    const dateString = today.toISOString().split("T")[0];
-    const normalize = (str) => str.trim().normalize("NFC");
+      for (const line of lines) {
+        // 👉 Giả định text: "Tên Nick checkIn checkOut"
+        const [realName, nickname, checkIn, checkOut] = line.split(/\s+/);
 
-    for (let line of lines) {
-      if (/休|事假|年假|phép|việc riêng/.test(line)) continue;
-      const match = line.match(/\d+\.\s*([\p{L}\p{M}\s]+)\/\s*([\d:]+)/u);
-      if (!match) continue;
-
-      let [, name, time] = match;
-      name = normalize(name);
-      const [hour] = time.split(":").map(Number);
-      const existing = existingMembers.find((m) => normalize(m.realName) === name);
-
-      if (!existing) {
-        newDetected.push({ realName: name, checkIn: time });
-        continue;
-      }
-
-      const isCheckin = mode === "checkin";
-      if (isCheckin && hour >= 12) {
-        showToast(`⚠️ ${name}: ${time} có vẻ là giờ xuống ca`, "error");
-        continue;
-      }
-      if (!isCheckin && hour < 12) {
-        showToast(`⚠️ ${name}: ${time} có vẻ là giờ lên ca`, "error");
-        continue;
-      }
-
-      // ===== CHECK-IN =====
-      if (isCheckin) {
-        handleExistingMemberCheckIn(existing.id, time);
-        await updateDoc(doc(db, "members", existing.id), {
-          checkIn: time,
-          currentDate: dateString,
-        });
-
-        const q2 = query(
+        // 🔍 kiểm tra xem ngày đó đã có record chưa
+        const q = query(
           collection(db, "overtimes"),
           where("userId", "==", user.uid),
-          where("memberId", "==", existing.id),
-          where("date", "==", dateString)
+          where("nickname", "==", nickname),
+          where("currentDate", "==", currentDate)
         );
-        const snap2 = await getDocs(q2);
-        if (snap2.empty) {
+
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          // ✅ chưa có -> tạo mới record
           await addDoc(collection(db, "overtimes"), {
             userId: user.uid,
-            memberId: existing.id,
-            date: dateString,
-            checkIn: time,
+            realName: realName || "",
+            nickname: nickname || "",
+            checkIn: checkIn || "",
+            checkOut: checkOut || "",
+            currentDate,
+            month,
+            year,
             createdAt: serverTimestamp(),
           });
+          console.log(`🆕 Tạo mới tăng ca cho ${nickname} (${currentDate})`);
+        } else {
+          // ⚙️ đã có -> cập nhật giờ checkIn/Out
+          const docRef = doc(db, "overtimes", snap.docs[0].id);
+          await updateDoc(docRef, {
+            checkIn: checkIn || snap.docs[0].data().checkIn,
+            checkOut: checkOut || snap.docs[0].data().checkOut,
+            updatedAt: serverTimestamp(),
+          });
+          console.log(`🔁 Cập nhật tăng ca ${nickname} (${currentDate})`);
         }
-        updatedList.push(`${existing.realName} (${time})`);
       }
 
-      // ===== CHECK-OUT =====
-      else {
-        const q3 = query(
-          collection(db, "overtimes"),
-          where("userId", "==", user.uid),
-          where("memberId", "==", existing.id),
-          where("date", "==", dateString)
-        );
-        const snap3 = await getDocs(q3);
-        if (snap3.empty) {
-          showToast(`⚠️ ${name}: Chưa có giờ lên ca`, "error");
-          continue;
-        }
-        const overtimeDoc = snap3.docs[0];
-        await updateDoc(doc(db, "overtimes", overtimeDoc.id), {
-          checkOut: time,
-          updatedAt: serverTimestamp(),
-        });
-        await updateDoc(doc(db, "members", existing.id), { checkOut: time });
-        updatedList.push(`${existing.realName} (${time})`);
-      }
-    }
-
-    // ===== HIỂN THỊ KẾT QUẢ =====
-    if (updatedList.length > 0) {
-      showToast(
-        `${mode === "checkin" ? "✅ Lên ca" : "🔵 Xuống ca"}: ${updatedList.length} nhân viên`,
-        "success"
+      // 🔄 làm mới danh sách
+      const qMonth = query(
+        collection(db, "overtimes"),
+        where("userId", "==", user.uid),
+        where("month", "==", month),
+        where("year", "==", year)
       );
-    } else if (newDetected.length > 0) {
-      showToast(`🆕 Phát hiện ${newDetected.length} nhân viên mới`, "info");
-      setNewStaffDetected(
-        newDetected.map((p, i) => ({
-          id: `new-${i}`,
-          realName: p.realName,
-          nickname: p.realName.charAt(0),
-          shift: "Ca ngày",
-          shiftStart: "07:00",
-          selected: true,
-          checkIn: p.checkIn,
-        }))
-      );
-    } else {
-      showToast("⚠️ Không phát hiện nhân viên nào cần xử lý", "warning");
+      const snapMonth = await getDocs(qMonth);
+      const data = snapMonth.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setItems(data);
+
+      setToast({
+        type: "success",
+        message: `✅ Đã lưu dữ liệu tăng ca ngày ${currentDate}`,
+      });
+    } catch (err) {
+      console.error(err);
+      setToast({
+        type: "error",
+        message: "❌ Lỗi khi xử lý dữ liệu tăng ca!",
+      });
     }
   };
 
-  // ===== THÊM NHÂN VIÊN MỚI =====
-  const addNewStaffConfirmed = async () => {
-    if (!user) return showToast("⚠️ Bạn chưa đăng nhập", "error");
-    const selected = newStaffDetected.filter((s) => s.selected);
-    if (!selected.length) return showToast("Chưa chọn nhân viên nào", "error");
-
-    const added = [];
-    for (let s of selected) {
-      try {
-        const ref = await addDoc(collection(db, "members"), {
-          userId: user.uid,
-          realName: s.realName,
-          nickname: s.nickname,
-          shift: s.shift,
-          shiftStart: s.shiftStart,
-          createdAt: serverTimestamp(),
-          overtimeLimit: {},
-        });
-        added.push({ id: ref.id, ...s });
-      } catch (err) {
-        console.error("Lỗi thêm nhân viên:", err);
-      }
-    }
-
-    if (added.length > 0) {
-      setParentMembers((prev) => [...prev, ...added]);
-      showToast(`Đã thêm ${added.length} nhân viên mới`, "success");
-    }
-
-    setNewStaffDetected([]);
-  };
-
-  return {
-    toast,
-    newStaffDetected,
-    setNewStaffDetected,
-    parseText,
-    addNewStaffConfirmed,
-  };
+  return { toast, parseText };
 }
