@@ -6,8 +6,18 @@ import { Loader2, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { getZodiacForMonth } from "../utils/zodiacUtils";
 
 const monthNames = [
-  "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-  "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
+  "Tháng 1",
+  "Tháng 2",
+  "Tháng 3",
+  "Tháng 4",
+  "Tháng 5",
+  "Tháng 6",
+  "Tháng 7",
+  "Tháng 8",
+  "Tháng 9",
+  "Tháng 10",
+  "Tháng 11",
+  "Tháng 12",
 ];
 
 export default function OvertimeLimit({ user, selectedMonth, selectedYear }) {
@@ -43,12 +53,14 @@ export default function OvertimeLimit({ user, selectedMonth, selectedYear }) {
         const oldLimit = memberDoc.data().overtimeLimit || {};
         const newLimit = {
           ...oldLimit,
-          [String(selectedYear)]: {
-            ...(oldLimit[String(selectedYear)] || {}),
-            [String(selectedMonth)]: val,
-          },
+          monthlyLimit: val,
+          workedHours: oldLimit.workedHours || 0,
+          remaining: Math.max(val - (oldLimit.workedHours || 0), 0),
         };
-        await updateDoc(doc(db, "members", memberDoc.id), { overtimeLimit: newLimit });
+
+        await updateDoc(doc(db, "members", memberDoc.id), {
+          overtimeLimit: newLimit,
+        });
       });
 
       await Promise.all(updates);
@@ -154,7 +166,9 @@ export default function OvertimeLimit({ user, selectedMonth, selectedYear }) {
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                disabled={status === "loading" || status === "success" || loading}
+                disabled={
+                  status === "loading" || status === "success" || loading
+                }
                 className={`flex-1 py-2 rounded-lg text-white font-medium transition ${
                   status === "loading" || status === "success" || loading
                     ? "bg-indigo-300 cursor-not-allowed"
@@ -163,7 +177,8 @@ export default function OvertimeLimit({ user, selectedMonth, selectedYear }) {
               >
                 {status === "loading" ? (
                   <span className="flex items-center justify-center">
-                    <Loader2 className="animate-spin w-4 h-4 mr-1" /> Đang lưu...
+                    <Loader2 className="animate-spin w-4 h-4 mr-1" /> Đang
+                    lưu...
                   </span>
                 ) : (
                   "Lưu"

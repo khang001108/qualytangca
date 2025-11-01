@@ -1,32 +1,47 @@
-// components/OvertimeForm.js
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { CirclePlus } from "lucide-react";
 import Toast from "./Toast";
-import NewStaffModal from "./NewStaffModal";
 import useOvertimeParser from "../hooks/useOvertimeParser";
 
 export default function OvertimeForm({
   user,
   members = [],
   setMembers,
-  setItems, // thêm nếu cần cập nhật overtimes
+  setItems,
   selectedMonth,
   selectedYear,
   selectedDate,
 }) {
   const [formOpen, setFormOpen] = useState(false);
-  const [dayText, setDayText] = useState("");
-  const [nightText, setNightText] = useState("");
+  const [textInput, setTextInput] = useState("");
+  const [mode, setMode] = useState("checkin"); // "checkin" hoặc "checkout"
   const modalRef = useRef();
 
+  const { toast, parseText } = useOvertimeParser({
+    user,
+    members,
+    setMembers,
+    setItems,
+    selectedMonth,
+    selectedYear,
+    selectedDate,
+  });
 
-  // Dùng hook riêng cho toàn bộ xử lý chấm công
-  const { toast, newStaffDetected, setNewStaffDetected, parseText, addNewStaffConfirmed } =
-    useOvertimeParser({ user, members, setMembers, setItems, selectedMonth, selectedYear, selectedDate });
+  // Gọi xử lý text với mode hiện tại
+  const handleParse = async () => {
+    await parseText(textInput, mode);
+    setTextInput("");
+    setFormOpen(false);
+  };
+
   return (
     <>
-      {toast.message && <Toast message={toast.message} type={toast.type} />}
+      {/* Hiển thị thông báo */}
+      {toast && toast.message && (
+        <Toast message={toast.message} type={toast.type} />
+      )}
 
+      {/* Nút mở form */}
       <div className="flex justify-end mb-2">
         <button
           onClick={() => setFormOpen(true)}
@@ -36,6 +51,7 @@ export default function OvertimeForm({
         </button>
       </div>
 
+      {/* Modal */}
       {formOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
@@ -56,55 +72,67 @@ export default function OvertimeForm({
               <button onClick={() => setFormOpen(false)}>✕</button>
             </div>
 
-            {/* === Ca ngày === */}
-            <label className="text-sm text-gray-600">Dán chấm công Ca ngày</label>
-            <textarea
-              rows={4}
-              className="w-full border p-2 rounded mt-1"
-              value={dayText}
-              onChange={(e) => setDayText(e.target.value)}
-              placeholder="Dán dữ liệu chấm công ca ngày..."
-            />
-            <div className="flex gap-2 mt-2">
+            {/* 🔹 Chọn chế độ Check-in / Check-out */}
+            <div className="flex gap-2 mb-4">
               <button
-                onClick={() => parseText(dayText, "checkin")}
-                className="bg-green-500 text-white px-4 py-2 rounded"
+                className={`flex-1 py-2 rounded-lg border transition ${
+                  mode === "checkin"
+                    ? "bg-green-500 text-white shadow-md"
+                    : "bg-white hover:bg-gray-100"
+                }`}
+                onClick={() => setMode("checkin")}
               >
-                Lên ca
+                Lên ca (Check-in)
               </button>
               <button
-                onClick={() => parseText(dayText, "checkout")}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+                className={`flex-1 py-2 rounded-lg border transition ${
+                  mode === "checkout"
+                    ? "bg-blue-500 text-white shadow-md"
+                    : "bg-white hover:bg-gray-100"
+                }`}
+                onClick={() => setMode("checkout")}
               >
-                Xuống ca
+                Xuống ca (Check-out)
               </button>
             </div>
 
-            {/* === Ca đêm === */}
-            <label className="text-sm text-gray-600 mt-3">Dán chấm công Ca đêm</label>
+            {/* 🔹 Text nhập dữ liệu */}
+            <label className="text-sm text-gray-600 mb-1 block">
+              Dán dữ liệu chấm công ({mode === "checkin" ? "Lên ca" : "Xuống ca"})
+            </label>
             <textarea
-              rows={4}
-              className="w-full border p-2 rounded mt-1"
-              value={nightText}
-              onChange={(e) => setNightText(e.target.value)}
-              placeholder="Dán dữ liệu chấm công ca đêm..."
+              rows={6}
+              className="w-full border p-3 rounded-lg mb-4 focus:ring-2 focus:ring-orange-400 outline-none"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder={
+                mode === "checkin"
+                  ? "Dán dữ liệu chấm công ca lên (ví dụ: 1.陈明壯/6:52)"
+                  : "Dán dữ liệu chấm công ca xuống (ví dụ: 1.陈明壯/19:32)"
+              }
             />
-            <button
-              onClick={() => parseText(nightText)}
-              className="mt-2 bg-blue-500 text-white px-4 py-2 rounded"
-            >
-              Xử lý Ca đêm
-            </button>
+
+            {/* 🔹 Nút xử lý */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setFormOpen(false)}
+                className="px-4 py-2 rounded-lg border hover:bg-gray-100"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleParse}
+                className={`px-5 py-2 rounded-lg text-white shadow-md ${
+                  mode === "checkin"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
+              </button>
+            </div>
           </div>
         </div>
-      )}
-
-      {newStaffDetected.length > 0 && (
-        <NewStaffModal
-          newStaffDetected={newStaffDetected}
-          setNewStaffDetected={setNewStaffDetected}
-          onConfirm={addNewStaffConfirmed}
-        />
       )}
     </>
   );

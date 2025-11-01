@@ -27,7 +27,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [overtimeItems, setOvertimeItems] = useState([]);
   const [overtimeLimit, setOvertimeLimit] = useState({});
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showAccount, setShowAccount] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
@@ -56,18 +56,20 @@ export default function Home() {
   // 🔁 Lắng nghe dữ liệu tăng ca theo năm
   useEffect(() => {
     if (!user) return;
-    import("firebase/firestore").then(({ collection, query, where, onSnapshot }) => {
-      const q = query(
-        collection(db, "overtimes"),
-        where("userId", "==", user.uid),
-        where("year", "==", selectedYear)
-      );
-      const unsub = onSnapshot(q, (snap) => {
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setOvertimeItems(data);
-      });
-      return () => unsub();
-    });
+    import("firebase/firestore").then(
+      ({ collection, query, where, onSnapshot }) => {
+        const q = query(
+          collection(db, "overtimes"),
+          where("userId", "==", user.uid),
+          where("year", "==", selectedYear)
+        );
+        const unsub = onSnapshot(q, (snap) => {
+          const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setOvertimeItems(data);
+        });
+        return () => unsub();
+      }
+    );
   }, [user?.uid, selectedYear]);
 
   // ⬆️ Hiện nút cuộn lên
@@ -105,12 +107,16 @@ export default function Home() {
         where("year", "==", selectedYear)
       );
       const snap = await getDocs(q);
-      await Promise.all(snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id))));
+      await Promise.all(
+        snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
+      );
 
       setOvertimeItems([]);
       setToast({
         type: "success",
-        msg: `Đã xóa toàn bộ tăng ca tháng ${selectedMonth + 1}/${selectedYear}.`,
+        msg: `Đã xóa toàn bộ tăng ca tháng ${
+          selectedMonth + 1
+        }/${selectedYear}.`,
       });
     } catch (err) {
       console.error(err);
@@ -201,7 +207,9 @@ export default function Home() {
         {/* 🔹 Header */}
         <div className="bg-white shadow-[0_6px_30px_rgba(99,102,241,0.25)] p-4 rounded-2xl sticky top-0 z-30 backdrop-blur-md border border-indigo-100">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold text-gray-800">🕒 Quản Lý Tăng Ca</h1>
+            <h1 className="text-xl font-bold text-gray-800">
+              🕒 Quản Lý Tăng Ca
+            </h1>
             <button
               onClick={() => setShowLogoutPopup(true)}
               className="p-2 text-gray-600 hover:bg-gray-100 rounded-full"
@@ -264,7 +272,9 @@ export default function Home() {
         {/* 🔸 Nút thao tác */}
         <div className="flex justify-between items-center">
           <button
-            onClick={() => chartRef.current?.scrollIntoView({ behavior: "smooth" })}
+            onClick={() =>
+              chartRef.current?.scrollIntoView({ behavior: "smooth" })
+            }
             className="flex items-center gap-1 bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 text-sm"
           >
             <ChartLine className="w-4 h-4" /> Biểu đồ
@@ -277,6 +287,16 @@ export default function Home() {
           </button>
         </div>
 
+        {/* 🔹 Form thêm tăng ca */}
+        <OvertimeForm
+          user={user}
+          members={members}
+          setMembers={setMembers}
+          setItems={setOvertimeItems}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          selectedDate={selectedDate} // ✅ thêm
+        />
         {/* 👤 Quản lý nhân viên */}
         <OverMember
           user={user}
@@ -287,7 +307,17 @@ export default function Home() {
           members={members}
           setMembers={setMembers}
         />
-
+        {/* 🔸 Chọn tháng năm */  }
+        <OvertimeMonth
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+          overtimeData={overtimeData}
+          onDateSelect={(date) => setSelectedDate(date.toDate())} // ⬅️ thêm dòng này
+        />
+        
+        {/* 🔸 Tóm tắt tăng ca */}
         <OvertimeSummary
           user={user}
           overtimes={overtimeItems}
@@ -298,14 +328,6 @@ export default function Home() {
 
         <div className="flex flex-col items-center gap-3">
           <div className="flex justify-between w-full">
-            <OvertimeMonth
-              selectedMonth={selectedMonth}
-              setSelectedMonth={setSelectedMonth}
-              selectedYear={selectedYear}
-              setSelectedYear={setSelectedYear}
-              overtimeData={overtimeData}
-              onDateSelect={(date) => setSelectedDate(date.toDate())} // ⬅️ thêm dòng này
-            />
             <OvertimeLimit
               user={user}
               overtimeLimit={overtimeLimit}
@@ -314,17 +336,6 @@ export default function Home() {
               selectedYear={selectedYear}
             />
           </div>
-
-          <OvertimeForm
-            user={user}
-            members={members}
-            setMembers={setMembers}
-            setItems={setOvertimeItems}
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            selectedDate={selectedDate} // ✅ thêm
-          />
-
 
           <OvertimeList
             user={user}

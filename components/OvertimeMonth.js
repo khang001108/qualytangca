@@ -3,7 +3,12 @@ import dayjs from "dayjs";
 import "dayjs/locale/vi";
 dayjs.locale("vi");
 
-export default function OvertimeCalendar({ overtimeData, onDateSelect }) {
+export default function OvertimeCalendar({
+  overtimeData,
+  onDateSelect,
+  setSelectedMonth,
+  setSelectedYear,
+}) {
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -26,20 +31,34 @@ export default function OvertimeCalendar({ overtimeData, onDateSelect }) {
   return (
     <div className="p-4 bg-white rounded-2xl shadow-md max-w-lg mx-auto mt-6">
       <div className="flex justify-between items-center mb-4">
-        <button onClick={prevMonth} className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200">◀</button>
+        <button
+          onClick={prevMonth}
+          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200"
+        >
+          ◀
+        </button>
         <h2 className="text-lg font-semibold text-gray-800">
           {currentMonth.format("MMMM YYYY")}
         </h2>
-        <button onClick={nextMonth} className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200">▶</button>
+        <button
+          onClick={nextMonth}
+          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200"
+        >
+          ▶
+        </button>
       </div>
 
       {/* Lưới ngày */}
       <div className="grid grid-cols-7 text-center text-sm font-medium mb-2 text-gray-500">
-        {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => <div key={d}>{d}</div>)}
+        {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => (
+          <div key={d}>{d}</div>
+        ))}
       </div>
 
       <div className="grid grid-cols-7 gap-2 text-center">
-        {Array.from({ length: startDay - 1 }).map((_, i) => <div key={`e-${i}`} />)}
+        {Array.from({ length: startDay - 1 }).map((_, i) => (
+          <div key={`e-${i}`} />
+        ))}
 
         {days.map(({ date, otHours }) => {
           const isSelected = selectedDate?.isSame(date, "day");
@@ -48,10 +67,16 @@ export default function OvertimeCalendar({ overtimeData, onDateSelect }) {
               key={date}
               onClick={() => {
                 setSelectedDate(date);
+                setSelectedMonth(date.month() + 1);
+                setSelectedYear(date.year());
                 onDateSelect && onDateSelect(date);
               }}
               className={`relative p-2 rounded-xl border cursor-pointer transition-all 
-                ${isSelected ? "border-blue-600 bg-blue-100" : "border-gray-200 hover:bg-blue-50"}
+                ${
+                  isSelected
+                    ? "border-blue-600 bg-blue-100"
+                    : "border-gray-200 hover:bg-blue-50"
+                }
               `}
             >
               <div className="font-semibold text-gray-700">{date.date()}</div>
