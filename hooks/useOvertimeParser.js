@@ -140,6 +140,7 @@ export default function useOvertimeParser({
             currentDate,
             month,
             year,
+            hours: 0, // ban đầu 0, sẽ cập nhật khi checkout
             createdAt: serverTimestamp(),
           });
           overtimeRef = docRef;
@@ -148,15 +149,24 @@ export default function useOvertimeParser({
           // ✅ Cập nhật record overtime cũ
           const docRef = doc(db, "overtimes", snap.docs[0].id);
           const prev = snap.docs[0].data();
+
+          let newCheckIn =
+            mode === "checkin" ? timeValue || prev.checkIn : prev.checkIn || "";
+          let newCheckOut =
+            mode === "checkout"
+              ? timeValue || prev.checkOut
+              : prev.checkOut || "";
+
+          // ✅ Tính lại giờ OT nếu có checkOut
+          const hours = calcOvertimeHours(
+            memberMatch.shiftStart || "07:00",
+            newCheckOut
+          );
+
           await updateDoc(docRef, {
-            checkIn:
-              mode === "checkin"
-                ? timeValue || prev.checkIn
-                : prev.checkIn || "",
-            checkOut:
-              mode === "checkout"
-                ? timeValue || prev.checkOut
-                : prev.checkOut || "",
+            checkIn: newCheckIn,
+            checkOut: newCheckOut,
+            hours,
             updatedAt: serverTimestamp(),
           });
           overtimeRef = docRef;
@@ -174,19 +184,33 @@ export default function useOvertimeParser({
         } else if (mode === "checkout") {
           updateData.lastCheckOutTime = timeValue;
 
-          // ✅ Khi checkout thì tính giờ OT và cộng vào overtimeLimit
-          const hours = calcOvertimeHours(
-            memberMatch.shiftStart || "07:00",
-            timeValue
-          );
-          const oldLimit = memberMatch.overtimeLimit || {};
-          const newWorked = (oldLimit.workedHours || 0) + hours;
-          const newRemain = Math.max(
-            (oldLimit.monthlyLimit || 0) - newWorked,
-            0
-          );
-          updateData["overtimeLimit.workedHours"] = newWorked;
-          updateData["overtimeLimit.remaining"] = newRemain;
+          // 🔹 Kiểm tra đã có check-in chưa
+          let hasCheckIn = false;
+          if (!snap.empty) {
+            const prevData = snap.docs[0].data();
+            hasCheckIn = !!(prevData.checkIn && prevData.checkIn.trim());
+          }
+
+          if (hasCheckIn) {
+            // ✅ Chỉ tính giờ OT khi có check-in
+            const hours = calcOvertimeHours(
+              memberMatch.shiftStart || "07:00",
+              timeValue
+            );
+            const oldLimit = memberMatch.overtimeLimit || {};
+            const newWorked = (oldLimit.workedHours || 0) + hours;
+            const newRemain = Math.max(
+              (oldLimit.monthlyLimit || 0) - newWorked,
+              0
+            );
+            updateData["overtimeLimit.workedHours"] = newWorked;
+            updateData["overtimeLimit.remaining"] = newRemain;
+          } else {
+            // 🚫 Nếu chưa có check-in thì không tính OT
+            console.warn(
+              `❗ Nhân viên ${realName} chưa lên ca, chỉ có giờ xuống.`
+            );
+          }
         }
 
         // ✅ Ghi một lần duy nhất

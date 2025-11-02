@@ -1,5 +1,9 @@
 // components/OverMember.js
 import { useState, useEffect, useRef } from "react";
+import PopupCalendar from "./PopupCalendar";
+import PopupSettings from "./PopupSettings";
+import { ICONS } from "../utils/iconUtils";
+
 import {
   addDoc,
   collection,
@@ -12,7 +16,14 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { UserPlus, Trash2, User } from "lucide-react";
+import {
+  UserPlus,
+  Trash2,
+  User,
+  Settings,
+  IdCard,
+  CalendarCheck,
+} from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 
 function formatHours(n) {
@@ -27,6 +38,7 @@ function calcOvertimeHours(shiftStart, checkOut) {
   const [oH, oM] = checkOut.split(":").map(Number);
   const outMinutes = oH * 60 + (oM || 0);
   const diff = outMinutes - endAdminMinutes;
+
   if (diff <= 0 || diff < 60) return 0;
   return Math.floor(diff / 60);
 }
@@ -34,11 +46,16 @@ function calcOvertimeHours(shiftStart, checkOut) {
 export default function OverMember({
   user = null,
   overtimes = [],
+  limit = {},
   selectedMonth,
   selectedYear,
+  selectedDate, // ✅ thêm dòng này
   members = [],
   setMembers = () => {},
 }) {
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [open, setOpen] = useState(false);
   const modalRef = useRef();
   const [form, setForm] = useState({
@@ -137,30 +154,58 @@ export default function OverMember({
   };
 
   // 🗑 Xóa nhân viên
-  const removeMember = async (id) => {
-    if (!confirm("Xóa nhân viên này?")) return;
+  const removeMember = async (id, realName) => {
+    if (!confirm("Xóa nhân viên này và toàn bộ dữ liệu tăng ca của họ?"))
+      return;
     try {
-      if (user) await deleteDoc(doc(db, "members", id));
-      else setMembers((prev) => prev.filter((m) => m.id !== id));
+      if (user) {
+        // 1️⃣ Xóa bản ghi nhân viên
+        await deleteDoc(doc(db, "members", id));
+
+        // 2️⃣ Xóa toàn bộ bản ghi overtime có cùng realName + userId
+        const {
+          collection,
+          query,
+          where,
+          getDocs,
+          deleteDoc: del,
+          doc: d,
+        } = await import("firebase/firestore");
+
+        const q = query(
+          collection(db, "overtimes"),
+          where("userId", "==", user.uid),
+          where("realName", "==", realName)
+        );
+
+        const snap = await getDocs(q);
+        await Promise.all(snap.docs.map((o) => del(d(db, "overtimes", o.id))));
+      } else {
+        // Offline mode
+        setMembers((prev) => prev.filter((m) => m.id !== id));
+      }
+
+      alert(`✅ Đã xóa nhân viên "${realName}" và toàn bộ dữ liệu tăng ca.`);
     } catch (err) {
       console.error("Xóa thất bại", err);
+      alert("❌ Xóa thất bại, vui lòng thử lại.");
     }
   };
 
   // 🧠 Lấy trạng thái hôm nay (check-in/out)
   const getTodayStatus = (member) => {
-    const today = new Date().toISOString().split("T")[0];
+    const targetDate = selectedDate
+      ? new Date(selectedDate).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0];
+
+    // 🔹 Tìm bản ghi tăng ca đúng ngày được chọn
     const todayOvertime = overtimes.find(
-      (o) => o.realName === member.realName && o.currentDate === today
+      (o) => o.realName === member.realName && o.currentDate === targetDate
     );
 
-    const checkIn =
-      todayOvertime?.checkIn || member.lastCheckInTime || member.checkIn || "";
-    const checkOut =
-      todayOvertime?.checkOut ||
-      member.lastCheckOutTime ||
-      member.checkOut ||
-      "";
+    // ❌ Không lấy lastCheckInTime nếu khác ngày đang chọn
+    const checkIn = todayOvertime?.checkIn || "";
+    const checkOut = todayOvertime?.checkOut || "";
 
     const hours =
       checkIn && checkOut
@@ -178,7 +223,7 @@ export default function OverMember({
       if (hours > 0) text += ` • +${hours}h`;
       color = hours > 0 ? "text-blue-600" : "text-gray-500";
     } else {
-      text = "Chưa có dữ liệu hôm nay";
+      text = "Chưa có dữ liệu ngày này";
     }
 
     return { text, color, overtime: hours, checkIn, checkOut };
@@ -204,94 +249,151 @@ export default function OverMember({
             Chưa có nhân viên. Thêm để bắt đầu.
           </div>
         ) : (
-          members.map((m) => {
-            const status = getTodayStatus(m);
-            const monthLimit = m.overtimeLimit?.monthlyLimit || 0;
-            const done = m.overtimeLimit?.workedHours || 0;
-            const remaining = Math.max(monthLimit - done, 0);
+          <>
+            {members.map((m) => {
+              const status = getTodayStatus(m);
+              const monthLimit = m.overtimeLimit?.monthlyLimit || 0;
+              const done = m.overtimeLimit?.workedHours || 0;
+              const remaining = Math.max(monthLimit - done, 0);
 
-            const shiftName =
-              {
-                "07:00": "Sáng sớm",
-                "08:00": "Sáng muộn",
-                "19:00": "Tối sớm",
-                "20:00": "Tối muộn",
-              }[m.shiftStart] || m.shiftStart;
+              const shiftName =
+                {
+                  "07:00": "Sáng sớm",
+                  "08:00": "Sáng muộn",
+                  "19:00": "Tối sớm",
+                  "20:00": "Tối muộn",
+                }[m.shiftStart] || m.shiftStart;
 
-            return (
-              <div
-                key={m.id}
-                className="bg-gradient-to-br from-white to-blue-50 p-4 rounded-2xl shadow-sm border border-gray-100"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
-                      {m.nickname
-                        ? m.nickname.charAt(0).toUpperCase()
-                        : m.realName
-                        ? m.realName.charAt(0).toUpperCase()
-                        : "N"}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">
-                        {m.realName || "Không tên"}
+              return (
+                <div
+                  key={m.id}
+                  className="bg-gradient-to-br from-white to-blue-50 p-4 rounded-2xl shadow-sm border border-gray-100"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
+                        {(() => {
+                          const match = ICONS.find((i) => i.name === m.avatar);
+                          if (!match) {
+                            return m.nickname
+                              ? m.nickname.charAt(0).toUpperCase()
+                              : m.realName
+                              ? m.realName.charAt(0).toUpperCase()
+                              : "N";
+                          }
+                          const Icon = match.icon;
+                          return <Icon className="w-6 h-6 text-indigo-600" />;
+                        })()}
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {m.nickname ? `“${m.nickname}”` : ""}
-                      </div>
-                      <div
-                        className={`text-xs mt-1 font-medium ${status.color}`}
-                      >
-                        {status.text}
-                      </div>
-                      {m.lastCheckInDate && (
-                        <div className="text-[11px] text-gray-400 mt-0.5">
-                          Ngày: {m.lastCheckInDate}
+
+                      <div>
+                        <div className="font-semibold text-gray-800">
+                          {m.realName || "Không tên"}
                         </div>
-                      )}
+                        <div className="text-sm text-gray-500">
+                          {m.nickname ? `“${m.nickname}”` : ""}
+                        </div>
+                        <div
+                          className={`text-xs mt-1 font-medium ${status.color}`}
+                        >
+                          {status.text}
+                        </div>
+                        {selectedDate && (
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            Ngày:{" "}
+                            {new Date(selectedDate).toISOString().split("T")[0]}
+                          </div>
+                        )}
 
-                      <div className="text-xs text-gray-400 mt-1">
-                        {m.shift} • {shiftName}
+                        <div className="text-xs text-gray-400 mt-1">
+                          {m.shift} • {shiftName}
+                        </div>
                       </div>
                     </div>
+
+                    {/* 📅 nút xem lịch */}
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setShowCalendar(true);
+                      }}
+                      className="p-2 rounded-lg bg-orange-200 hover:bg-orange-300 text-orange-800"
+                    >
+                      <CalendarCheck className="w-4 h-4" />
+                    </button>
+
+                    {/* ⚙️ nút Cài đặt */}
+                    <button
+                      onClick={() => {
+                        setSelectedMember(m);
+                        setShowSettings(true);
+                      }}
+                      className="p-2 rounded-lg bg-gray-300 hover:bg-gray-400 text-black"
+                    >
+                      <IdCard className="w-4 h-4" />
+                    </button>
+
+                    {/* 🗑️ nút Xóa */}
+                    <button
+                      onClick={() => removeMember(m.id, m.realName)}
+                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  <button
-                    onClick={() => removeMember(m.id)}
-                    className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 mt-4">
-                  <SummaryBox
-                    label="Giới hạn"
-                    value={formatHours(monthLimit)}
-                  />
-                  <SummaryBox label="Đã tăng" value={formatHours(done)} />
-                  <SummaryBox
-                    label="Còn lại"
-                    value={formatHours(remaining)}
-                    color={remaining === 0 ? "text-red-500" : "text-sky-600"}
-                  />
-                </div>
-
-                {/* ✅ Hiển thị ngày & giờ gần nhất */}
-                {m.lastCheckInDate && (
-                  <div className="mt-3 text-xs text-gray-500">
-                    <span className="font-medium">Ngày lên ca gần nhất:</span>{" "}
-                    {m.lastCheckInDate} •{" "}
-                    <span className="font-medium">Giờ:</span>{" "}
-                    {m.lastCheckInTime || "..."}
-                    {m.lastCheckOutTime
-                      ? ` • Tan ca: ${m.lastCheckOutTime}`
-                      : ""}
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    <SummaryBox
+                      label="Giới hạn"
+                      value={formatHours(monthLimit)}
+                    />
+                    <SummaryBox label="Đã tăng" value={formatHours(done)} />
+                    <SummaryBox
+                      label="Còn lại"
+                      value={formatHours(remaining)}
+                      color={remaining === 0 ? "text-red-500" : "text-sky-600"}
+                    />
                   </div>
+
+                  {/* ✅ Hiển thị ngày & giờ gần nhất */}
+                  {m.lastCheckInDate && (
+                    <div className="mt-3 text-xs text-gray-500">
+                      <span className="font-medium">Ngày lên ca gần nhất:</span>{" "}
+                      {m.lastCheckInDate} •{" "}
+                      <span className="font-medium">Giờ:</span>{" "}
+                      {m.lastCheckInTime || "..."}
+                      {m.lastCheckOutTime
+                        ? ` • Tan ca: ${m.lastCheckOutTime}`
+                        : ""}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* 📅 Popup Lịch */}
+            {showCalendar && selectedMember && (
+              <PopupCalendar
+                member={selectedMember}
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+                overtimeItems={overtimes.filter(
+                  (o) => o.nickname === selectedMember.nickname
                 )}
-              </div>
-            );
-          })
+                onClose={() => setShowCalendar(false)}
+              />
+            )}
+
+            {/* ⚙️ Popup Cài đặt */}
+            {showSettings && selectedMember && (
+              <PopupSettings
+                member={selectedMember}
+                members={members}
+                setMembers={setMembers}
+                onClose={() => setShowSettings(false)}
+              />
+            )}
+          </>
         )}
       </div>
 

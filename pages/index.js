@@ -94,33 +94,80 @@ export default function Home() {
     setOvertimeLimit({});
   };
 
-  // 🧹 Xóa toàn bộ dữ liệu tháng tăng ca
+  // 🧹 Xóa toàn bộ dữ liệu TĂNG CA của NGÀY đang chọn (và trừ lại giờ)
   const handleDeleteAll = async () => {
     try {
-      const { collection, query, where, getDocs, deleteDoc, doc } =
+      const { collection, query, where, getDocs, deleteDoc, doc, updateDoc } =
         await import("firebase/firestore");
 
+      // Lấy ngày đang chọn (YYYY-MM-DD)
+      const currentDate = selectedDate
+        ? new Date(selectedDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+
+      // 🔹 1️⃣ Lấy tất cả record overtime trong ngày đó
       const q = query(
         collection(db, "overtimes"),
         where("userId", "==", user.uid),
-        where("month", "==", selectedMonth),
-        where("year", "==", selectedYear)
+        where("currentDate", "==", currentDate)
       );
       const snap = await getDocs(q);
+
+      if (snap.empty) {
+        setToast({
+          type: "error",
+          msg: `⚠️ Không có dữ liệu tăng ca cho ngày ${currentDate}.`,
+        });
+        return;
+      }
+
+      // 🔹 2️⃣ Gom tổng giờ OT theo từng nhân viên (dựa trên field "hours")
+      const otByMember = {};
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        if (!data.realName) return;
+        if (!otByMember[data.realName]) otByMember[data.realName] = 0;
+
+        const hours = typeof data.hours === "number" ? data.hours : 0;
+        otByMember[data.realName] += hours;
+      });
+
+      // 🔹 3️⃣ Xóa toàn bộ record overtime
       await Promise.all(
         snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
       );
 
-      setOvertimeItems([]);
+      // 🔹 4️⃣ Cập nhật lại bảng members (trừ giờ OT đã xóa)
+      for (const [realName, hours] of Object.entries(otByMember)) {
+        const member = members.find((m) => m.realName === realName);
+        if (!member) continue;
+
+        const memberRef = doc(db, "members", member.id);
+        const oldLimit = member.overtimeLimit || {};
+        const newWorked = Math.max((oldLimit.workedHours || 0) - hours, 0);
+        const newRemain = Math.max((oldLimit.monthlyLimit || 0) - newWorked, 0);
+
+        await updateDoc(memberRef, {
+          "overtimeLimit.workedHours": newWorked,
+          "overtimeLimit.remaining": newRemain,
+        });
+      }
+
+      // 🔹 5️⃣ Làm mới UI
+      setOvertimeItems((prev) =>
+        prev.filter((i) => i.currentDate !== currentDate)
+      );
+
       setToast({
         type: "success",
-        msg: `Đã xóa toàn bộ tăng ca tháng ${
-          selectedMonth + 1
-        }/${selectedYear}.`,
+        msg: `✅ Đã xóa dữ liệu tăng ca ngày ${currentDate} và cập nhật lại giờ nhân viên.`,
       });
     } catch (err) {
       console.error(err);
-      setToast({ type: "error", msg: "❌ Xóa thất bại, vui lòng thử lại." });
+      setToast({
+        type: "error",
+        msg: "❌ Xóa thất bại, vui lòng thử lại.",
+      });
     }
   };
 
@@ -297,6 +344,14 @@ export default function Home() {
           selectedYear={selectedYear}
           selectedDate={selectedDate} // ✅ thêm
         />
+        {/* giới hạn tăng ca */}
+        <OvertimeLimit
+          user={user}
+          overtimeLimit={overtimeLimit}
+          setOvertimeLimit={setOvertimeLimit}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+        />
         {/* 👤 Quản lý nhân viên */}
         <OverMember
           user={user}
@@ -306,8 +361,9 @@ export default function Home() {
           selectedYear={selectedYear}
           members={members}
           setMembers={setMembers}
+          selectedDate={selectedDate} // ✅ thêm dòng này
         />
-        {/* 🔸 Chọn tháng năm */  }
+        {/* 🔸 Chọn tháng năm */}
         <OvertimeMonth
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
@@ -316,7 +372,7 @@ export default function Home() {
           overtimeData={overtimeData}
           onDateSelect={(date) => setSelectedDate(date.toDate())} // ⬅️ thêm dòng này
         />
-        
+
         {/* 🔸 Tóm tắt tăng ca */}
         <OvertimeSummary
           user={user}
@@ -327,15 +383,7 @@ export default function Home() {
         />
 
         <div className="flex flex-col items-center gap-3">
-          <div className="flex justify-between w-full">
-            <OvertimeLimit
-              user={user}
-              overtimeLimit={overtimeLimit}
-              setOvertimeLimit={setOvertimeLimit}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-            />
-          </div>
+          <div className="flex justify-between w-full"></div>
 
           <OvertimeList
             user={user}
@@ -366,6 +414,52 @@ export default function Home() {
           </motion.button>
         )}
       </div>
+
+      {/* 🧹 Popup xác nhận xóa dữ liệu NGÀY đang chọn */}
+      {showDeletePopup && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setShowDeletePopup(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 w-80 text-center animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-red-600 mb-3">
+              Xóa dữ liệu ngày
+            </h2>
+
+            {/* 🗓️ Hiển thị ngày đang chọn */}
+            <p className="text-sm text-gray-600 mb-4">
+              Xóa toàn bộ dữ liệu tăng ca ngày{" "}
+              <b>
+                {selectedDate
+                  ? new Date(selectedDate).toISOString().split("T")[0]
+                  : new Date().toISOString().split("T")[0]}
+              </b>{" "}
+              ?
+            </p>
+
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={async () => {
+                  setShowDeletePopup(false);
+                  await handleDeleteAll(); // ✅ Gọi hàm xóa ngày đang chọn
+                }}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg"
+              >
+                Xóa
+              </button>
+              <button
+                onClick={() => setShowDeletePopup(false)}
+                className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🔔 Toast */}
       {toast && (
