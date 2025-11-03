@@ -51,7 +51,7 @@ export default function OverMember({
   selectedYear,
   selectedDate, // ✅ thêm dòng này
   members = [],
-  setMembers = () => {},
+  setMembers = () => { },
 }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -278,8 +278,8 @@ export default function OverMember({
                             return m.nickname
                               ? m.nickname.charAt(0).toUpperCase()
                               : m.realName
-                              ? m.realName.charAt(0).toUpperCase()
-                              : "N";
+                                ? m.realName.charAt(0).toUpperCase()
+                                : "N";
                           }
                           const Icon = match.icon;
                           return <Icon className="w-6 h-6 text-indigo-600" />;
@@ -378,10 +378,13 @@ export default function OverMember({
                 selectedMonth={selectedMonth}
                 selectedYear={selectedYear}
                 overtimeItems={overtimes.filter(
-                  (o) => o.nickname === selectedMember.nickname
+                  (o) =>
+                    o.realName === selectedMember.realName &&
+                    o.userId === selectedMember.userId
                 )}
                 onClose={() => setShowCalendar(false)}
               />
+
             )}
 
             {/* ⚙️ Popup Cài đặt */}
@@ -450,11 +453,10 @@ export default function OverMember({
                       key={s}
                       type="button"
                       onClick={() => handleChange("shift", s)}
-                      className={`py-2 rounded-lg border ${
-                        form.shift === s
+                      className={`py-2 rounded-lg border ${form.shift === s
                           ? "bg-indigo-50 border-indigo-400"
                           : "border-gray-200"
-                      }`}
+                        }`}
                     >
                       {s}
                     </button>
@@ -477,11 +479,10 @@ export default function OverMember({
                         key={time}
                         type="button"
                         onClick={() => handleChange("shiftStart", time)}
-                        className={`flex-1 py-2 rounded-lg border ${
-                          form.shiftStart === time
+                        className={`flex-1 py-2 rounded-lg border ${form.shiftStart === time
                             ? "bg-yellow-50 border-yellow-400"
                             : "border-gray-200"
-                        }`}
+                          }`}
                       >
                         {label}
                       </button>

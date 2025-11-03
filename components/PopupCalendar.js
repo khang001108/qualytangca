@@ -23,23 +23,37 @@ export default function PopupCalendar({
 
         <div className="grid grid-cols-7 gap-1 text-xs text-center">
           {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
-            const hasOT = overtimeItems.some(
+            const otRecord = overtimeItems.find(
               (o) => new Date(o.currentDate).getDate() === d
             );
+
+            let bg = "bg-gray-100 text-gray-400"; // mặc định: chưa có dữ liệu
+
+            if (otRecord) {
+              if (otRecord.checkIn && !otRecord.checkOut) {
+                bg = "bg-blue-200 text-blue-800 font-semibold"; // chỉ lên ca
+              } else if (otRecord.checkOut) {
+                bg = "bg-green-200 text-green-800 font-semibold"; // đã xuống ca
+              }
+            }
+
             return (
               <div
                 key={d}
-                className={`p-2 rounded-lg ${
-                  hasOT
-                    ? "bg-green-200 text-green-800 font-semibold"
-                    : "bg-gray-100 text-gray-400"
-                }`}
+                title={
+                  otRecord
+                    ? `Lên: ${otRecord.checkIn || "?"} / Xuống: ${otRecord.checkOut || "?"
+                    }`
+                    : "Không có dữ liệu"
+                }
+                className={`p-2 rounded-lg transition ${bg}`}
               >
                 {d}
               </div>
             );
           })}
         </div>
+
 
         <button
           onClick={onClose}

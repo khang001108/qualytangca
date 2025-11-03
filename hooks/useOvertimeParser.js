@@ -114,9 +114,41 @@ export default function useOvertimeParser({
         );
 
         if (!memberMatch) {
-          missingStaff.push(realName);
-          skipped++;
-          continue;
+          const confirmAdd = window.confirm(
+            `⚠️ Nhân viên "${realName}" chưa có trong danh sách.\n\nBạn có muốn thêm mới không?`
+          );
+
+          if (confirmAdd) {
+            const newMember = {
+              realName,
+              nickname: realName,
+              shift: "Ca ngày",
+              shiftStart: "07:00",
+              createdAt: serverTimestamp(),
+              userId: user.uid,
+              overtimeLimit: {
+                workedHours: 0,
+                monthlyLimit: 40,
+                remaining: 40,
+              },
+              lastCheckInDate: null,
+              lastCheckInTime: null,
+              lastCheckOutTime: null,
+            };
+
+            const docRef = await addDoc(collection(db, "members"), newMember);
+
+            // thêm vào danh sách local ngay lập tức
+            setMembers((prev) => [
+              ...prev,
+              { id: docRef.id, ...newMember },
+            ]);
+
+            console.log(`✅ Đã thêm nhân viên mới: ${realName}`);
+          } else {
+            skipped++;
+            continue;
+          }
         }
 
         // 🔹 Kiểm tra record overtime trong ngày
@@ -221,11 +253,10 @@ export default function useOvertimeParser({
       if (missingStaff.length > 0) {
         setToast({
           type: "error",
-          message: `⚠️ Có ${
-            missingStaff.length
-          } nhân viên chưa có trong danh sách: ${[
-            ...new Set(missingStaff),
-          ].join(", ")}`,
+          message: `⚠️ Có ${missingStaff.length
+            } nhân viên chưa có trong danh sách: ${[
+              ...new Set(missingStaff),
+            ].join(", ")}`,
         });
       } else {
         setToast({
