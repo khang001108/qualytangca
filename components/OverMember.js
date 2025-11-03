@@ -51,7 +51,7 @@ export default function OverMember({
   selectedYear,
   selectedDate, // ✅ thêm dòng này
   members = [],
-  setMembers = () => { },
+  setMembers = () => {},
 }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -75,16 +75,23 @@ export default function OverMember({
       q,
       (snap) => {
         if (!snap?.docs) return;
-        setMembers(
-          snap.docs.map((d) => ({
+        setMembers((prev) => {
+          const updated = snap.docs.map((d) => ({
             id: d.id,
             ...d.data(),
             overtimeLimit: d.data().overtimeLimit || {},
-          }))
-        );
+          }));
+
+          // 🔹 Nếu member cũ có trong prev (vừa cập nhật), giữ lại state mới nhất
+          return updated.map((m) => {
+            const local = prev.find((x) => x.id === m.id);
+            return local ? { ...m, ...local } : m;
+          });
+        });
       },
       (err) => console.error("Firestore snapshot error:", err)
     );
+
     return () => unsub();
   }, [user?.uid]);
 
@@ -154,41 +161,40 @@ export default function OverMember({
   };
 
   // 🗑 Xóa nhân viên
-  const removeMember = async (id, realName) => {
-    if (!confirm("Xóa nhân viên này và toàn bộ dữ liệu tăng ca của họ?"))
+  // 🗑 Xóa dữ liệu tăng ca của nhân viên trong ngày đang chọn
+  const removeOvertimeOfDay = async (realName) => {
+    if (
+      !confirm(`Xóa toàn bộ dữ liệu tăng ca của "${realName}" trong ngày này?`)
+    )
       return;
+
     try {
-      if (user) {
-        // 1️⃣ Xóa bản ghi nhân viên
-        await deleteDoc(doc(db, "members", id));
+      const { collection, query, where, getDocs, deleteDoc, doc } =
+        await import("firebase/firestore");
+      const currentDate = new Date(selectedDate).toISOString().split("T")[0];
 
-        // 2️⃣ Xóa toàn bộ bản ghi overtime có cùng realName + userId
-        const {
-          collection,
-          query,
-          where,
-          getDocs,
-          deleteDoc: del,
-          doc: d,
-        } = await import("firebase/firestore");
+      const q = query(
+        collection(db, "overtimes"),
+        where("userId", "==", user.uid),
+        where("realName", "==", realName),
+        where("currentDate", "==", currentDate)
+      );
 
-        const q = query(
-          collection(db, "overtimes"),
-          where("userId", "==", user.uid),
-          where("realName", "==", realName)
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        alert(
+          `Không có dữ liệu tăng ca ngày ${currentDate} của nhân viên ${realName}.`
         );
-
-        const snap = await getDocs(q);
-        await Promise.all(snap.docs.map((o) => del(d(db, "overtimes", o.id))));
-      } else {
-        // Offline mode
-        setMembers((prev) => prev.filter((m) => m.id !== id));
+        return;
       }
 
-      alert(`✅ Đã xóa nhân viên "${realName}" và toàn bộ dữ liệu tăng ca.`);
+      await Promise.all(
+        snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
+      );
+      alert(`✅ Đã xóa dữ liệu tăng ca ngày ${currentDate} của "${realName}".`);
     } catch (err) {
-      console.error("Xóa thất bại", err);
-      alert("❌ Xóa thất bại, vui lòng thử lại.");
+      console.error("Xóa dữ liệu thất bại:", err);
+      alert("❌ Lỗi khi xóa dữ liệu tăng ca.");
     }
   };
 
@@ -278,8 +284,8 @@ export default function OverMember({
                             return m.nickname
                               ? m.nickname.charAt(0).toUpperCase()
                               : m.realName
-                                ? m.realName.charAt(0).toUpperCase()
-                                : "N";
+                              ? m.realName.charAt(0).toUpperCase()
+                              : "N";
                           }
                           const Icon = match.icon;
                           return <Icon className="w-6 h-6 text-indigo-600" />;
@@ -335,8 +341,9 @@ export default function OverMember({
 
                     {/* 🗑️ nút Xóa */}
                     <button
-                      onClick={() => removeMember(m.id, m.realName)}
+                      onClick={() => removeOvertimeOfDay(m.realName)}
                       className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200"
+                      title="Xóa dữ liệu tăng ca của nhân viên trong ngày này"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -384,7 +391,6 @@ export default function OverMember({
                 )}
                 onClose={() => setShowCalendar(false)}
               />
-
             )}
 
             {/* ⚙️ Popup Cài đặt */}
@@ -453,10 +459,11 @@ export default function OverMember({
                       key={s}
                       type="button"
                       onClick={() => handleChange("shift", s)}
-                      className={`py-2 rounded-lg border ${form.shift === s
+                      className={`py-2 rounded-lg border ${
+                        form.shift === s
                           ? "bg-indigo-50 border-indigo-400"
                           : "border-gray-200"
-                        }`}
+                      }`}
                     >
                       {s}
                     </button>
@@ -479,10 +486,11 @@ export default function OverMember({
                         key={time}
                         type="button"
                         onClick={() => handleChange("shiftStart", time)}
-                        className={`flex-1 py-2 rounded-lg border ${form.shiftStart === time
+                        className={`flex-1 py-2 rounded-lg border ${
+                          form.shiftStart === time
                             ? "bg-yellow-50 border-yellow-400"
                             : "border-gray-200"
-                          }`}
+                        }`}
                       >
                         {label}
                       </button>
