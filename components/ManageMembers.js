@@ -37,7 +37,7 @@ export default function ManageMembers({
         // 1️⃣ Xóa bản ghi nhân viên
         await deleteDoc(doc(db, "members", id));
 
-        // 2️⃣ Xóa tất cả dữ liệu overtime liên quan
+        // 2️⃣ Xóa toàn bộ record overtime của nhân viên đó
         const q = query(
           collection(db, "overtimes"),
           where("userId", "==", user.uid),
@@ -67,8 +67,12 @@ export default function ManageMembers({
     );
   });
 
+  // 🔹 Format giờ
+  const fmt = (n) => `${Number(n || 0).toLocaleString()}h`;
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-indigo-600">
           👥 Quản lý nhân viên
@@ -90,6 +94,12 @@ export default function ManageMembers({
         </div>
       </div>
 
+      {/* Tháng hiển thị */}
+      <div className="text-right text-sm text-gray-600 font-medium">
+        📅 Tháng {selectedMonth}/{selectedYear}
+      </div>
+
+      {/* Bảng nhân viên */}
       <div className="overflow-x-auto border rounded-xl">
         <table className="w-full text-sm">
           <thead className="bg-gray-100 text-gray-600">
@@ -99,44 +109,58 @@ export default function ManageMembers({
               <th className="p-2 text-left">Biệt danh</th>
               <th className="p-2 text-center">Ca</th>
               <th className="p-2 text-center">Lên ca</th>
-              <th className="p-2 text-center">Tháng</th>
+              <th className="p-2 text-center">Giới hạn</th>
+              <th className="p-2 text-center">Đã tăng</th>
+              <th className="p-2 text-center">Tổng</th>
             </tr>
           </thead>
           <tbody>
             {filteredMembers.length === 0 ? (
               <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-400">
+                <td colSpan="8" className="text-center py-4 text-gray-400">
                   Không có nhân viên nào.
                 </td>
               </tr>
             ) : (
-              filteredMembers.map((m) => (
-                <tr
-                  key={m.id}
-                  className={`border-t hover:bg-gray-50 ${
-                    selectedIds.includes(m.id) ? "bg-indigo-50" : ""
-                  }`}
-                >
-                  <td className="p-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(m.id)}
-                      onChange={() => toggleSelect(m.id)}
-                    />
-                  </td>
-                  <td className="p-2 font-medium">{m.realName}</td>
-                  <td className="p-2">{m.nickname || "-"}</td>
-                  <td className="p-2 text-center">
-                    {m.shift?.toLowerCase().includes("đêm")
-                      ? "🌙 Đêm"
-                      : "☀️ Ngày"}
-                  </td>
-                  <td className="p-2 text-center">{m.shiftStart}</td>
-                  <td className="p-2 text-center">
-                    {selectedMonth}/{selectedYear}
-                  </td>
-                </tr>
-              ))
+              filteredMembers.map((m) => {
+                const limit = m.overtimeLimit?.monthlyLimit || 0;
+                const worked = m.overtimeLimit?.workedHours || 0;
+                const total = limit + worked;
+
+                return (
+                  <tr
+                    key={m.id}
+                    className={`border-t hover:bg-gray-50 ${
+                      selectedIds.includes(m.id) ? "bg-indigo-50" : ""
+                    }`}
+                  >
+                    <td className="p-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(m.id)}
+                        onChange={() => toggleSelect(m.id)}
+                      />
+                    </td>
+                    <td className="p-2 font-medium">{m.realName}</td>
+                    <td className="p-2">{m.nickname || "-"}</td>
+                    <td className="p-2 text-center">
+                      {m.shift?.toLowerCase().includes("đêm")
+                        ? "🌙 Đêm"
+                        : "☀️ Ngày"}
+                    </td>
+                    <td className="p-2 text-center">{m.shiftStart}</td>
+                    <td className="p-2 text-center text-blue-600 font-semibold">
+                      {fmt(limit)}
+                    </td>
+                    <td className="p-2 text-center text-emerald-600 font-semibold">
+                      {fmt(worked)}
+                    </td>
+                    <td className="p-2 text-center text-indigo-700 font-semibold">
+                      {fmt(total)}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -151,10 +175,6 @@ export default function ManageMembers({
           <Trash2 className="w-4 h-4" />
           {loading ? "Đang xóa..." : "Xóa nhân viên đã chọn"}
         </button>
-
-        <span className="text-gray-400 text-xs self-center">
-          Hiển thị tháng {selectedMonth}/{selectedYear}
-        </span>
       </div>
     </div>
   );
