@@ -2,39 +2,35 @@
 import { useState } from "react";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
-import { Save } from "lucide-react";
+import { Save, User, Pen, Clock, X } from "lucide-react";
 import { ICONS } from "../utils/iconUtils";
 
-// Thêm ở đầu file
 const COLORS = [
-  "#3B82F6", // xanh dương
-  "#10B981", // xanh lục
-  "#F59E0B", // vàng cam
-  "#cb2727ff", // đỏ
-  "#8B5CF6", // tím
-  "#EC4899", // hồng
-  "#6B7280", // xám
-  "#14B8A6", // teal ngọc
-  "#84CC16", // xanh non sáng
-  "#f11338ff", // hồng đậm
-  "#0EA5E9", // cyan sáng
-  "#A16207", // nâu vàng đất
+  "#3B82F6",
+  "#10B981",
+  "#F59E0B",
+  "#cb2727ff",
+  "#8B5CF6",
+  "#EC4899",
+  "#6B7280",
+  "#14B8A6",
+  "#84CC16",
+  "#f11338ff",
+  "#0EA5E9",
+  "#A16207",
 ];
 
-export default function PopupSettings({
-  member,
-  members,
-  setMembers,
-  onClose,
-}) {
+export default function PopupSettings({ member, setMembers, onClose }) {
+  const [saving, setSaving] = useState(false);
+  const [showName, setShowName] = useState(false);
+  const [showShift, setShowShift] = useState(false);
+  const [showIcon, setShowIcon] = useState(false);
   const [form, setForm] = useState({
     nickname: member.nickname || "",
     shiftStart: member.shiftStart || "07:00",
-    shift: member.shift || "Ca ngày",
     avatar: member.avatar || "User",
     color: member.color || "#3B82F6",
   });
-  const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -50,20 +46,12 @@ export default function PopupSettings({
             ? "Ca đêm"
             : "Ca ngày",
       });
-
-
-      // 🔹 Lấy dữ liệu mới từ Firestore
       const snap = await getDoc(ref);
-      const updatedData = { id: member.id, ...snap.data() };
-
-      // 🔹 Cập nhật ngay vào danh sách local
-      setMembers((prev) =>
-        prev.map((m) => (m.id === member.id ? updatedData : m))
-      );
-
+      const updated = { id: member.id, ...snap.data() };
+      setMembers((prev) => prev.map((m) => (m.id === member.id ? updated : m)));
       onClose();
     } catch (err) {
-      console.error("Lỗi khi lưu cài đặt:", err);
+      console.error("Lỗi khi lưu:", err);
       alert("❌ Không thể lưu thay đổi!");
     } finally {
       setSaving(false);
@@ -72,31 +60,95 @@ export default function PopupSettings({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl relative"
+        className="bg-white rounded-2xl p-6 w-80 shadow-2xl relative animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold mb-3 text-indigo-600 text-center">
+        <h2 className="text-lg font-semibold text-indigo-600 text-center mb-3">
           ⚙️ Cài đặt nhân viên
         </h2>
 
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm text-gray-600">Biệt danh</label>
-            <input
-              type="text"
-              value={form.nickname}
-              onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg p-2 mt-1"
-            />
+        {/* Hiển thị tóm tắt */}
+        <div className="flex flex-col items-center gap-2 mb-4">
+          {(() => {
+            const Icon =
+              ICONS.find((i) => i.name === form.avatar)?.icon || User;
+            return (
+              <div
+                className="w-12 h-12 flex items-center justify-center rounded-xl shadow-inner"
+                style={{ backgroundColor: form.color + "20" }}
+              >
+                <Icon className="w-6 h-6" style={{ color: form.color }} />
+              </div>
+            );
+          })()}
+          <div className="font-medium text-gray-800">
+            {form.nickname || member.realName}
           </div>
+          <div className="text-xs text-gray-500">{member.shift}</div>
+        </div>
 
-          <div>
-            <label className="text-sm text-gray-600">Giờ bắt đầu ca</label>
-            <div className="grid grid-cols-2 gap-2 mt-2">
+        {/* Các nút chức năng */}
+        <div className="grid grid-cols-3 gap-3">
+          <ActionButton
+            icon={Pen}
+            label="Đổi tên"
+            onClick={() => setShowName(true)}
+          />
+          <ActionButton
+            icon={Clock}
+            label="Giờ ca"
+            onClick={() => setShowShift(true)}
+          />
+          <ActionButton
+            icon={User}
+            label="Biểu tượng"
+            onClick={() => setShowIcon(true)}
+          />
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="mt-5 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+        >
+          <Save className="w-4 h-4" />
+          {saving ? "Đang lưu..." : "Lưu & Đóng"}
+        </button>
+
+        <button
+          onClick={onClose}
+          className="mt-2 w-full bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-gray-700 text-sm"
+        >
+          Hủy
+        </button>
+
+        {/* Popup con */}
+        {showName && (
+          <SmallPopup title="Đổi biệt danh" onClose={() => setShowName(false)}>
+            <input
+              value={form.nickname}
+              onChange={(e) =>
+                setForm({ ...form, nickname: e.target.value })
+              }
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none"
+              placeholder="Nhập biệt danh mới..."
+            />
+            <button
+              onClick={() => setShowName(false)}
+              className="mt-3 w-full bg-indigo-500 hover:bg-indigo-600 text-white py-1.5 rounded-lg text-sm"
+            >
+              Xong
+            </button>
+          </SmallPopup>
+        )}
+
+        {showShift && (
+          <SmallPopup title="Chọn giờ bắt đầu" onClose={() => setShowShift(false)}>
+            <div className="grid grid-cols-2 gap-2">
               {["07:00", "08:00", "19:00", "20:00"].map((t) => {
                 const label = {
                   "07:00": "Sáng sớm",
@@ -104,104 +156,121 @@ export default function PopupSettings({
                   "19:00": "Tối sớm",
                   "20:00": "Tối muộn",
                 }[t];
+                const active = form.shiftStart === t;
                 return (
                   <button
                     key={t}
                     onClick={() => setForm({ ...form, shiftStart: t })}
-                    type="button"
-                    className={`py-2 rounded-lg border ${form.shiftStart === t
-                      ? "border-indigo-400 bg-indigo-50"
-                      : "border-gray-200"
-                      }`}
+                    className={`py-2 rounded-lg border text-sm transition ${
+                      active
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-600"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
                   >
                     {label}
                   </button>
                 );
               })}
             </div>
-          </div>
+          </SmallPopup>
+        )}
 
-          <div className="mt-4">
-            <label className="text-sm text-gray-600">Chọn biểu tượng</label>
-
-            {/* Preview */}
-            <div className="flex justify-center my-3">
+        {showIcon && (
+          <SmallPopup title="Chọn biểu tượng" onClose={() => setShowIcon(false)}>
+            <div className="flex justify-center mb-3">
               {(() => {
                 const Icon =
-                  ICONS.find((i) => i.name === form.avatar)?.icon || ICONS[0].icon;
+                  ICONS.find((i) => i.name === form.avatar)?.icon || User;
                 return (
                   <div
-                    className="w-16 h-16 flex items-center justify-center rounded-xl shadow-inner"
+                    className="w-14 h-14 flex items-center justify-center rounded-xl shadow-inner"
                     style={{ backgroundColor: form.color + "20" }}
                   >
-                    <Icon className="w-8 h-8" style={{ color: form.color }} />
+                    <Icon className="w-7 h-7" style={{ color: form.color }} />
                   </div>
                 );
               })()}
             </div>
 
-            {/* Danh sách icon */}
-            <div className="grid grid-cols-6 gap-2 mt-2 justify-items-center">
+            {/* Icon list */}
+            <div className="grid grid-cols-6 gap-2 justify-items-center mb-3">
               {ICONS.map(({ name, icon: Icon }) => {
-                const isActive = form.avatar === name;
+                const active = form.avatar === name;
                 return (
                   <button
                     key={name}
-                    type="button"
                     onClick={() => setForm({ ...form, avatar: name })}
-                    className={`p-2 rounded-lg border transition-transform ${isActive ? "scale-110 shadow-md" : "hover:bg-gray-50"
-                      }`}
-                    style={{
-                      borderColor: isActive ? form.color : "#e5e7eb",
-                      backgroundColor: isActive ? form.color + "20" : "transparent",
-                    }}
+                    className={`p-2 rounded-lg border transition ${
+                      active
+                        ? "border-indigo-500 scale-110 bg-indigo-50"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
                   >
                     <Icon
-                      className="w-5 h-5 transition"
-                      style={{ color: isActive ? form.color : "#6b7280" }}
+                      className="w-5 h-5"
+                      style={{ color: active ? form.color : "#6b7280" }}
                     />
                   </button>
                 );
               })}
             </div>
 
-            {/* Chọn màu */}
-            <div className="mt-4">
-              <label className="text-sm text-gray-600">Màu biểu tượng</label>
-              <div className="flex flex-wrap gap-2 justify-center mt-2">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setForm({ ...form, color: c })}
-                    className={`w-7 h-7 rounded-full border-2 transition ${form.color === c
+            {/* Color list */}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setForm({ ...form, color: c })}
+                  className={`w-7 h-7 rounded-full border-2 transition ${
+                    form.color === c
                       ? "border-black scale-110"
                       : "border-gray-200 hover:scale-105"
-                      }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
             </div>
-          </div>
+          </SmallPopup>
+        )}
+      </div>
+    </div>
+  );
+}
 
-        </div>
+// ==== Nút hành động chính ====
+function ActionButton({ icon: Icon, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-1 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 border text-gray-700 transition"
+    >
+      <Icon className="w-5 h-5" />
+      <span className="text-[11px]">{label}</span>
+    </button>
+  );
+}
 
-        <div className="flex gap-2 mt-5">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg flex items-center justify-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            {saving ? "Đang lưu..." : "Lưu & Đóng"}
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg"
-          >
-            Hủy
-          </button>
-        </div>
+// ==== Popup nhỏ ====
+function SmallPopup({ title, onClose, children }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60]"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-4 w-72 shadow-xl relative animate-fadeIn"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        <h3 className="text-base font-semibold text-gray-800 mb-3 text-center">
+          {title}
+        </h3>
+        {children}
       </div>
     </div>
   );
