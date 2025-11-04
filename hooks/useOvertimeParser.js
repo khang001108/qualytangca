@@ -1,3 +1,4 @@
+// src/hooks/useOvertimeParser.js
 import { useState, useRef } from "react";
 import { db } from "../lib/firebase";
 import {
@@ -11,12 +12,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-/**
- * Hook xử lý nhập dữ liệu tăng ca (checkin/checkout)
- * - Nếu không tìm thấy nhân viên → báo lỗi
- * - Khi checkout → tự tính giờ OT và cộng vào member.overtimeLimit
- * - Cập nhật thêm lastCheckInTime / lastCheckOutTime cho từng nhân viên
- */
 export default function useOvertimeParser({
   user,
   members = [],
@@ -28,17 +23,26 @@ export default function useOvertimeParser({
 }) {
   const [toast, setToast] = useState(null);
   const isProcessing = useRef(false);
+  const lastToastRef = useRef({ msg: null, ts: 0 });
 
-  // 🧮 Tính số giờ OT (làm tròn xuống theo giờ)
+  const showUniqueToast = (type, message, duration = 6000) => {
+    const now = Date.now();
+    if (lastToastRef.current.msg === message && now - lastToastRef.current.ts < duration) return;
+    lastToastRef.current = { msg: message, ts: now };
+    setToast({ type, message });
+    setTimeout(() => {
+      setToast((cur) => (cur && cur.message === message ? null : cur));
+    }, duration);
+  };
+
   const calcOvertimeHours = (shiftStart = "07:00", checkOut) => {
     if (!checkOut) return 0;
     const [sH, sM] = (shiftStart || "07:00").split(":").map(Number);
-    const endAdminMinutes = (sH + 9) * 60 + (sM || 0); // hành chính 9h
+    const endAdminMinutes = (sH + 9) * 60 + (sM || 0);
     const [oH, oM] = checkOut.split(":").map(Number);
     const outMinutes = oH * 60 + (oM || 0);
     const diff = outMinutes - endAdminMinutes;
-    if (diff <= 0) return 0;
-    if (diff < 60) return 0; // < 1h không tính OT
+    if (diff <= 0 || diff < 60) return 0;
     return Math.floor(diff / 60);
   };
 
@@ -47,13 +51,13 @@ export default function useOvertimeParser({
     isProcessing.current = true;
 
     if (!user?.uid) {
-      setToast({ type: "error", message: "⚠️ Bạn chưa đăng nhập!" });
+      showUniqueToast("error", "⚠️ Bạn chưa đăng nhập!");
       isProcessing.current = false;
       return;
     }
 
     if (!rawText?.trim()) {
-      setToast({ type: "error", message: "⚠️ Chưa nhập dữ liệu chấm công." });
+      showUniqueToast("error", "⚠️ Chưa nhập dữ liệu chấm công.");
       isProcessing.current = false;
       return;
     }
@@ -62,217 +66,207 @@ export default function useOvertimeParser({
       const lines = rawText
         .split("\n")
         .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-
-      if (lines.length === 0) {
-        setToast({ type: "error", message: "⚠️ Không có dòng hợp lệ nào." });
-        isProcessing.current = false;
-        return;
-      }
+        .filter((l) => l.length > 0 && !/上下班打卡记录/.test(l));
 
       const dateObj = selectedDate ? new Date(selectedDate) : new Date();
       const currentDate = dateObj.toISOString().split("T")[0];
       const month = dateObj.getMonth() + 1;
       const year = dateObj.getFullYear();
 
-      let added = 0,
-        updated = 0,
-        skipped = 0;
-      const missingStaff = [];
+      // load shiftSchedules for this date (if any) to avoid per-line queries
+      const shiftMap = {}; // realName -> {shift, shiftStart}
+      const shiftQ = query(collection(db, "shiftSchedules"), where("userId", "==", user.uid), where("date", "==", currentDate));
+      const shiftSnap = await getDocs(shiftQ);
+      shiftSnap.docs.forEach(d => {
+        const data = d.data();
+        shiftMap[data.realName] = { shift: data.shift, shiftStart: data.shiftStart };
+      });
 
-      for (const [idx, rawLine] of lines.entries()) {
-        let line = rawLine.trim();
-        if (/上下班打卡记录/.test(line)) continue; // bỏ dòng tiêu đề
+      let added = 0, updated = 0, skipped = 0;
 
-        // Bỏ số thứ tự đầu dòng
-        line = line.replace(/^\d+\.\s*/, "").trim();
+      const leaveCodes = ["休","年假","病假","事假","调休","婚假","丧假","产假","陪产假","工伤假","产检假","哺乳假","旷工"];
+
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/^\d+\.\s*/, "").trim();
         const parts = line.split(/[\/\s]+/).filter(Boolean);
-        if (parts.length < 2) {
-          skipped++;
-          continue;
-        }
+        if (parts.length < 2) { skipped++; continue; }
 
         const realName = parts[0].trim();
         const timePart = parts[1].trim();
 
-        if (timePart === "休") {
-          skipped++;
+        // 4h half-day
+        if (rawLine.includes("4h事假")) {
+          const memberMatch = members.find(m => m.realName.trim() === realName);
+          if (memberMatch) {
+            const q = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+            const snap = await getDocs(q);
+            if (snap.empty) {
+              await addDoc(collection(db, "overtimes"), {
+                userId: user.uid,
+                realName,
+                nickname: memberMatch.nickname || realName,
+                currentDate,
+                month,
+                year,
+                checkIn: "11:01",
+                note: "4h事假",
+                hours: 0,
+                createdAt: serverTimestamp(),
+                shift: (shiftMap[realName]?.shift) || memberMatch.shift || "Ca ngày",
+                shiftStart: (shiftMap[realName]?.shiftStart) || memberMatch.shiftStart || "07:00",
+              });
+            } else {
+              const docRef = doc(db, "overtimes", snap.docs[0].id);
+              await updateDoc(docRef, { note: "4h事假" });
+            }
+          }
+          continue;
+        }
+
+        const isLeave = leaveCodes.some(code => rawLine.includes(code));
+        if (isLeave) {
+          const memberMatch = members.find(m => m.realName.trim() === realName);
+          if (!memberMatch) { skipped++; continue; }
+          const q = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+          const snap = await getDocs(q);
+          if (snap.empty) {
+            await addDoc(collection(db, "overtimes"), {
+              userId: user.uid,
+              realName,
+              nickname: memberMatch.nickname || realName,
+              currentDate,
+              month,
+              year,
+              note: timePart,
+              hours: 0,
+              createdAt: serverTimestamp(),
+              shift: (shiftMap[realName]?.shift) || memberMatch.shift || "Ca ngày",
+              shiftStart: (shiftMap[realName]?.shiftStart) || memberMatch.shiftStart || "07:00",
+            });
+            added++;
+          } else {
+            const docRef = doc(db, "overtimes", snap.docs[0].id);
+            await updateDoc(docRef, { note: timePart, hours: 0, updatedAt: serverTimestamp() });
+            updated++;
+          }
           continue;
         }
 
         const hourMatch = timePart.match(/^(\d{1,2}):(\d{2})$/);
-        if (!hourMatch) {
+        if (!hourMatch) { skipped++; continue; }
+
+        const timeValue = hourMatch[0];
+        const [h, m] = timeValue.split(":").map(Number);
+        const totalMinutes = h * 60 + m;
+
+        const memberMatch = members.find(mb => mb.realName.trim() === realName);
+        if (!memberMatch) {
           skipped++;
+          showUniqueToast("error", `⚠️ Nhân viên "${realName}" chưa có trong danh sách.`);
           continue;
         }
 
-        const timeValue = hourMatch[0];
+        // determine shiftStart and shift for this member on this date
+        const s = shiftMap[realName];
+        const shiftStart = s?.shiftStart || memberMatch.shiftStart || "07:00";
+        const shiftName = s?.shift || memberMatch.shift || "Ca ngày";
 
-        // 🔍 Kiểm tra nhân viên có tồn tại không
-        const memberMatch = members.find(
-          (m) => String(m.realName).trim() === String(realName).trim()
-        );
+        const isDayShift = shiftStart === "07:00" || shiftStart === "08:00";
+        const isNightShift = shiftStart === "19:00" || shiftStart === "20:00";
 
-        if (!memberMatch) {
-          const confirmAdd = window.confirm(
-            `⚠️ Nhân viên "${realName}" chưa có trong danh sách.\n\nBạn có muốn thêm mới không?`
-          );
-
-          if (confirmAdd) {
-            const newMember = {
-              realName,
-              nickname: realName,
-              shift: "Ca ngày",
-              shiftStart: "07:00",
-              createdAt: serverTimestamp(),
-              userId: user.uid,
-              overtimeLimit: {
-                workedHours: 0,
-                monthlyLimit: 40,
-                remaining: 40,
-              },
-              lastCheckInDate: null,
-              lastCheckInTime: null,
-              lastCheckOutTime: null,
-            };
-
-            const docRef = await addDoc(collection(db, "members"), newMember);
-
-            // thêm vào danh sách local ngay lập tức
-            setMembers((prev) => [
-              ...prev,
-              { id: docRef.id, ...newMember },
-            ]);
-
-            console.log(`✅ Đã thêm nhân viên mới: ${realName}`);
-          } else {
+        // validate times (simplified)
+        if (mode === "checkin") {
+          if (isDayShift && !(totalMinutes >= 405 && totalMinutes <= 480)) {
+            showUniqueToast("error", `⚠️ ${realName} đang ${shiftName}, giờ ${timeValue} không hợp lệ (06:45–08:00).`);
+            skipped++;
+            continue;
+          }
+          if (isNightShift && !(totalMinutes >= 1125 || totalMinutes <= 1200)) {
+            showUniqueToast("error", `⚠️ ${realName} đang ${shiftName}, giờ ${timeValue} không hợp lệ (18:45–20:00).`);
             skipped++;
             continue;
           }
         }
 
-        // 🔹 Kiểm tra record overtime trong ngày
-        const q = query(
-          collection(db, "overtimes"),
-          where("userId", "==", user.uid),
-          where("realName", "==", realName),
-          where("currentDate", "==", currentDate)
-        );
+        // check-in existence for checkout
+        if (mode === "checkin") {
+          const qCheck = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+          const snapCheck = await getDocs(qCheck);
+          if (!snapCheck.empty) {
+            showUniqueToast("error", `⚠️ ${realName} đã có check-in hôm nay, vui lòng kiểm tra lại.`);
+            skipped++;
+            continue;
+          }
+        }
+
+        if (mode === "checkout" && !memberMatch.lastCheckInDate) {
+          showUniqueToast("error", `⚠️ ${realName} chưa có check-in hôm nay, không thể check-out.`);
+          skipped++;
+          continue;
+        }
+
+        // save overtime
+        const q = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
         const snap = await getDocs(q);
 
-        let overtimeRef;
+        let hours = 0;
         if (snap.empty) {
-          // ✅ Tạo mới record overtime
-          const docRef = await addDoc(collection(db, "overtimes"), {
+          await addDoc(collection(db, "overtimes"), {
             userId: user.uid,
             realName,
             nickname: memberMatch.nickname || realName,
+            shift: shiftName,
+            shiftStart,
             checkIn: mode === "checkin" ? timeValue : "",
             checkOut: mode === "checkout" ? timeValue : "",
             currentDate,
             month,
             year,
-            hours: 0, // ban đầu 0, sẽ cập nhật khi checkout
+            hours: 0,
             createdAt: serverTimestamp(),
           });
-          overtimeRef = docRef;
           added++;
         } else {
-          // ✅ Cập nhật record overtime cũ
           const docRef = doc(db, "overtimes", snap.docs[0].id);
           const prev = snap.docs[0].data();
-
-          let newCheckIn =
-            mode === "checkin" ? timeValue || prev.checkIn : prev.checkIn || "";
-          let newCheckOut =
-            mode === "checkout"
-              ? timeValue || prev.checkOut
-              : prev.checkOut || "";
-
-          // ✅ Tính lại giờ OT nếu có checkOut
-          const hours = calcOvertimeHours(
-            memberMatch.shiftStart || "07:00",
-            newCheckOut
-          );
+          const newCheckIn = mode === "checkin" ? timeValue || prev.checkIn : prev.checkIn || "";
+          const newCheckOut = mode === "checkout" ? timeValue || prev.checkOut : prev.checkOut || "";
+          hours = calcOvertimeHours(shiftStart, newCheckOut);
 
           await updateDoc(docRef, {
             checkIn: newCheckIn,
             checkOut: newCheckOut,
             hours,
+            shift: shiftName,
+            shiftStart,
             updatedAt: serverTimestamp(),
           });
-          overtimeRef = docRef;
           updated++;
+
+          if (mode === "checkout" && hours > 0) {
+            const memberRef = doc(db, "members", memberMatch.id);
+            const oldWorked = memberMatch.overtimeLimit?.workedHours || 0;
+            const newWorked = oldWorked + hours;
+            const monthlyLimit = memberMatch.overtimeLimit?.monthlyLimit || 0;
+            const remaining = Math.max(monthlyLimit - newWorked, 0);
+            await updateDoc(memberRef, { "overtimeLimit.workedHours": newWorked, "overtimeLimit.remaining": remaining });
+            setMembers?.((prev) => prev.map(m => m.id === memberMatch.id ? { ...m, overtimeLimit: { ...m.overtimeLimit, workedHours: newWorked, remaining } } : m));
+          }
         }
 
-        // 🔹 Cập nhật dữ liệu sang bảng members (để OverMember hiển thị)
         const memberRef = doc(db, "members", memberMatch.id);
-        const updateData = {
-          lastCheckInDate: currentDate,
-        };
-
-        if (mode === "checkin") {
-          updateData.lastCheckInTime = timeValue;
-        } else if (mode === "checkout") {
-          updateData.lastCheckOutTime = timeValue;
-
-          // 🔹 Kiểm tra đã có check-in chưa
-          let hasCheckIn = false;
-          if (!snap.empty) {
-            const prevData = snap.docs[0].data();
-            hasCheckIn = !!(prevData.checkIn && prevData.checkIn.trim());
-          }
-
-          if (hasCheckIn) {
-            // ✅ Chỉ tính giờ OT khi có check-in
-            const hours = calcOvertimeHours(
-              memberMatch.shiftStart || "07:00",
-              timeValue
-            );
-            const oldLimit = memberMatch.overtimeLimit || {};
-            const newWorked = (oldLimit.workedHours || 0) + hours;
-            const newRemain = Math.max(
-              (oldLimit.monthlyLimit || 0) - newWorked,
-              0
-            );
-            updateData["overtimeLimit.workedHours"] = newWorked;
-            updateData["overtimeLimit.remaining"] = newRemain;
-          } else {
-            // 🚫 Nếu chưa có check-in thì không tính OT
-            console.warn(
-              `❗ Nhân viên ${realName} chưa lên ca, chỉ có giờ xuống.`
-            );
-          }
-        }
-
-        // ✅ Ghi một lần duy nhất
+        const updateData = { lastCheckInDate: currentDate };
+        if (mode === "checkin") updateData.lastCheckInTime = timeValue;
+        else if (mode === "checkout") updateData.lastCheckOutTime = timeValue;
         await updateDoc(memberRef, updateData);
-      } // end loop
-
-      // ✅ Hiển thị kết quả
-      if (missingStaff.length > 0) {
-        setToast({
-          type: "error",
-          message: `⚠️ Có ${missingStaff.length
-            } nhân viên chưa có trong danh sách: ${[
-              ...new Set(missingStaff),
-            ].join(", ")}`,
-        });
-      } else {
-        setToast({
-          type: "success",
-          message: `✅ Ngày ${currentDate}: ${added} mới, ${updated} cập nhật, ${skipped} bỏ qua.`,
-        });
       }
+
+      showUniqueToast("success", `✅ Ngày ${currentDate}: ${added} mới, ${updated} cập nhật, ${skipped} bỏ qua.`, 6000);
     } catch (err) {
       console.error("🔥 parseText error:", err);
-      setToast({
-        type: "error",
-        message: "❌ Lỗi khi xử lý dữ liệu tăng ca!",
-      });
+      showUniqueToast("error", "❌ Lỗi khi xử lý dữ liệu tăng ca!", 6000);
     } finally {
       isProcessing.current = false;
-      setTimeout(() => setToast(null), 3500);
     }
   };
 

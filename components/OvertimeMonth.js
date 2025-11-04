@@ -1,94 +1,147 @@
-import { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import dayjs from "dayjs";
-import "dayjs/locale/vi";
-dayjs.locale("vi");
 
-export default function OvertimeCalendar({
-  overtimeData,
-  onDateSelect,
+export default function OvertimeMonth({
+  selectedMonth,
   setSelectedMonth,
+  selectedYear,
   setSelectedYear,
+  selectedDate,
+  setSelectedDate,
+  onDateSelect, // ⚙️ callback để load lại members theo ngày
+  shiftSchedules = {},
 }) {
-  const [currentMonth, setCurrentMonth] = useState(dayjs());
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [open, setOpen] = useState(false);
+  const popupRef = useRef();
 
-  const startOfMonth = currentMonth.startOf("month");
-  const endOfMonth = currentMonth.endOf("month");
-  const startDay = startOfMonth.day() === 0 ? 7 : startOfMonth.day();
-  const daysInMonth = endOfMonth.date();
+  const today = dayjs();
+  const firstDay = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`);
+  const days = new Array(firstDay.daysInMonth())
+    .fill(0)
+    .map((_, i) => firstDay.date(i + 1));
 
-  const prevMonth = () => setCurrentMonth(currentMonth.subtract(1, "month"));
-  const nextMonth = () => setCurrentMonth(currentMonth.add(1, "month"));
+  // click outside → close popup
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
 
-  // Tạo danh sách ngày để render
-  const days = [];
-  for (let i = 1; i <= daysInMonth; i++) {
-    const date = dayjs(currentMonth).date(i);
-    const otHours = overtimeData?.[date.format("YYYY-MM-DD")] || 0;
-    days.push({ date, otHours });
-  }
+  // chọn ngày
+  const handleSelectDate = (d) => {
+    setSelectedDate?.(d);
+    setSelectedMonth?.(d.month() + 1);
+    setSelectedYear?.(d.year());
+    onDateSelect?.(d); // 🔹 Gọi callback để đổi dữ liệu member
+  };
 
   return (
-    <div className="p-4 bg-white rounded-2xl shadow-md max-w-lg mx-auto mt-6">
-      <div className="flex justify-between items-center mb-4">
-        <button
-          onClick={prevMonth}
-          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200"
+    <div className="relative inline-block">
+      {/* --- Nút mở lịch --- */}
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex items-center gap-2 bg-white border px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 text-sm text-gray-700"
+      >
+        📅{" "}
+        {selectedDate
+          ? dayjs(selectedDate).format("DD/MM/YYYY")
+          : "Chọn ngày"}
+      </button>
+
+      {/* --- Popup lịch nhỏ --- */}
+      {open && (
+        <div
+          ref={popupRef}
+          className="absolute z-50 mt-2 bg-white border rounded-xl shadow-lg p-3 w-64"
         >
-          ◀
-        </button>
-        <h2 className="text-lg font-semibold text-gray-800">
-          {currentMonth.format("MMMM YYYY")}
-        </h2>
-        <button
-          onClick={nextMonth}
-          className="px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200"
-        >
-          ▶
-        </button>
-      </div>
-
-      {/* Lưới ngày */}
-      <div className="grid grid-cols-7 text-center text-sm font-medium mb-2 text-gray-500">
-        {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => (
-          <div key={d}>{d}</div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-2 text-center">
-        {Array.from({ length: startDay - 1 }).map((_, i) => (
-          <div key={`e-${i}`} />
-        ))}
-
-        {days.map(({ date, otHours }) => {
-          const isSelected = selectedDate?.isSame(date, "day");
-          return (
-            <div
-              key={date}
+          {/* Header chọn tháng/năm */}
+          <div className="flex items-center justify-between mb-2 text-sm">
+            <button
               onClick={() => {
-                setSelectedDate(date);
-                setSelectedMonth(date.month() + 1);
-                setSelectedYear(date.year());
-                onDateSelect && onDateSelect(date);
+                if (selectedMonth === 1) {
+                  setSelectedMonth(12);
+                  setSelectedYear(selectedYear - 1);
+                } else setSelectedMonth(selectedMonth - 1);
               }}
-              className={`relative p-2 rounded-xl border cursor-pointer transition-all 
-                ${
-                  isSelected
-                    ? "border-blue-600 bg-blue-100"
-                    : "border-gray-200 hover:bg-blue-50"
-                }
-              `}
+              className="px-2 py-1 rounded hover:bg-gray-100"
             >
-              <div className="font-semibold text-gray-700">{date.date()}</div>
-              {otHours > 0 && (
-                <div className="text-xs text-blue-600 font-bold mt-1">
-                  +{otHours}h
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              ⬅
+            </button>
+
+            <span className="font-medium text-gray-700">
+              {selectedMonth}/{selectedYear}
+            </span>
+
+            <button
+              onClick={() => {
+                if (selectedMonth === 12) {
+                  setSelectedMonth(1);
+                  setSelectedYear(selectedYear + 1);
+                } else setSelectedMonth(selectedMonth + 1);
+              }}
+              className="px-2 py-1 rounded hover:bg-gray-100"
+            >
+              ➡
+            </button>
+          </div>
+
+          {/* Lưới ngày */}
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => (
+              <div key={d} className="font-semibold text-gray-500 py-1">
+                {d}
+              </div>
+            ))}
+
+            {days.map((d) => {
+              const dateStr = d.format("YYYY-MM-DD");
+              const isToday = dateStr === today.format("YYYY-MM-DD");
+              const isSelected =
+                selectedDate &&
+                dayjs(selectedDate).format("YYYY-MM-DD") === dateStr;
+
+              const shiftMap = shiftSchedules[dateStr] || {};
+              const counts = { day: 0, night: 0 };
+              Object.values(shiftMap).forEach((s) => {
+                if (s.shift?.toLowerCase().includes("đêm")) counts.night++;
+                else counts.day++;
+              });
+
+              const bg =
+                counts.day > counts.night
+                  ? "bg-yellow-50"
+                  : counts.night > counts.day
+                  ? "bg-indigo-50"
+                  : "bg-white";
+
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => handleSelectDate(d)}
+                  className={`p-2 rounded border text-xs ${bg} 
+                    ${isToday ? "border-green-400" : "border-gray-200"} 
+                    ${isSelected ? "bg-orange-100 border-orange-400" : ""} 
+                    hover:scale-105 transition`}
+                >
+                  {d.date()}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* --- Nút đóng popup --- */}
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={() => setOpen(false)}
+              className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-xs text-gray-700"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

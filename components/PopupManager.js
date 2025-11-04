@@ -2,6 +2,9 @@ import { motion } from "framer-motion";
 import ManageMembers from "./ManageMembers";
 import OvertimeLimit from "./OvertimeLimit";
 import { Users, Timer, Trash2 } from "lucide-react";
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from "firebase/firestore";
+import { db } from "../lib/firebase";
+
 
 export default function PopupManager({
   onClose,

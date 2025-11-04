@@ -1,3 +1,4 @@
+// src/pages/index.js
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import OverMember from "../components/OverMember";
@@ -5,11 +6,21 @@ import OvertimeList from "../components/OvertimeList";
 import OvertimeSummary from "../components/OvertimeSummary";
 import OvertimeChart from "../components/OvertimeChart";
 import OvertimeMonth from "../components/OvertimeMonth";
-import OvertimeForm from "../components/OvertimeForm"; // ✅ thêm
+import OvertimeForm from "../components/OvertimeForm";
 import PopupManager from "../components/PopupManager";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { LogOut, ArrowUp, PlusCircle } from "lucide-react";
+import { LogOut, ArrowUp } from "lucide-react";
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -24,96 +35,144 @@ export default function Home() {
   const [showManager, setShowManager] = useState(false);
   const [showOvertimeForm, setShowOvertimeForm] = useState(false);
 
+  const [shiftSchedules, setShiftSchedules] = useState({});
+  // structure: { "2025-11-03": { "裴泰南": { shift: "Ca đêm", shiftStart: "19:00" }, ... }, ... }
+
   const chartRef = useRef(null);
 
-  // 🔐 Auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
     return () => unsub();
   }, []);
 
-  // 🔁 Fetch dữ liệu tăng ca
+  // fetch members realtime
   useEffect(() => {
     if (!user) return;
-    import("firebase/firestore").then(
-      ({ collection, query, where, onSnapshot }) => {
-        const q = query(
-          collection(db, "overtimes"),
-          where("userId", "==", user.uid),
-          where("year", "==", selectedYear)
-        );
-        const unsub = onSnapshot(q, (snap) => {
-          setOvertimeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        });
-        return () => unsub();
-      }
-    );
+    const col = collection(db, "members");
+    const q = query(col, where("userId", "==", user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // fetch overtimes realtime
+  useEffect(() => {
+    if (!user) return;
+    const col = collection(db, "overtimes");
+    const q = query(col, where("userId", "==", user.uid), where("year", "==", selectedYear));
+    const unsub = onSnapshot(q, (snap) => {
+      setOvertimeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
   }, [user?.uid, selectedYear]);
 
-  // ⏳ Toast timeout
+  // fetch shiftSchedules for month (realtime)
+  useEffect(() => {
+    if (!user) return;
+    const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
+    const lastDay = new Date(selectedYear, selectedMonth, 0);
+    const startStr = firstDay.toISOString().split("T")[0];
+    const endStr = lastDay.toISOString().split("T")[0];
+
+    const col = collection(db, "shiftSchedules");
+    const q = query(
+      col,
+      where("userId", "==", user.uid),
+      where("date", ">=", startStr),
+      where("date", "<=", endStr)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const map = {};
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const date = data.date;
+        if (!map[date]) map[date] = {};
+        map[date][data.realName] = { shift: data.shift, shiftStart: data.shiftStart };
+      });
+      setShiftSchedules(map);
+    });
+    return () => unsub();
+  }, [user?.uid, selectedMonth, selectedYear]);
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
 
-  // ⬆️ Nút scroll lên đầu
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // 🚪 Đăng xuất
+  // 🔹 Hàm mới: đổi ngày + lọc members theo shiftSchedules
+  const fetchMembersForDate = (dateStr) => {
+    setSelectedDate(new Date(dateStr));
+
+    // Nếu có ca làm trong shiftSchedules thì lọc theo ngày đó
+    if (shiftSchedules[dateStr]) {
+      const filtered = members.filter((m) => shiftSchedules[dateStr][m.realName]);
+      setMembers(filtered);
+    } else {
+      // Nếu không có ca nào trong ngày đó thì giữ nguyên hoặc xóa danh sách hiển thị
+      setMembers([]);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     setUser(null);
   };
 
-  // 🗑️ Xóa toàn bộ dữ liệu trong tháng + reset limit
   const handleDeleteAll = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?")) return;
     try {
-      const { collection, query, where, getDocs, deleteDoc, doc, updateDoc } =
-        await import("firebase/firestore");
-
-      // Xóa overtime
       const q = query(
         collection(db, "overtimes"),
-        where("userId", "==", user.uid),
-        where("year", "==", selectedYear),
-        where("month", "==", selectedMonth)
+        where("month", "==", selectedMonth),
+        where("year", "==", selectedYear)
       );
       const snap = await getDocs(q);
-      await Promise.all(
-        snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
-      );
+      for (const d of snap.docs) {
+        await deleteDoc(doc(db, "overtimes", d.id));
+      }
 
-      // Reset giới hạn & giờ làm cho mọi nhân viên
-      const memberQ = query(
-        collection(db, "members"),
-        where("userId", "==", user.uid)
-      );
-      const memberSnap = await getDocs(memberQ);
-      await Promise.all(
-        memberSnap.docs.map((m) =>
-          updateDoc(doc(db, "members", m.id), {
-            overtimeLimit: { monthlyLimit: 0, workedHours: 0, remaining: 0 },
-          })
-        )
-      );
+      const membersRef = collection(db, "members");
+      const membersSnap = await getDocs(membersRef);
+      for (const m of membersSnap.docs) {
+        await updateDoc(doc(db, "members", m.id), {
+          lastCheckInDate: "",
+          lastCheckInTime: "",
+          lastCheckOutTime: "",
+          "overtimeLimit.workedHours": 0,
+          "overtimeLimit.remaining": m.data().overtimeLimit?.monthlyLimit ?? 0,
+        });
+      }
 
       setOvertimeItems([]);
-      setToast({
-        type: "success",
-        msg: `✅ Đã xóa toàn bộ dữ liệu và reset giới hạn tháng ${selectedMonth}/${selectedYear}.`,
-      });
+      setMembers((prev) =>
+        prev.map((m) => ({
+          ...m,
+          lastCheckInDate: "",
+          lastCheckInTime: "",
+          lastCheckOutTime: "",
+          overtimeLimit: {
+            ...m.overtimeLimit,
+            workedHours: 0,
+            remaining: m.overtimeLimit?.monthlyLimit || 0,
+          },
+        }))
+      );
+
+      alert("✅ Đã xóa toàn bộ dữ liệu tăng ca, giới hạn, và reset trạng thái chấm công.");
     } catch (err) {
-      console.error(err);
-      setToast({ type: "error", msg: "❌ Lỗi khi xóa dữ liệu." });
+      console.error("Lỗi khi xóa dữ liệu:", err);
+      alert("❌ Lỗi khi xóa dữ liệu, kiểm tra console.");
     }
   };
 
-  // 🔐 Nếu chưa đăng nhập
   if (!user)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-200 via-blue-50 to-white">
@@ -129,11 +188,8 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-200 via-blue-50 to-white">
       <div className="w-full max-w-6xl p-4 space-y-5">
-        {/* Header */}
         <div className="bg-white shadow p-4 rounded-2xl flex justify-between items-center border border-indigo-100">
-          <h1 className="text-xl font-bold text-gray-800">
-            🕒 Quản Lý Tăng Ca
-          </h1>
+          <h1 className="text-xl font-bold text-gray-800">🕒 Quản Lý Tăng Ca</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowManager(true)}
@@ -151,19 +207,27 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Tăng ca */}        
-          <OvertimeForm
-            user={user}
-            members={members}
-            setMembers={setMembers}
-            setItems={setOvertimeItems}
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            selectedDate={selectedDate}
-          />
-        
+        <OvertimeForm
+          user={user}
+          members={members}
+          setMembers={setMembers}
+          setItems={setOvertimeItems}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          selectedDate={selectedDate}
+        />
 
-        {/* Nội dung chính */}
+        <OvertimeMonth
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+          shiftSchedules={shiftSchedules}
+          onDateSelect={(d) => fetchMembersForDate(d.format("YYYY-MM-DD"))}
+        />
+        
         <OverMember
           user={user}
           overtimes={overtimeItems}
@@ -173,16 +237,9 @@ export default function Home() {
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
           selectedDate={selectedDate}
+          shiftSchedules={shiftSchedules} // ✅ thêm dòng này
         />
 
-        <OvertimeMonth
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
-          overtimeData={overtimeItems}
-          onDateSelect={(d) => setSelectedDate(d.toDate())}
-        />
 
         <OvertimeSummary
           user={user}
@@ -201,14 +258,10 @@ export default function Home() {
         />
 
         <div ref={chartRef}>
-          <OvertimeChart
-            overtimes={overtimeItems}
-            selectedYear={selectedYear}
-          />
+          <OvertimeChart overtimes={overtimeItems} selectedYear={selectedYear} />
         </div>
       </div>
 
-      {/* Popup thêm tăng ca */}
       {showOvertimeForm && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
@@ -237,7 +290,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Popup Quản lý */}
       {showManager && (
         <PopupManager
           onClose={() => setShowManager(false)}
@@ -251,21 +303,20 @@ export default function Home() {
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
           selectedDate={selectedDate}
+          shiftSchedules={shiftSchedules}   // ✅ thêm dòng này
           handleDeleteAll={handleDeleteAll}
         />
       )}
 
-      {/* Toast */}
       {toast && (
         <div
-          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100]
-            ${toast.type === "error" ? "bg-red-500" : "bg-green-500"}`}
+          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100] ${toast.type === "error" ? "bg-red-500" : "bg-green-500"
+            }`}
         >
           {toast.msg}
         </div>
       )}
 
-      {/* Nút cuộn lên */}
       {showScrollTop && (
         <motion.button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

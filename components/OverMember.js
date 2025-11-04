@@ -31,6 +31,7 @@ export default function OverMember({
   selectedDate,
   members = [],
   setMembers = () => { },
+  shiftSchedules = {}, // ✅ thêm dòng này
 }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -58,38 +59,71 @@ export default function OverMember({
 
   // 🧠 Lấy trạng thái tăng ca hôm nay
   const getTodayStatus = (member) => {
-    const targetDate = selectedDate
-      ? new Date(selectedDate)
-      : new Date();
+    const targetDate = selectedDate ? new Date(selectedDate) : new Date();
     const dateStr = targetDate.toISOString().split("T")[0];
     const formatted = targetDate.toLocaleDateString("vi-VN");
 
+    // Tìm bản ghi chấm công trong ngày
     const todayOvertime = overtimes.find(
-      (o) => o.realName === member.realName && o.currentDate === dateStr
+      (o) =>
+        (o.realName === member.realName ||
+          o.realName.includes(member.nickname) ||
+          member.realName.includes(o.realName)) &&
+        o.currentDate === dateStr
     );
+    console.log("DEBUG:", member.realName, dateStr, todayOvertime);
+
+
 
     const checkIn = todayOvertime?.checkIn || "";
     const checkOut = todayOvertime?.checkOut || "";
+    const note = todayOvertime?.note?.trim() || "";
 
-    const hours =
-      checkIn && checkOut
-        ? calcOvertimeHours(member.shiftStart || "07:00", checkOut)
-        : 0;
+    // Bản dịch ghi chú
+    const noteMap = {
+      "休": "nghỉ luân phiên",
+      "年假": "phép năm",
+      "事假": "nghỉ việc riêng",
+      "病假": "nghỉ bệnh",
+      "调休": "nghỉ bù",
+      "婚假": "nghỉ cưới",
+      "丧假": "nghỉ tang",
+      "产假": "nghỉ sinh con",
+      "陪产假": "nghỉ chăm vợ sinh",
+      "工伤假": "nghỉ do tai nạn lao động",
+      "产检假": "nghỉ khám thai",
+      "哺乳假": "nghỉ cho con bú",
+      "旷工": "nghỉ không phép",
+      "4h事假": "nghỉ việc riêng 4 tiếng",
+    };
 
-    let text = `${formatted} chưa có dữ liệu`;
-    let color = "text-gray-400";
+    const translatedNote = noteMap[note] || note;
 
-    if (checkIn && !checkOut) {
-      text = `Lên ca: ${checkIn}`;
-      color = "text-green-600";
-    } else if (checkIn && checkOut) {
-      text = `Lên: ${checkIn} • Xuống: ${checkOut}`;
-      if (hours > 0) text += ` • +${hours}h`;
-      color = hours > 0 ? "text-blue-600" : "text-gray-500";
+    // --- Nếu có ghi chú nghỉ ---
+    if (note) {
+      return {
+        text: `${formatted} ${translatedNote}`,
+        color: "text-orange-500",
+      };
     }
 
-    return { text, color };
+    // --- Nếu có giờ vào ra ---
+    if (checkIn || checkOut) {
+      const checkOutDisplay = checkOut || "__";
+      const hours = calcOvertimeHours(member.shiftStart || "07:00", checkOut);
+      let text = `Check-in: ${checkIn || "__"} • Check-out: ${checkOutDisplay}`;
+      if (hours > 0) text += ` • +${hours}h`;
+      const color = checkOut ? "text-blue-600" : "text-green-600";
+      return { text, color };
+    }
+
+    // --- Nếu không có dữ liệu ---
+    return {
+      text: `chưa có dữ liệu chấm công`,
+      color: "text-gray-400",
+    };
   };
+
 
 
   // 🗑 Xóa dữ liệu tăng ca ngày hiện tại
@@ -98,10 +132,19 @@ export default function OverMember({
       return;
 
     try {
-      const { collection, query, where, getDocs, deleteDoc, doc } =
-        await import("firebase/firestore");
+      const {
+        collection,
+        query,
+        where,
+        getDocs,
+        deleteDoc,
+        doc,
+        updateDoc,
+      } = await import("firebase/firestore");
+
       const currentDate = new Date(selectedDate).toISOString().split("T")[0];
 
+      // 🔹 1. Xóa document trong overtimes
       const q = query(
         collection(db, "overtimes"),
         where("userId", "==", user.uid),
@@ -118,11 +161,30 @@ export default function OverMember({
       await Promise.all(
         snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
       );
+
+      // 🔹 2. Reset trạng thái check-in/out trong members
+      const mQuery = query(
+        collection(db, "members"),
+        where("userId", "==", user.uid),
+        where("realName", "==", realName)
+      );
+      const mSnap = await getDocs(mQuery);
+
+      if (!mSnap.empty) {
+        const mDoc = mSnap.docs[0];
+        await updateDoc(doc(db, "members", mDoc.id), {
+          lastCheckInDate: "",
+          lastCheckInTime: "",
+          lastCheckOutTime: "",
+        });
+      }
+
       alert(`✅ Đã xóa dữ liệu tăng ca ngày ${currentDate} của ${realName}`);
     } catch (err) {
       console.error("Lỗi xóa dữ liệu tăng ca:", err);
     }
   };
+
 
   return (
     <div>
@@ -220,14 +282,36 @@ export default function OverMember({
                 </div>
 
                 {/* Trạng thái */}
-                <div className={`text-xs mt-2 font-medium ${status.color}`}>
+                <div className="text-[11px] text-gray-400">
+                  Ngày: {selectedDate ? new Date(selectedDate).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN")}
+                </div>
+                <div className={`text-sm font-medium mt-1 ${status.color}`}>
                   {status.text}
                 </div>
 
-                {/* Giờ ca */}
-                <div className="text-[11px] text-gray-400 mt-0.5">
-                  {m.shift} • {shiftName}
-                </div>
+                {/* Giờ ca (hiển thị theo shiftSchedules) */}
+                {(() => {
+                  const dateStr = selectedDate
+                    ? new Date(selectedDate).toISOString().split("T")[0]
+                    : new Date().toISOString().split("T")[0];
+                  const shiftData = shiftSchedules?.[dateStr]?.[m.realName];
+                  const shiftDisplay = shiftData?.shift || m.shift;
+                  const shiftStart = shiftData?.shiftStart || m.shiftStart;
+                  const shiftStartLabel =
+                    {
+                      "07:00": "Sáng sớm",
+                      "08:00": "Sáng muộn",
+                      "19:00": "Tối sớm",
+                      "20:00": "Tối muộn",
+                    }[shiftStart] || shiftStart;
+
+                  return (
+                    <div className="text-[11px] text-gray-400 mt-0.5">
+                      {shiftDisplay} • {shiftStartLabel}
+                    </div>
+                  );
+                })()}
+
 
                 {/* Tóm tắt */}
                 <div className="flex justify-between mt-3 text-[12px]">

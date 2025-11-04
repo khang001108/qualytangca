@@ -1,3 +1,4 @@
+// src/components/OvertimeForm.js
 import { useState, useRef } from "react";
 import { CirclePlus } from "lucide-react";
 import Toast from "./Toast";
@@ -14,10 +15,12 @@ export default function OvertimeForm({
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const [mode, setMode] = useState("checkin"); // "checkin" hoặc "checkout"
+  const [mode, setMode] = useState("checkin"); // "checkin" | "checkout"
+  const [toast, setToast] = useState(null);
   const modalRef = useRef();
+  const lastToastRef = useRef({ msg: null, ts: 0 });
 
-  const { toast, parseText } = useOvertimeParser({
+  const { toast: parserToast, parseText } = useOvertimeParser({
     user,
     members,
     setMembers,
@@ -27,18 +30,35 @@ export default function OvertimeForm({
     selectedDate,
   });
 
-  // Gọi xử lý text với mode hiện tại
+  // Toast trùng lặp
+  const showUniqueToast = (type, message) => {
+    const now = Date.now();
+    if (
+      lastToastRef.current.msg === message &&
+      now - lastToastRef.current.ts < 3000
+    )
+      return;
+    lastToastRef.current = { msg: message, ts: now };
+    setToast({ type, message });
+    setTimeout(() => {
+      setToast((cur) => (cur && cur.message === message ? null : cur));
+    }, 3000);
+  };
+
   const handleParse = async () => {
+    // Bỏ shiftType, vì giờ form không có chọn ca
     await parseText(textInput, mode);
     setTextInput("");
     setFormOpen(false);
   };
 
+  const showToast = toast || parserToast;
+
   return (
     <>
-      {/* Hiển thị thông báo */}
-      {toast && toast.message && (
-        <Toast message={toast.message} type={toast.type} />
+      {/* Toast */}
+      {showToast && showToast.message && (
+        <Toast message={showToast.message} type={showToast.type} />
       )}
 
       {/* Nút mở form */}
@@ -72,7 +92,7 @@ export default function OvertimeForm({
               <button onClick={() => setFormOpen(false)}>✕</button>
             </div>
 
-            {/* 🔹 Chọn chế độ Check-in / Check-out */}
+            {/* 🔹 Chế độ Check-in / Check-out */}
             <div className="flex gap-2 mb-4">
               <button
                 className={`flex-1 py-2 rounded-lg border transition ${
@@ -96,9 +116,10 @@ export default function OvertimeForm({
               </button>
             </div>
 
-            {/* 🔹 Text nhập dữ liệu */}
+            {/* 🔹 Nhập dữ liệu */}
             <label className="text-sm text-gray-600 mb-1 block">
-              Dán dữ liệu chấm công ({mode === "checkin" ? "Lên ca" : "Xuống ca"})
+              Dán dữ liệu chấm công (
+              {mode === "checkin" ? "Lên ca" : "Xuống ca"})
             </label>
             <textarea
               rows={6}
@@ -128,7 +149,9 @@ export default function OvertimeForm({
                     : "bg-blue-600 hover:bg-blue-700"
                 }`}
               >
-                {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
+                {mode === "checkin"
+                  ? "Xử lý Check-in"
+                  : "Xử lý Check-out"}
               </button>
             </div>
           </div>
