@@ -30,7 +30,7 @@ export default function OverMember({
   selectedYear,
   selectedDate,
   members = [],
-  setMembers = () => {},
+  setMembers = () => { },
 }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -59,11 +59,13 @@ export default function OverMember({
   // 🧠 Lấy trạng thái tăng ca hôm nay
   const getTodayStatus = (member) => {
     const targetDate = selectedDate
-      ? new Date(selectedDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0];
+      ? new Date(selectedDate)
+      : new Date();
+    const dateStr = targetDate.toISOString().split("T")[0];
+    const formatted = targetDate.toLocaleDateString("vi-VN");
 
     const todayOvertime = overtimes.find(
-      (o) => o.realName === member.realName && o.currentDate === targetDate
+      (o) => o.realName === member.realName && o.currentDate === dateStr
     );
 
     const checkIn = todayOvertime?.checkIn || "";
@@ -74,7 +76,7 @@ export default function OverMember({
         ? calcOvertimeHours(member.shiftStart || "07:00", checkOut)
         : 0;
 
-    let text = "Chưa có dữ liệu ngày này";
+    let text = `${formatted} chưa có dữ liệu`;
     let color = "text-gray-400";
 
     if (checkIn && !checkOut) {
@@ -88,6 +90,7 @@ export default function OverMember({
 
     return { text, color };
   };
+
 
   // 🗑 Xóa dữ liệu tăng ca ngày hiện tại
   const removeOvertimeOfDay = async (realName) => {
@@ -123,13 +126,13 @@ export default function OverMember({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-        <User className="w-5 h-5" /> Tổng quan nhân viên
+      <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700">
+        <User className="w-4 h-4" /> Danh sách nhân viên
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {members.length === 0 ? (
-          <div className="bg-white p-6 rounded-2xl shadow border text-center text-gray-500">
+          <div className="bg-white p-4 rounded-xl shadow border text-center text-gray-500 text-sm">
             Không có nhân viên nào.
           </div>
         ) : (
@@ -138,7 +141,6 @@ export default function OverMember({
             const limit = m.overtimeLimit?.monthlyLimit || 0;
             const done = m.overtimeLimit?.workedHours || 0;
             const remaining = Math.max(limit - done, 0);
-
             const shiftName =
               {
                 "07:00": "Sáng sớm",
@@ -150,58 +152,50 @@ export default function OverMember({
             return (
               <div
                 key={m.id}
-                className="bg-gradient-to-br from-white to-blue-50 p-4 rounded-2xl shadow-sm border border-gray-100"
+                className="bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-200"
               >
+                {/* Hàng trên: Avatar + Info */}
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
-                    {/* Icon nhân viên */}
-                    <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold">
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-indigo-700 font-semibold">
                       {(() => {
                         const match = ICONS.find((i) => i.name === m.avatar);
-                        if (!match) {
-                          return m.nickname
-                            ? m.nickname.charAt(0).toUpperCase()
-                            : m.realName
-                            ? m.realName.charAt(0).toUpperCase()
-                            : "N";
-                        }
-                        const Icon = match.icon;
-                        return <Icon className="w-6 h-6 text-indigo-600" />;
+                        const Icon = match ? match.icon : User;
+                        const color = m.color || "#3B82F6";
+                        return (
+                          <div
+                            className="w-10 h-10 flex items-center justify-center rounded-lg"
+                            style={{ backgroundColor: color + "20" }}
+                          >
+                            <Icon className="w-5 h-5" style={{ color }} />
+                          </div>
+                        );
                       })()}
                     </div>
 
-                    {/* Thông tin nhân viên */}
                     <div>
-                      <div className="font-semibold text-gray-800">
+                      <div className="font-medium text-gray-800 text-sm">
                         {m.realName}
                       </div>
                       {m.nickname && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-[12px] text-gray-500">
                           “{m.nickname}”
                         </div>
                       )}
-                      <div
-                        className={`text-xs mt-1 font-medium ${status.color}`}
-                      >
-                        {status.text}
-                      </div>
-                      <div className="text-[11px] text-gray-400 mt-1">
-                        {m.shift} • {shiftName}
-                      </div>
                     </div>
                   </div>
 
-                  {/* Các nút hành động */}
+                  {/* Nút hành động */}
                   <div className="flex gap-1">
                     <button
                       onClick={() => {
                         setSelectedMember(m);
                         setShowCalendar(true);
                       }}
-                      className="p-2 rounded-lg bg-orange-200 hover:bg-orange-300 text-orange-800"
-                      title="Xem lịch tăng ca"
+                      className="p-1.5 rounded-md bg-orange-100 hover:bg-orange-200 text-orange-700"
+                      title="Lịch tăng ca"
                     >
-                      <CalendarCheck className="w-4 h-4" />
+                      <CalendarCheck className="w-3.5 h-3.5" />
                     </button>
 
                     <button
@@ -209,31 +203,46 @@ export default function OverMember({
                         setSelectedMember(m);
                         setShowSettings(true);
                       }}
-                      className="p-2 rounded-lg bg-gray-300 hover:bg-gray-400 text-black"
-                      title="Cài đặt nhân viên"
+                      className="p-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      title="Cài đặt"
                     >
-                      <IdCard className="w-4 h-4" />
+                      <IdCard className="w-3.5 h-3.5" />
                     </button>
 
                     <button
                       onClick={() => removeOvertimeOfDay(m.realName)}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200"
-                      title="Xóa dữ liệu tăng ca ngày này"
+                      className="p-1.5 rounded-md bg-red-100 hover:bg-red-200 text-red-600"
+                      title="Xóa dữ liệu hôm nay"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Tóm tắt giờ tăng ca */}
-                <div className="grid grid-cols-3 gap-3 mt-4">
-                  <SummaryBox label="Giới hạn" value={formatHours(limit)} />
-                  <SummaryBox label="Đã tăng" value={formatHours(done)} />
-                  <SummaryBox
-                    label="Còn lại"
-                    value={formatHours(remaining)}
-                    color={remaining === 0 ? "text-red-500" : "text-sky-600"}
-                  />
+                {/* Trạng thái */}
+                <div className={`text-xs mt-2 font-medium ${status.color}`}>
+                  {status.text}
+                </div>
+
+                {/* Giờ ca */}
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  {m.shift} • {shiftName}
+                </div>
+
+                {/* Tóm tắt */}
+                <div className="flex justify-between mt-3 text-[12px]">
+                  <span className="text-orange-500">
+                    Giới hạn: <b>{formatHours(limit)}</b>
+                  </span>
+                  <span className="text-emerald-600">
+                    Đã tăng: <b>{formatHours(done)}</b>
+                  </span>
+                  <span
+                    className={`font-semibold ${remaining === 0 ? "text-red-500" : "text-sky-600"
+                      }`}
+                  >
+                    Còn: {formatHours(remaining)}
+                  </span>
                 </div>
               </div>
             );
@@ -267,6 +276,7 @@ export default function OverMember({
       )}
     </div>
   );
+
 }
 
 function SummaryBox({ label, value, color = "text-indigo-700" }) {
