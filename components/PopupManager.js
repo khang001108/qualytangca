@@ -1,8 +1,7 @@
-import { useState } from "react";
-import OvertimeForm from "./OvertimeForm";
+import { motion } from "framer-motion";
+import ManageMembers from "./ManageMembers";
 import OvertimeLimit from "./OvertimeLimit";
-import OverMember from "./OverMember";
-import PopupSettings from "./PopupSettings";
+import { Users, Timer, Trash2 } from "lucide-react";
 
 export default function PopupManager({
   onClose,
@@ -18,24 +17,23 @@ export default function PopupManager({
   selectedDate,
   handleDeleteAll,
 }) {
-  const [activeView, setActiveView] = useState("menu");
-
-  const renderContent = () => {
-    switch (activeView) {
-      case "overtime":
-        return (
-          <OvertimeForm
-            user={user}
-            members={members}
-            setMembers={setMembers}
-            setItems={setOvertimeItems}
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            selectedDate={selectedDate}
-          />
-        );
-      case "limit":
-        return (
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-6 w-[90%] max-w-3xl shadow-2xl animate-fadeIn overflow-y-auto max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* --- Giới hạn tăng ca --- */}
+        {/* <div className="border border-yellow-200 rounded-xl p-4 mb-4 hover:border-yellow-400 hover:bg-yellow-50 transition">
+          <div className="flex items-center gap-2 mb-3 text-yellow-600 font-semibold">
+            <motion.div whileHover={{ scale: 1.1 }}>
+              <Timer className="w-5 h-5" />
+            </motion.div>
+            <span>Giới hạn tăng ca</span>
+          </div>
           <OvertimeLimit
             user={user}
             overtimeLimit={overtimeLimit}
@@ -43,103 +41,42 @@ export default function PopupManager({
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
           />
-        );
-      case "member":
-        return (
-          <OverMember
-            user={user}
-            overtimes={overtimeItems}
-            limit={overtimeLimit}
-            members={members}
-            setMembers={setMembers}
-            isPopupAdd
-          />
-        );
-      case "settings":
-        return (
-          <PopupSettings
-            member={members[0]}
-            members={members}
-            setMembers={setMembers}
-            onClose={() => setActiveView("menu")}
-          />
-        );
-      default:
-        return (
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => setActiveView("overtime")}
-              className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600"
-            >
-              ➕ Thêm tăng ca
-            </button>
-            <button
-              onClick={() => setActiveView("limit")}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-            >
-              ⏳ Giới hạn tăng ca
-            </button>
-            <button
-              onClick={() => setActiveView("member")}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-            >
-              👤 Thêm nhân viên
-            </button>
-            <button
-              onClick={() => setActiveView("settings")}
-              className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
-            >
-              ⚙️ Cài đặt nhân viên
-            </button>
-            <button
-              onClick={handleDeleteAll}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            >
-              🗑️ Xóa dữ liệu ngày hiện tại
-            </button>
-          </div>
-        );
-    }
-  };
+        </div> */}
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl p-6 w-[90%] max-w-2xl shadow-2xl animate-fadeIn relative"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {activeView !== "menu" && (
+        {/* --- Quản lý nhân viên --- */}
+        <div className="border border-purple-200 rounded-xl p-4 mb-4 hover:border-purple-400 hover:bg-purple-50 transition">
+          <div className="flex items-center gap-2 mb-3 text-purple-600 font-semibold">
+            <motion.div whileHover={{ scale: 1.1 }}>
+              <Users className="w-5 h-5" />
+            </motion.div>
+            <span>Quản lý nhân viên</span>
+          </div>
+          <ManageMembers
+            user={user}
+            members={members}
+            setMembers={setMembers}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+          />
+        </div>
+
+        {/* --- Xóa toàn bộ dữ liệu tháng --- */}
+        <div className="mt-6 text-center">
           <button
-            onClick={() => setActiveView("menu")}
-            className="absolute top-4 left-4 text-gray-600 hover:text-gray-800"
+            onClick={handleDeleteAll}
+            className="w-full border border-red-300 text-red-600 hover:bg-red-50 hover:border-red-500 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
           >
-            ⬅️ Quay lại
+            <Trash2 className="w-4 h-4" />
+            Xóa toàn bộ dữ liệu trong tháng {selectedMonth}/{selectedYear}
           </button>
-        )}
+        </div>
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
+          className="mt-5 w-full bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-gray-700 font-medium"
         >
-          ✖
+          Đóng
         </button>
-
-        <h2 className="text-xl font-semibold text-indigo-600 text-center mb-4">
-          {activeView === "menu"
-            ? "⚙️ Quản lý hệ thống"
-            : activeView === "overtime"
-            ? "➕ Thêm tăng ca"
-            : activeView === "limit"
-            ? "⏳ Giới hạn tăng ca"
-            : activeView === "member"
-            ? "👤 Thêm nhân viên"
-            : "⚙️ Cài đặt nhân viên"}
-        </h2>
-
-        {renderContent()}
       </div>
     </div>
   );
