@@ -5,13 +5,11 @@ import OvertimeList from "../components/OvertimeList";
 import OvertimeSummary from "../components/OvertimeSummary";
 import OvertimeChart from "../components/OvertimeChart";
 import OvertimeMonth from "../components/OvertimeMonth";
+import OvertimeForm from "../components/OvertimeForm"; // ✅ thêm
+import PopupManager from "../components/PopupManager";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import AccountPopup from "../components/AccountPopup";
-import PopupManager from "../components/PopupManager";
-import PopupSettings from "../components/PopupSettings";
-import { LogOut, Settings2, ArrowUp } from "lucide-react";
-import { ICONS } from "../utils/iconUtils";
+import { LogOut, ArrowUp, PlusCircle } from "lucide-react";
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -21,18 +19,11 @@ export default function Home() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [members, setMembers] = useState([]);
-
-  // Popup state
-  const [showManager, setShowManager] = useState(false);
-  const [showOvertimeForm, setShowOvertimeForm] = useState(false);
-  const [showOvertimeLimit, setShowOvertimeLimit] = useState(false);
-  const [showAddMember, setShowAddMember] = useState(false);
-  const [showMemberSettings, setShowMemberSettings] = useState(false);
-
-  const [showAccount, setShowAccount] = useState(false);
   const [toast, setToast] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showManager, setShowManager] = useState(false);
+  const [showOvertimeForm, setShowOvertimeForm] = useState(false);
+
   const chartRef = useRef(null);
 
   // 🔐 Auth
@@ -52,8 +43,7 @@ export default function Home() {
           where("year", "==", selectedYear)
         );
         const unsub = onSnapshot(q, (snap) => {
-          const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setOvertimeItems(data);
+          setOvertimeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         });
         return () => unsub();
       }
@@ -80,16 +70,13 @@ export default function Home() {
     setUser(null);
   };
 
-  // 🧹 Xóa toàn bộ dữ liệu ngày hiện tại
+  // 🗑️ Xóa toàn bộ dữ liệu trong tháng + reset limit
   const handleDeleteAll = async () => {
     try {
       const { collection, query, where, getDocs, deleteDoc, doc, updateDoc } =
         await import("firebase/firestore");
 
-      const currentDate = selectedDate
-        ? new Date(selectedDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
-
+      // Xóa overtime
       const q = query(
         collection(db, "overtimes"),
         where("userId", "==", user.uid),
@@ -97,26 +84,28 @@ export default function Home() {
         where("month", "==", selectedMonth)
       );
       const snap = await getDocs(q);
-      if (snap.empty) {
-        setToast({
-          type: "error",
-          msg: `⚠️ Không có dữ liệu tăng ca cho ngày ${currentDate}.`,
-        });
-        return;
-      }
-
       await Promise.all(
         snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
       );
 
-      setOvertimeItems((prev) =>
-        prev.filter((i) => i.currentDate !== currentDate)
+      // Reset giới hạn & giờ làm cho mọi nhân viên
+      const memberQ = query(
+        collection(db, "members"),
+        where("userId", "==", user.uid)
+      );
+      const memberSnap = await getDocs(memberQ);
+      await Promise.all(
+        memberSnap.docs.map((m) =>
+          updateDoc(doc(db, "members", m.id), {
+            overtimeLimit: { monthlyLimit: 0, workedHours: 0, remaining: 0 },
+          })
+        )
       );
 
       setOvertimeItems([]);
       setToast({
         type: "success",
-        msg: `✅ Đã xóa toàn bộ dữ liệu ngày ${currentDate}.`,
+        msg: `✅ Đã xóa toàn bộ dữ liệu và reset giới hạn tháng ${selectedMonth}/${selectedYear}.`,
       });
     } catch (err) {
       console.error(err);
@@ -141,8 +130,10 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-200 via-blue-50 to-white">
       <div className="w-full max-w-6xl p-4 space-y-5">
         {/* Header */}
-        <div className="bg-white shadow p-4 rounded-2xl sticky top-0 z-30 border border-indigo-100 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">🕒 Quản Lý Tăng Ca</h1>
+        <div className="bg-white shadow p-4 rounded-2xl flex justify-between items-center border border-indigo-100">
+          <h1 className="text-xl font-bold text-gray-800">
+            🕒 Quản Lý Tăng Ca
+          </h1>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowManager(true)}
@@ -183,6 +174,7 @@ export default function Home() {
           selectedYear={selectedYear}
           selectedDate={selectedDate}
         />
+
         <OvertimeMonth
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
@@ -191,6 +183,7 @@ export default function Home() {
           overtimeData={overtimeItems}
           onDateSelect={(d) => setSelectedDate(d.toDate())}
         />
+
         <OvertimeSummary
           user={user}
           overtimes={overtimeItems}
@@ -198,6 +191,7 @@ export default function Home() {
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
         />
+
         <OvertimeList
           user={user}
           items={overtimeItems}
@@ -205,6 +199,7 @@ export default function Home() {
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
         />
+
         <div ref={chartRef}>
           <OvertimeChart
             overtimes={overtimeItems}
@@ -213,7 +208,36 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ⚙️ Popup Manager */}
+      {/* Popup thêm tăng ca */}
+      {showOvertimeForm && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setShowOvertimeForm(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl p-6 w-[90%] max-w-2xl shadow-2xl animate-fadeIn overflow-y-auto max-h-[90vh]"
+          >
+            <OvertimeForm
+              user={user}
+              members={members}
+              setMembers={setMembers}
+              setItems={setOvertimeItems}
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              selectedDate={selectedDate}
+            />
+            <button
+              onClick={() => setShowOvertimeForm(false)}
+              className="mt-5 w-full bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-gray-700 font-medium"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Quản lý */}
       {showManager && (
         <PopupManager
           onClose={() => setShowManager(false)}
@@ -231,103 +255,7 @@ export default function Home() {
         />
       )}
 
-
-
-      {/* 🕓 Popup Overtime Form */}
-      {showOvertimeForm && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowOvertimeForm(false)}
-        >
-          <div
-            className="bg-white p-6 rounded-2xl shadow-2xl animate-fadeIn max-w-2xl w-[90%]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <OvertimeForm
-              user={user}
-              members={members}
-              setMembers={setMembers}
-              setItems={setOvertimeItems}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              selectedDate={selectedDate}
-            />
-            <button
-              onClick={() => setShowOvertimeForm(false)}
-              className="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ⏳ Popup Giới hạn */}
-      {showOvertimeLimit && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowOvertimeLimit(false)}
-        >
-          <div
-            className="bg-white p-6 rounded-2xl shadow-2xl animate-fadeIn max-w-lg w-[90%]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <OvertimeLimit
-              user={user}
-              overtimeLimit={overtimeLimit}
-              setOvertimeLimit={setOvertimeLimit}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-            />
-            <button
-              onClick={() => setShowOvertimeLimit(false)}
-              className="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 👤 Popup Thêm nhân viên */}
-      {showAddMember && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowAddMember(false)}
-        >
-          <div
-            className="bg-white p-6 rounded-2xl shadow-2xl animate-fadeIn max-w-lg w-[90%]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <OverMember
-              user={user}
-              overtimes={overtimeItems}
-              limit={overtimeLimit}
-              members={members}
-              setMembers={setMembers}
-              isPopupAdd
-            />
-            <button
-              onClick={() => setShowAddMember(false)}
-              className="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ⚙️ Popup Cài đặt */}
-      {showMemberSettings && members.length > 0 && (
-        <PopupSettings
-          member={members[0]}
-          members={members}
-          setMembers={setMembers}
-          onClose={() => setShowMemberSettings(false)}
-        />
-      )}
-
-      {/* 🔔 Toast */}
+      {/* Toast */}
       {toast && (
         <div
           className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100]
