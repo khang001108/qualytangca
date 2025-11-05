@@ -118,7 +118,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
 
         {/* Popup con - Đổi tên */}
         {showName && (
-          <SmallPopup title="Đổi biệt danh" onClose={() => setShowName(false)}>
+          <SmallPopup title="Đổi tên phụ" onClose={() => setShowName(false)}>
             <input
               value={form.nickname}
               onChange={(e) => setForm({ ...form, nickname: e.target.value })}

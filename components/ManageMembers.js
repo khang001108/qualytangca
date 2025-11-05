@@ -9,7 +9,26 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
-import { Search, UserPlus, Trash2, Clock, Loader2 } from "lucide-react";
+import {
+  Search, //search icon
+  UserPlus, // người dùng
+  Trash2, // thùng rác
+  Clock, // đồng hồ
+  Loader2, // biểu tượng tải
+  Moon, // moon icon
+  SunMedium, // sun icon
+  CircleUser, // vòng tròn người dùng
+  User, // người dùng
+  ListOrdered, // danh sách có thứ tự
+  BriefcaseBusiness, // cặp doanh nghiệp
+  ClockArrowUp, // đồng hồ mũi tên lên
+  ClockFading, // đồng hồ mờ dần
+  CalendarClock, // đồng hồ kiểm tra
+  Hourglass, // đồng hồ cát
+  Timer, // hẹn giờ
+  CalendarArrowUp, // lịch mũi tên lên
+} from "lucide-react";
+
 import Toast from "./Toast";
 import PopupSelect from "./PopupSelect";
 import PopupAssignShift from "./PopupAssignShift";
@@ -185,7 +204,8 @@ export default function ManageMembers({
             onClick={() => setShowAssign(true)}
             className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm"
           >
-            🗓️ Phân ca theo ngày
+            <CalendarArrowUp className="w-4 h-4" />
+             Phân ca theo ngày
           </button>
 
           <button
@@ -205,23 +225,68 @@ export default function ManageMembers({
       </div>
 
       {/* --- Bảng nhân viên --- */}
-      <div className="overflow-x-auto border rounded-xl">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100 text-gray-600">
+      <div className="overflow-x-auto border border-gray-800 rounded-xl shadow-sm">
+        <table className="w-full text-sm border border-gray-300 border-collapse rounded-xl overflow-hidden mx-auto [&_th]:border [&_td]:border [&_th]:border-gray-800 [&_td]:border-gray-800">
+          <thead className="bg-gray-200 text-gray-700 font-semibold">
             <tr>
-              <th className="p-2 text-center w-10">STT</th>
-              <th className="p-2 text-left">Tên thật</th>
-              <th className="p-2 text-left">Biệt danh</th>
-              <th className="p-2 text-center">Ca</th>
-              <th className="p-2 text-center">Lên ca</th>
-              <th className="p-2 text-center">Giới hạn</th>
-              <th className="p-2 text-center">Đã tăng</th>
-              <th className="p-2 text-center">Tổng</th>
-              <th className="p-2 text-center">Lên ca sớm</th>
-
+              <th className="p-2 text-center w-12">
+                <div className="flex items-center justify-center gap-1">
+                  <ListOrdered className="w-4 h-4 text-blue-500" />
+                  <span>STT</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-36">
+                <div className="flex items-center justify-center gap-1">
+                  <CircleUser className="w-4 h-4 text-blue-500" />
+                  <span>Tên Nước Ngoài</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-40">
+                <div className="flex items-center justify-center gap-1">
+                  <User className="w-4 h-4 text-blue-500" />
+                  <span>Tên Việt Nam</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <BriefcaseBusiness className="w-4 h-4 text-blue-500" />
+                  <span>Ca</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-20">
+                <div className="flex items-center justify-center gap-1">
+                  <ClockArrowUp className="w-4 h-4 text-blue-500" />
+                  <span>Lên ca</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-20">
+                <div className="flex items-center justify-center gap-1">
+                  <Hourglass className="w-4 h-4 text-green-500" />
+                  <span>Giới hạn</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-20">
+                <div className="flex items-center justify-center gap-1">
+                  <ClockFading className="w-4 h-4 text-yellow-500" />
+                  <span>Đã tăng</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-20">
+                <div className="flex items-center justify-center gap-1">
+                  <CalendarClock className="w-4 h-4 text-indigo-500" />
+                  <span>Tổng</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <Timer className="w-4 h-4 text-purple-500" />
+                  <span>Lên ca sớm</span>
+                </div>
+              </th>
             </tr>
           </thead>
-          <tbody>
+
+          <tbody className="text-center">
             {members.length === 0 ? (
               <tr>
                 <td colSpan="9" className="text-center py-4 text-gray-400">
@@ -229,108 +294,97 @@ export default function ManageMembers({
                 </td>
               </tr>
             ) : (
-              members
-                .filter(
-                  (m) =>
-                    m.realName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    m.nickname.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((m, index) => {
-                  const limit = m.overtimeLimit?.monthlyLimit || 0;
-                  const worked = m.overtimeLimit?.workedHours || 0;
-                  const total = limit + worked;
+              members.map((m, index) => {
+                const limit = m.overtimeLimit?.monthlyLimit || 0;
+                const worked = m.overtimeLimit?.workedHours || 0;
+                const total = limit + worked;
 
-                  return (
-                    <tr key={m.id} className="border-t hover:bg-gray-50">
-                      {/* ✅ Cột số thứ tự */}
-                      <td className="p-2 text-center font-medium">{index + 1}</td>
+                let dateStr = selectedDate
+                  ? dayjs(selectedDate).format("YYYY-MM-DD")
+                  : null;
+                const shiftData = dateStr
+                  ? shiftSchedules?.[dateStr]?.[m.realName]
+                  : null;
+                const shiftName = shiftData?.shift || m.shift;
+                const shiftStart = shiftData?.shiftStart || m.shiftStart;
 
-                      <td className="p-2 font-medium">{m.realName}</td>
-                      <td className="p-2">{m.nickname}</td>
-
-                      {(() => {
-                        let dateStr = null;
-                        if (selectedDate) {
-                          dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
-                        }
-                        const shiftData = dateStr ? shiftSchedules?.[dateStr]?.[m.realName] : null;
-                        const shiftName = shiftData?.shift || m.shift;
-                        const shiftStart = shiftData?.shiftStart || m.shiftStart;
-
-                        return (
-                          <>
-                            <td className="p-2 text-center">
-                              {shiftName?.toLowerCase().includes("đêm") ? "🌙 Đêm" : "☀️ Ngày"}
-                            </td>
-                            <td className="p-2 text-center">{shiftStart}</td>
-                          </>
-                        );
-                      })()}
-
-                      <td className="p-2 text-center text-blue-600 font-semibold">
-                        {fmt(limit)}
-                      </td>
-                      <td className="p-2 text-center text-emerald-600 font-semibold">
-                        {fmt(worked)}
-                      </td>
-                      <td className="p-2 text-center text-indigo-700 font-semibold">
-                        {fmt(total)}
-                      </td>
-
-                      {/* ✅ Cột "Lên ca sớm" */}
-                      <td className="p-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={m.earlyShift || false}
-                          onChange={async (e) => {
-                            const checked = e.target.checked;
-
-                            // cập nhật tại chỗ trong state
-                            const updated = members.map((mem) => {
-                              if (mem.id !== m.id) return mem;
-
-                              const isNight = mem.shift?.toLowerCase().includes("đêm");
-                              const newShiftStart = checked
-                                ? isNight
-                                  ? "19:00"
-                                  : "07:00"
-                                : isNight
-                                  ? "20:00"
-                                  : "08:00";
-
-                              return {
-                                ...mem,
-                                earlyShift: checked,
-                                shiftStart: newShiftStart,
-                              };
-                            });
-
-                            setMembers(updated);
-
-                            // 🔥 cập nhật Firestore
-                            const ref = doc(db, "members", m.id);
-                            const isNight = m.shift?.toLowerCase().includes("đêm");
+                return (
+                  <tr key={m.id} className="hover:bg-purple-100 transition-colors">
+                    <td className="p-2 font-medium">{index + 1}</td>
+                    <td className="p-2">{m.realName}</td>
+                    <td className="p-2">{m.nickname}</td>
+                    <td className="p-2">
+                      {shiftName?.toLowerCase().includes("đêm") ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <Moon className="w-4 h-4 text-blue-500" />
+                          <span>Đêm</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1">
+                          <SunMedium className="w-4 h-4 text-yellow-500" />
+                          <span>Ngày</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2">{shiftStart}</td>
+                    <td className="p-2 text-green-600 font-semibold">
+                      {fmt(limit)}
+                    </td>
+                    <td className="p-2 text-yellow-600 font-semibold">
+                      {fmt(worked)}
+                    </td>
+                    <td className="p-2 text-indigo-700 font-semibold">
+                      {fmt(total)}
+                    </td>
+                    <td className="p-2">
+                      <input
+                        type="checkbox"
+                        checked={m.earlyShift || false}
+                        onChange={async (e) => {
+                          const checked = e.target.checked;
+                          const updated = members.map((mem) => {
+                            if (mem.id !== m.id) return mem;
+                            const isNight = mem.shift
+                              ?.toLowerCase()
+                              .includes("đêm");
                             const newShiftStart = checked
                               ? isNight
                                 ? "19:00"
                                 : "07:00"
                               : isNight
-                                ? "20:00"
-                                : "08:00";
-
-                            await updateDoc(ref, {
+                              ? "20:00"
+                              : "08:00";
+                            return {
+                              ...mem,
                               earlyShift: checked,
                               shiftStart: newShiftStart,
-                            });
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })
+                            };
+                          });
+                          setMembers(updated);
+
+                          const ref = doc(db, "members", m.id);
+                          const isNight = m.shift
+                            ?.toLowerCase()
+                            .includes("đêm");
+                          const newShiftStart = checked
+                            ? isNight
+                              ? "19:00"
+                              : "07:00"
+                            : isNight
+                            ? "20:00"
+                            : "08:00";
+                          await updateDoc(ref, {
+                            earlyShift: checked,
+                            shiftStart: newShiftStart,
+                          });
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
-
         </table>
       </div>
 
@@ -362,7 +416,7 @@ export default function ManageMembers({
 
             <form onSubmit={handleAddMember} className="space-y-3">
               <div>
-                <label className="text-sm text-gray-600">Tên thật</label>
+                <label className="text-sm text-gray-600">Tên Chính</label>
                 <input
                   value={form.realName}
                   onChange={(e) =>
@@ -373,7 +427,7 @@ export default function ManageMembers({
               </div>
 
               <div>
-                <label className="text-sm text-gray-600">Biệt danh</label>
+                <label className="text-sm text-gray-600">Tên Phụ</label>
                 <input
                   value={form.nickname}
                   onChange={(e) =>
@@ -436,7 +490,7 @@ export default function ManageMembers({
       {/* --- Popup phân ca theo ngày --- */}
       {showAssign && (
         <PopupAssignShift
-          user={user}                  // ✅ thêm truyền user
+          user={user} // ✅ thêm truyền user
           members={members}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}

@@ -2,9 +2,16 @@ import { motion } from "framer-motion";
 import ManageMembers from "./ManageMembers";
 import OvertimeLimit from "./OvertimeLimit";
 import { Users, Timer, Trash2 } from "lucide-react";
-import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
-
 
 export default function PopupManager({
   onClose,
@@ -26,7 +33,7 @@ export default function PopupManager({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl p-6 w-[90%] max-w-3xl shadow-2xl animate-fadeIn overflow-y-auto max-h-[90vh]"
+        className="bg-white rounded-2xl p-6 w-[90%] max-w-5xl shadow-2xl animate-fadeIn overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* --- Giới hạn tăng ca --- */}
@@ -47,13 +54,13 @@ export default function PopupManager({
         </div> */}
 
         {/* --- Quản lý nhân viên --- */}
-        <div className="border border-purple-200 rounded-xl p-4 mb-4 hover:border-purple-400 hover:bg-purple-50 transition">
-          <div className="flex items-center gap-2 mb-3 text-purple-600 font-semibold">
-            <motion.div whileHover={{ scale: 1.1 }}>
-              <Users className="w-5 h-5" />
-            </motion.div>
-            <span>Quản lý nhân viên</span>
-          </div>
+        <div className="flex items-center gap-2 mb-3 text-purple-600 font-semibold">
+          <motion.div whileHover={{ scale: 1.1 }}>
+            <Users className="w-5 h-5" />
+          </motion.div>
+          <span>Quản lý nhân viên</span>
+        </div>
+        <div className="border border-zinc-600 rounded-xl p-4 mb-4 hover:border-zinc-700 hover:bg-zinc-50 transition">
           <ManageMembers
             user={user}
             members={members}
