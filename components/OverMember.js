@@ -1,3 +1,4 @@
+// src/components/OverMember.js
 import { useState, useEffect } from "react";
 import PopupCalendar from "./PopupCalendar";
 import PopupSettings from "./PopupSettings";
@@ -7,6 +8,10 @@ import {
   query,
   where,
   onSnapshot,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import dayjs from "dayjs";
@@ -24,7 +29,7 @@ function calcOvertimeHours(shiftStart, checkOut) {
   const [oH, oM] = checkOut.split(":").map(Number);
   const outMinutes = oH * 60 + (oM || 0);
   const diff = outMinutes - endAdminMinutes;
-  if (diff <= 0 || diff < 60) return 0;
+  if (diff < 60) return 0;
   return Math.floor(diff / 60);
 }
 
@@ -40,27 +45,30 @@ export default function OverMember({
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [shiftSchedules, setShiftSchedules] = useState({}); // ✅ tách state riêng
 
   // 🔹 Load members realtime từ Firestore
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(collection(db, "members"), where("userId", "==", user.uid));
     const unsub = onSnapshot(q, (snap) => {
-      const fetched = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        overtimeLimit: d.data().overtimeLimit || {},
-      }));
-      setMembers(fetched);
+      setMembers(
+        snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          overtimeLimit: d.data().overtimeLimit || {},
+        }))
+      );
     });
     return () => unsub();
   }, [user?.uid]);
 
-  // 🔹 Theo dõi shiftSchedules realtime cho tháng đang chọn
+  // 🔹 Load shiftSchedules realtime cho tháng hiện tại
   useEffect(() => {
     if (!user?.uid) return;
-    const start = dayjs(selectedDate).startOf("month").format("YYYY-MM-DD");
-    const end = dayjs(selectedDate).endOf("month").format("YYYY-MM-DD");
+    const safeDate = selectedDate ? dayjs(selectedDate) : dayjs();
+    const start = safeDate.startOf("month").format("YYYY-MM-DD");
+    const end = safeDate.endOf("month").format("YYYY-MM-DD");
 
     const q = query(
       collection(db, "shiftSchedules"),
@@ -79,30 +87,16 @@ export default function OverMember({
           shiftStart: item.shiftStart,
         };
       });
-
-      // 🔁 Cập nhật shiftStart của member nếu có trong tháng hiện tại
-      setMembers((prev) =>
-        prev.map((m) => {
-          const dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
-          const shiftData = data[dateStr]?.[m.realName];
-          return shiftData
-            ? {
-                ...m,
-                currentShift: shiftData.shift,
-                shiftStart: shiftData.shiftStart,
-              }
-            : m;
-        })
-      );
+      setShiftSchedules(data);
     });
 
     return () => unsub();
   }, [user?.uid, selectedDate]);
 
   const getTodayStatus = (member) => {
-    const targetDate = selectedDate ? dayjs(selectedDate) : dayjs();
-    const dateStr = targetDate.format("YYYY-MM-DD");
-    const formatted = targetDate.format("DD/MM/YYYY");
+    const safeDate = selectedDate ? dayjs(selectedDate) : dayjs();
+    const dateStr = safeDate.format("YYYY-MM-DD");
+    const formatted = safeDate.format("DD/MM/YYYY");
 
     const todayOvertime = overtimes.find(
       (o) =>
@@ -163,16 +157,6 @@ export default function OverMember({
     if (!confirm(`Xóa toàn bộ dữ liệu tăng ca ngày này của "${realName}"?`))
       return;
     try {
-      const {
-        collection,
-        query,
-        where,
-        getDocs,
-        deleteDoc,
-        doc,
-        updateDoc,
-      } = await import("firebase/firestore");
-
       const currentDate = dayjs(selectedDate).format("YYYY-MM-DD");
       const q = query(
         collection(db, "overtimes"),
@@ -181,10 +165,8 @@ export default function OverMember({
         where("currentDate", "==", currentDate)
       );
       const snap = await getDocs(q);
-      if (snap.empty) {
-        alert(`Không có dữ liệu tăng ca ngày ${currentDate}.`);
-        return;
-      }
+      if (snap.empty)
+        return alert(`Không có dữ liệu tăng ca ngày ${currentDate}.`);
 
       await Promise.all(
         snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
@@ -229,13 +211,18 @@ export default function OverMember({
             const done = m.overtimeLimit?.workedHours || 0;
             const remaining = Math.max(limit - done, 0);
 
+            const dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
+            const shiftData = shiftSchedules?.[dateStr]?.[m.realName];
+            const shift = shiftData?.shift || m.shift || "Chưa có ca";
+            const shiftStart = shiftData?.shiftStart || m.shiftStart || "08:00";
+
             const shiftStartLabel =
               {
                 "07:00": "Sáng sớm",
                 "08:00": "Sáng muộn",
                 "19:00": "Tối sớm",
                 "20:00": "Tối muộn",
-              }[m.shiftStart] || m.shiftStart;
+              }[shiftStart] || shiftStart;
 
             return (
               <div
@@ -316,7 +303,7 @@ export default function OverMember({
                 </div>
 
                 <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                  {m.shift || "Chưa có ca"} • {shiftStartLabel}
+                  {shift} • {shiftStartLabel}
                 </div>
 
                 <div className="flex justify-between mt-3 text-[12px]">

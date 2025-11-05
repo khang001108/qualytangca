@@ -55,14 +55,14 @@ export default function PopupSettings({ member, setMembers, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl p-6 w-80 shadow-2xl relative animate-fadeIn"
+        className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl p-6 w-80 shadow-2xl border border-gray-200 dark:border-gray-700 relative animate-fadeIn transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-indigo-600 text-center mb-3">
+        <h2 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 text-center mb-3">
           ⚙️ Thông tin nhân viên
         </h2>
 
@@ -74,13 +74,13 @@ export default function PopupSettings({ member, setMembers, onClose }) {
             return (
               <div
                 className="w-12 h-12 flex items-center justify-center rounded-xl shadow-inner"
-                style={{ backgroundColor: form.color + "20" }}
+                style={{ backgroundColor: form.color + "30" }}
               >
                 <Icon className="w-6 h-6" style={{ color: form.color }} />
               </div>
             );
           })()}
-          <div className="font-medium text-gray-800">
+          <div className="font-medium text-gray-800 dark:text-gray-100">
             {form.nickname || member.realName}
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="mt-5 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          className="mt-5 w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 transition"
         >
           <Save className="w-4 h-4" />
           {saving ? "Đang lưu..." : "Lưu & Đóng"}
@@ -111,7 +111,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
 
         <button
           onClick={onClose}
-          className="mt-2 w-full bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-gray-700 text-sm"
+          className="mt-2 w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 py-2 rounded-lg text-gray-700 dark:text-gray-200 text-sm transition"
         >
           Hủy
         </button>
@@ -122,12 +122,12 @@ export default function PopupSettings({ member, setMembers, onClose }) {
             <input
               value={form.nickname}
               onChange={(e) => setForm({ ...form, nickname: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-400 dark:focus:ring-indigo-500 outline-none transition"
               placeholder="Nhập biệt danh mới..."
             />
             <button
               onClick={() => setShowName(false)}
-              className="mt-3 w-full bg-indigo-500 hover:bg-indigo-600 text-white py-1.5 rounded-lg text-sm"
+              className="mt-3 w-full bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white py-1.5 rounded-lg text-sm transition"
             >
               Xong
             </button>
@@ -136,10 +136,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
 
         {/* Popup con - Biểu tượng */}
         {showIcon && (
-          <SmallPopup
-            title="Chọn biểu tượng"
-            onClose={() => setShowIcon(false)}
-          >
+          <SmallPopup title="Chọn biểu tượng" onClose={() => setShowIcon(false)}>
             <div className="flex justify-center mb-3">
               {(() => {
                 const Icon =
@@ -147,7 +144,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
                 return (
                   <div
                     className="w-14 h-14 flex items-center justify-center rounded-xl shadow-inner"
-                    style={{ backgroundColor: form.color + "20" }}
+                    style={{ backgroundColor: form.color + "30" }}
                   >
                     <Icon className="w-7 h-7" style={{ color: form.color }} />
                   </div>
@@ -165,13 +162,13 @@ export default function PopupSettings({ member, setMembers, onClose }) {
                     onClick={() => setForm({ ...form, avatar: name })}
                     className={`p-2 rounded-lg border transition ${
                       active
-                        ? "border-indigo-500 scale-110 bg-indigo-50"
-                        : "border-gray-200 hover:bg-gray-50"
+                        ? "border-indigo-500 bg-indigo-100 dark:bg-indigo-900/40 scale-110"
+                        : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     <Icon
                       className="w-5 h-5"
-                      style={{ color: active ? form.color : "#6b7280" }}
+                      style={{ color: active ? form.color : "#9ca3af" }}
                     />
                   </button>
                 );
@@ -186,8 +183,8 @@ export default function PopupSettings({ member, setMembers, onClose }) {
                   onClick={() => setForm({ ...form, color: c })}
                   className={`w-7 h-7 rounded-full border-2 transition ${
                     form.color === c
-                      ? "border-black scale-110"
-                      : "border-gray-200 hover:scale-105"
+                      ? "border-black dark:border-white scale-110"
+                      : "border-gray-300 dark:border-gray-600 hover:scale-105"
                   }`}
                   style={{ backgroundColor: c }}
                 />
@@ -205,7 +202,7 @@ function ActionButton({ icon: Icon, label, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-1 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 border text-gray-700 transition"
+      className="flex flex-col items-center gap-1 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition"
     >
       <Icon className="w-5 h-5" />
       <span className="text-[11px]">{label}</span>
@@ -217,20 +214,20 @@ function ActionButton({ icon: Icon, label, onClick }) {
 function SmallPopup({ title, onClose, children }) {
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60]"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl p-4 w-72 shadow-xl relative animate-fadeIn"
+        className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl p-4 w-72 shadow-xl relative animate-fadeIn transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300 transition"
         >
           <X className="w-4 h-4" />
         </button>
-        <h3 className="text-base font-semibold text-gray-800 mb-3 text-center">
+        <h3 className="text-base font-semibold mb-3 text-center">
           {title}
         </h3>
         {children}

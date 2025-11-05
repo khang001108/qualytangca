@@ -8,30 +8,33 @@ export default function OvertimeMonth({
   setSelectedYear,
   selectedDate,
   setSelectedDate,
-  onDateSelect, // ⚙️ callback để load lại members theo ngày
+  onDateSelect,
   shiftSchedules = {},
 }) {
   const [open, setOpen] = useState(false);
   const popupRef = useRef();
-
   const today = dayjs();
 
-  // ✅ Lấy số ngày trong tháng và tạo danh sách ngày an toàn (không mutate)
-  const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`).daysInMonth();
+  const daysInMonth = dayjs(
+    `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`
+  ).daysInMonth();
   const days = Array.from({ length: daysInMonth }, (_, i) =>
-    dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`)
+    dayjs(
+      `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(
+        i + 1
+      ).padStart(2, "0")}`
+    )
   );
 
-  // click outside → close popup
   useEffect(() => {
     const handleOutside = (e) => {
-      if (popupRef.current && !popupRef.current.contains(e.target)) setOpen(false);
+      if (popupRef.current && !popupRef.current.contains(e.target))
+        setOpen(false);
     };
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  // chọn ngày
   const handleSelectDate = (dateStr) => {
     const d = dayjs(dateStr);
     setSelectedDate?.(d.toDate());
@@ -45,19 +48,17 @@ export default function OvertimeMonth({
       {/* --- Nút mở lịch --- */}
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 bg-white border px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 text-sm text-gray-700"
+        className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 transition"
       >
         📅{" "}
-        {selectedDate
-          ? dayjs(selectedDate).format("DD/MM/YYYY")
-          : "Chọn ngày"}
+        {selectedDate ? dayjs(selectedDate).format("DD/MM/YYYY") : "Chọn ngày"}
       </button>
 
-      {/* --- Popup lịch nhỏ --- */}
+      {/* --- Popup lịch --- */}
       {open && (
         <div
           ref={popupRef}
-          className="absolute z-50 mt-2 bg-white border rounded-xl shadow-lg p-3 w-64"
+          className="absolute z-50 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-3 w-64 text-gray-800 dark:text-gray-200"
         >
           {/* Header chọn tháng/năm */}
           <div className="flex items-center justify-between mb-2 text-sm">
@@ -68,12 +69,12 @@ export default function OvertimeMonth({
                   setSelectedYear(selectedYear - 1);
                 } else setSelectedMonth(selectedMonth - 1);
               }}
-              className="px-2 py-1 rounded hover:bg-gray-100"
+              className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               ⬅
             </button>
 
-            <span className="font-medium text-gray-700">
+            <span className="font-medium text-gray-700 dark:text-gray-200">
               {selectedMonth}/{selectedYear}
             </span>
 
@@ -84,7 +85,7 @@ export default function OvertimeMonth({
                   setSelectedYear(selectedYear + 1);
                 } else setSelectedMonth(selectedMonth + 1);
               }}
-              className="px-2 py-1 rounded hover:bg-gray-100"
+              className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               ➡
             </button>
@@ -93,7 +94,10 @@ export default function OvertimeMonth({
           {/* Lưới ngày */}
           <div className="grid grid-cols-7 gap-1 text-center text-xs">
             {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d) => (
-              <div key={d} className="font-semibold text-gray-500 py-1">
+              <div
+                key={d}
+                className="font-semibold text-gray-500 dark:text-gray-400 py-1"
+              >
                 {d}
               </div>
             ))}
@@ -112,23 +116,27 @@ export default function OvertimeMonth({
                 else counts.day++;
               });
 
-              const bg =
-                counts.night > 0
-                  ? "bg-indigo-50"     // có ca đêm
-                  : counts.day > 0
-                    ? "bg-yellow-50"     // có ca ngày
-                    : "bg-white";        // trống
+              // Màu nền cho từng ngày
+              let bg = "bg-white dark:bg-gray-800";
 
+              // 🌙 Ca đêm → tím sáng hơn, dễ phân biệt trên dark mode
+              if (counts.night > 0) bg = "bg-indigo-100 dark:bg-indigo-800/50";
+              // ☀️ Ca ngày → vàng tươi hơn
+              else if (counts.day > 0)
+                bg = "bg-yellow-100 dark:bg-yellow-700/40";
 
+              // Viền và nền ưu tiên cho ngày hiện tại / được chọn
+              const border = isSelected
+                ? "border-blue-500 bg-blue-200 dark:bg-blue-600 dark:border-blue-400"
+                : isToday
+                ? "border-orange-500 bg-orange-200 dark:bg-orange-600 dark:border-orange-400"
+                : "border-gray-300 dark:border-gray-600";
 
               return (
                 <button
                   key={dateStr}
                   onClick={() => handleSelectDate(dateStr)}
-                  className={`p-2 rounded border text-xs ${bg} 
-                    ${isToday ? "bg-green-300 border-green-400" : "border-gray-200"} 
-                    ${isSelected ? "bg-orange-300 border-orange-400" : ""} 
-                    hover:scale-105 transition`}
+                  className={`p-2 rounded border text-xs ${bg} ${border} hover:scale-105 transition`}
                 >
                   {d.date()}
                 </button>
@@ -136,11 +144,11 @@ export default function OvertimeMonth({
             })}
           </div>
 
-          {/* --- Nút đóng popup --- */}
+          {/* --- Nút đóng --- */}
           <div className="flex justify-end mt-3">
             <button
               onClick={() => setOpen(false)}
-              className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-xs text-gray-700"
+              className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs text-gray-700 dark:text-gray-200"
             >
               Đóng
             </button>

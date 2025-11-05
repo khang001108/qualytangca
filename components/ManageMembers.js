@@ -387,13 +387,19 @@ export default function ManageMembers({
                             if (selectedDate) {
                               const dateStr =
                                 dayjs(selectedDate).format("YYYY-MM-DD");
-                              const shiftRef = collection(db, "shiftSchedules");
-                              await addDoc(shiftRef, {
+                              const safeName = m.realName.replace(
+                                /[\/\\.#$[\]]/g,
+                                "_"
+                              );
+                              const docId = `${user.uid}_${safeName}_${dateStr}`;
+                              const shiftDoc = doc(db, "shiftSchedules", docId);
+                              await setDoc(shiftDoc, {
                                 userId: user.uid,
                                 realName: m.realName,
                                 shift: m.shift,
                                 shiftStart: newShiftStart,
                                 date: dateStr,
+                                updatedAt: serverTimestamp(),
                               });
                             }
 

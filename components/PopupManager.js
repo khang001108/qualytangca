@@ -7,17 +7,24 @@ export default function PopupManager({
   user,
   selectedMonth,
   selectedYear,
+  selectedDate,
+  shiftSchedules = {},
   handleDeleteAll,
 }) {
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-x-hidden"
       onClick={onClose}
     >
-      <div
-        className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl p-6 w-[90%] max-w-5xl shadow-2xl animate-fadeIn overflow-y-auto max-h-[90vh]"
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl p-6 w-[90%] max-w-5xl shadow-2xl overflow-y-auto max-h-[90vh] border border-gray-200 dark:border-gray-700"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* --- Header --- */}
         <div className="flex items-center gap-2 mb-3 text-purple-600 dark:text-purple-400 font-semibold">
           <motion.div whileHover={{ scale: 1.1 }}>
             <Users className="w-5 h-5" />
@@ -25,10 +32,18 @@ export default function PopupManager({
           <span>Quản lý nhân viên</span>
         </div>
 
+        {/* --- Nội dung chính --- */}
         <div className="border border-zinc-300 dark:border-zinc-700 rounded-xl p-4 mb-4 hover:border-zinc-400 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-gray-800 transition">
-          <ManageMembers user={user} />
+          <ManageMembers
+            user={user}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            selectedDate={selectedDate}
+            shiftSchedules={shiftSchedules}
+          />
         </div>
 
+        {/* --- Xóa toàn bộ dữ liệu tháng --- */}
         <div className="mt-6 text-center">
           <button
             onClick={handleDeleteAll}
@@ -39,13 +54,14 @@ export default function PopupManager({
           </button>
         </div>
 
+        {/* --- Đóng --- */}
         <button
           onClick={onClose}
-          className="mt-5 w-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 py-2 rounded-lg text-gray-700 dark:text-gray-200 font-medium"
+          className="mt-5 w-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 py-2 rounded-lg text-gray-700 dark:text-gray-200 font-medium transition"
         >
           Đóng
         </button>
-      </div>
+      </motion.div>
     </div>
   );
 }
