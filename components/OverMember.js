@@ -267,7 +267,7 @@ export default function OverMember({
                         setShowSettings(true);
                       }}
                       className="p-1.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
-                      title="Cài đặt"
+                      title="Thông tin"
                     >
                       <IdCard className="w-3.5 h-3.5" />
                     </button>

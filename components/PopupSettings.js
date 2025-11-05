@@ -63,7 +63,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-indigo-600 text-center mb-3">
-          ⚙️ Cài đặt nhân viên
+          ⚙️ Thông tin nhân viên
         </h2>
 
         {/* Tóm tắt */}
