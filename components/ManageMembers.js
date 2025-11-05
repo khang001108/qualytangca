@@ -59,7 +59,8 @@ export default function ManageMembers({
     realName: "",
     nickname: "",
     shift: "Ca ngày",
-    shiftStart: "07:00",
+    shiftStart: "08:00", // ✅ hiển thị 08:00 ban đầu
+    applyLimit: false,
   });
   useEffect(() => {
     if (!user?.uid) return;
@@ -132,6 +133,22 @@ export default function ManageMembers({
 
     setAdding(true);
     try {
+      const getDefaultLimit = () => {
+        const refMember = members.find(
+          (m) =>
+            m.overtimeLimit &&
+            typeof m.overtimeLimit.monthlyLimit === "number" &&
+            m.overtimeLimit.monthlyLimit > 0
+        );
+        return refMember
+          ? {
+              monthlyLimit: refMember.overtimeLimit.monthlyLimit,
+              workedHours: 0,
+              remaining: refMember.overtimeLimit.monthlyLimit,
+            }
+          : { monthlyLimit: 0, workedHours: 0, remaining: 0 };
+      };
+
       const payload = {
         realName: form.realName.trim(),
         nickname:
@@ -140,8 +157,11 @@ export default function ManageMembers({
         shiftStart: form.shiftStart,
         userId: user.uid,
         createdAt: serverTimestamp(),
-        overtimeLimit: { monthlyLimit: 0, workedHours: 0, remaining: 0 },
+        overtimeLimit: form.applyLimit
+          ? getDefaultLimit()
+          : { monthlyLimit: 0, workedHours: 0, remaining: 0 },
       };
+
       const ref = await addDoc(collection(db, "members"), payload);
       setMembers([{ id: ref.id, ...payload }, ...members]);
       setForm({
@@ -450,6 +470,7 @@ export default function ManageMembers({
             </div>
 
             <form onSubmit={handleAddMember} className="space-y-3">
+              {/* --- Tên chính --- */}
               <div>
                 <label className="text-sm text-gray-600 dark:text-gray-400">
                   Tên Chính
@@ -459,10 +480,13 @@ export default function ManageMembers({
                   onChange={(e) =>
                     setForm({ ...form, realName: e.target.value })
                   }
-                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
+                  placeholder="Nhập tên chính..."
+                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
+                  required
                 />
               </div>
 
+              {/* --- Tên phụ --- */}
               <div>
                 <label className="text-sm text-gray-600 dark:text-gray-400">
                   Tên Phụ
@@ -472,10 +496,66 @@ export default function ManageMembers({
                   onChange={(e) =>
                     setForm({ ...form, nickname: e.target.value })
                   }
+                  placeholder="Nhập tên phụ (tuỳ chọn)..."
+                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
+                />
+              </div>
+
+              {/* --- Chọn Ca làm việc --- */}
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  Ca làm việc
+                </label>
+                <select
+                  value={form.shift}
+                  onChange={(e) => {
+                    const newShift = e.target.value;
+                    const newStart = newShift === "Ca đêm" ? "20:00" : "08:00"; // ✅ hiển thị 8h hoặc 20h
+                    setForm({ ...form, shift: newShift, shiftStart: newStart });
+                  }}
+                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
+                >
+                  <option value="Ca ngày">Ca ngày</option>
+                  <option value="Ca đêm">Ca đêm</option>
+                </select>
+              </div>
+
+              {/* --- Giờ bắt đầu --- */}
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  Giờ bắt đầu
+                </label>
+                <input
+                  type="time"
+                  value={form.shiftStart}
+                  onChange={(e) =>
+                    setForm({ ...form, shiftStart: e.target.value })
+                  }
+                  step="900" // 15 phút
                   className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
                 />
               </div>
 
+              {/* --- Checkbox giới hạn tăng ca --- */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="applyLimit"
+                  checked={form.applyLimit || false}
+                  onChange={(e) =>
+                    setForm({ ...form, applyLimit: e.target.checked })
+                  }
+                  className="w-4 h-4 accent-indigo-600"
+                />
+                <label
+                  htmlFor="applyLimit"
+                  className="text-sm text-gray-700 dark:text-gray-300 select-none"
+                >
+                  Áp dụng giới hạn tăng ca hiện tại của nhân viên khác
+                </label>
+              </div>
+
+              {/* --- Nút Lưu / Hủy --- */}
               <div className="flex gap-2">
                 <button
                   type="submit"
