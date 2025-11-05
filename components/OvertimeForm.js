@@ -1,4 +1,3 @@
-// src/components/OvertimeForm.js
 import { useState, useRef } from "react";
 import { CirclePlus } from "lucide-react";
 import Toast from "./Toast";
@@ -16,11 +15,21 @@ export default function OvertimeForm({
   const [formOpen, setFormOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [mode, setMode] = useState("checkin"); // "checkin" | "checkout"
-  const [toast, setToast] = useState(null);
   const modalRef = useRef();
-  const lastToastRef = useRef({ msg: null, ts: 0 });
 
-  const { toast: parserToast, parseText } = useOvertimeParser({
+  // 🔹 Toast song song
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (type, message) => {
+    const id = Date.now() + Math.random(); // tránh trùng id
+    setToasts((prev) => [...prev, { id, type, message }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const { parseText } = useOvertimeParser({
     user,
     members,
     setMembers,
@@ -30,36 +39,28 @@ export default function OvertimeForm({
     selectedDate,
   });
 
-  // Toast trùng lặp
-  const showUniqueToast = (type, message) => {
-    const now = Date.now();
-    if (
-      lastToastRef.current.msg === message &&
-      now - lastToastRef.current.ts < 3000
-    )
-      return;
-    lastToastRef.current = { msg: message, ts: now };
-    setToast({ type, message });
-    setTimeout(() => {
-      setToast((cur) => (cur && cur.message === message ? null : cur));
-    }, 3000);
-  };
-
   const handleParse = async () => {
-    // Bỏ shiftType, vì giờ form không có chọn ca
-    await parseText(textInput, mode);
-    setTextInput("");
-    setFormOpen(false);
-  };
+    if (!textInput.trim()) {
+      showToast("error", "⚠️ Vui lòng nhập dữ liệu chấm công trước.");
+      return;
+    }
 
-  const showToast = toast || parserToast;
+    try {
+      await parseText(textInput, mode);
+      showToast("success", "✅ Dữ liệu chấm công đã được xử lý thành công!");
+    } catch (err) {
+      console.error("Lỗi xử lý:", err);
+      showToast("error", "❌ Đã xảy ra lỗi khi xử lý dữ liệu!");
+    } finally {
+      setTextInput("");
+      setFormOpen(false);
+    }
+  };
 
   return (
     <>
-      {/* Toast */}
-      {showToast && showToast.message && (
-        <Toast message={showToast.message} type={showToast.type} />
-      )}
+      {/* 🔹 Toast nhiều cái cùng lúc */}
+      <Toast toasts={toasts} onClose={removeToast} />
 
       {/* Nút mở form */}
       <div className="flex justify-end mb-2">
@@ -71,7 +72,7 @@ export default function OvertimeForm({
         </button>
       </div>
 
-      {/* Modal */}
+      {/* Modal nhập dữ liệu */}
       {formOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
@@ -92,7 +93,7 @@ export default function OvertimeForm({
               <button onClick={() => setFormOpen(false)}>✕</button>
             </div>
 
-            {/* 🔹 Chế độ Check-in / Check-out */}
+            {/* 🔹 Chọn chế độ */}
             <div className="flex gap-2 mb-4">
               <button
                 className={`flex-1 py-2 rounded-lg border transition ${
@@ -116,7 +117,7 @@ export default function OvertimeForm({
               </button>
             </div>
 
-            {/* 🔹 Nhập dữ liệu */}
+            {/* 🔹 Ô nhập dữ liệu */}
             <label className="text-sm text-gray-600 mb-1 block">
               Dán dữ liệu chấm công (
               {mode === "checkin" ? "Lên ca" : "Xuống ca"})

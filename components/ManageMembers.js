@@ -238,13 +238,13 @@ export default function ManageMembers({
               <th className="p-2 text-center w-36">
                 <div className="flex items-center justify-center gap-1">
                   <CircleUser className="w-4 h-4 text-blue-500" />
-                  <span>Tên Nước Ngoài</span>
+                  <span>Tên Chính</span>
                 </div>
               </th>
               <th className="p-2 text-center w-40">
                 <div className="flex items-center justify-center gap-1">
                   <User className="w-4 h-4 text-blue-500" />
-                  <span>Tên Việt Nam</span>
+                  <span>Tên Phụ</span>
                 </div>
               </th>
               <th className="p-2 text-center w-24">
