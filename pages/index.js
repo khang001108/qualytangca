@@ -12,7 +12,7 @@ import { auth, db } from "../lib/firebase";
 import dayjs from "dayjs";
 
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { LogOut, ArrowUp } from "lucide-react";
+import { LogOut, ArrowUp, Moon, Sun } from "lucide-react";
 import {
   collection,
   getDocs,
@@ -36,52 +36,74 @@ export default function Home() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showManager, setShowManager] = useState(false);
   const [showOvertimeForm, setShowOvertimeForm] = useState(false);
+  const [dark, setDark] = useState(false);
 
   const [shiftSchedules, setShiftSchedules] = useState({});
-  // structure: { "2025-11-03": { "裴泰南": { shift: "Ca đêm", shiftStart: "19:00" }, ... }, ... }
-
   const chartRef = useRef(null);
+
+  // 🔹 Khởi tạo theme
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+    const enabled = saved === "dark" || (!saved && prefersDark);
+    setDark(enabled);
+    if (enabled) document.documentElement.classList.add("dark");
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
     return () => unsub();
   }, []);
 
-  // fetch members realtime
-  useEffect(() => {
-    if (!user) return;
-    const col = collection(db, "members");
-    const q = query(col, where("userId", "==", user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
-  }, [user?.uid]);
+  // useEffect(() => {
+  //   if (!user) return;
+  //   const col = collection(db, "members");
+  //   const q = query(col, where("userId", "==", user.uid));
+  //   const unsub = onSnapshot(q, (snap) => {
+  //     setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  //   });
+  //   return () => unsub();
+  // }, [user?.uid]);
 
-  // fetch overtimes realtime
   useEffect(() => {
     if (!user) return;
     const col = collection(db, "overtimes");
-    const q = query(col, where("userId", "==", user.uid), where("year", "==", selectedYear));
+    const q = query(
+      col,
+      where("userId", "==", user.uid),
+      where("year", "==", selectedYear)
+    );
     const unsub = onSnapshot(q, (snap) => {
       setOvertimeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, [user?.uid, selectedYear]);
 
-  // fetch shiftSchedules for month (realtime)
   useEffect(() => {
     if (!user) return;
-    const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
-    const lastDay = new Date(selectedYear, selectedMonth, 0);
-    const startStr = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`)
-      .format("YYYY-MM-DD");
-
-    const endStr = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}`)
+    const startStr = dayjs(
+      `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`
+    ).format("YYYY-MM-DD");
+    const endStr = dayjs(
+      `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`
+    )
       .endOf("month")
       .format("YYYY-MM-DD");
 
-    const col = collection(db, "shiftSchedules");
     const q = query(
       collection(db, "shiftSchedules"),
       where("userId", "==", user.uid),
@@ -93,9 +115,11 @@ export default function Home() {
       const map = {};
       snap.docs.forEach((d) => {
         const data = d.data();
-        const date = data.date;
-        if (!map[date]) map[date] = {};
-        map[date][data.realName] = { shift: data.shift, shiftStart: data.shiftStart };
+        if (!map[data.date]) map[data.date] = {};
+        map[data.date][data.realName] = {
+          shift: data.shift,
+          shiftStart: data.shiftStart,
+        };
       });
       setShiftSchedules(map);
     });
@@ -114,12 +138,11 @@ export default function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // 🔁 Khi đổi ngày hoặc shiftSchedules cập nhật → đồng bộ ca làm của member
   useEffect(() => {
-    const dateStr = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : "";
+    const dateStr = selectedDate
+      ? dayjs(selectedDate).format("YYYY-MM-DD")
+      : "";
     if (!dateStr) return;
-
-    // Nếu không có phân ca trong ngày đó, giữ nguyên danh sách
     if (!shiftSchedules[dateStr]) {
       setMembers((prev) =>
         prev.map((m) => ({
@@ -130,8 +153,6 @@ export default function Home() {
       );
       return;
     }
-
-    // Gán ca theo dữ liệu shiftSchedules của ngày đang chọn
     setMembers((prev) =>
       prev.map((m) => {
         const shiftData = shiftSchedules[dateStr]?.[m.realName];
@@ -144,12 +165,7 @@ export default function Home() {
     );
   }, [selectedDate, shiftSchedules]);
 
-
-  // 🔹 Hàm mới: đổi ngày + lọc members theo shiftSchedules
-  const fetchMembersForDate = (dateStr) => {
-    setSelectedDate(new Date(dateStr)); // chỉ set ngày, không lọc ngay
-  };
-
+  const fetchMembersForDate = (dateStr) => setSelectedDate(new Date(dateStr));
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -157,20 +173,21 @@ export default function Home() {
   };
 
   const handleDeleteAll = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?")) return;
+    if (
+      !window.confirm(
+        "Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?"
+      )
+    )
+      return;
     try {
-      // 🔹 Xóa toàn bộ dữ liệu tăng ca trong tháng
       const q = query(
         collection(db, "overtimes"),
         where("month", "==", selectedMonth),
         where("year", "==", selectedYear)
       );
       const snap = await getDocs(q);
-      for (const d of snap.docs) {
-        await deleteDoc(doc(db, "overtimes", d.id));
-      }
+      for (const d of snap.docs) await deleteDoc(doc(db, "overtimes", d.id));
 
-      // 🔹 Lấy danh sách nhân viên và reset dữ liệu
       const membersRef = collection(db, "members");
       const membersSnap = await getDocs(membersRef);
 
@@ -178,19 +195,16 @@ export default function Home() {
         const data = m.data();
         const isNight = data.shift?.toLowerCase().includes("đêm");
         const defaultStart = isNight ? "20:00" : "08:00";
-
         await updateDoc(doc(db, "members", m.id), {
           lastCheckInDate: "",
           lastCheckInTime: "",
           lastCheckOutTime: "",
-          earlyShift: false, // ✅ bỏ tích lên ca sớm
-          shiftStart: defaultStart, // ✅ reset giờ ca mặc định
+          earlyShift: false,
+          shiftStart: defaultStart,
           "overtimeLimit.workedHours": 0,
           "overtimeLimit.remaining": data.overtimeLimit?.monthlyLimit ?? 0,
         });
       }
-
-      // 🔹 Cập nhật lại state hiển thị
       setOvertimeItems([]);
       setMembers((prev) =>
         prev.map((m) => {
@@ -210,7 +224,6 @@ export default function Home() {
           };
         })
       );
-
       alert("✅ Đã xóa toàn bộ dữ liệu tháng và bỏ tích 'Lên ca sớm'.");
     } catch (err) {
       console.error("Lỗi khi xóa dữ liệu:", err);
@@ -218,10 +231,9 @@ export default function Home() {
     }
   };
 
-
   if (!user)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-200 via-blue-50 to-white">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-200 via-blue-50 to-white dark:bg-gray-900 dark:from-gray-900 dark:via-gray-900">
         <a
           href="/login"
           className="bg-indigo-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:scale-105 transition"
@@ -232,20 +244,33 @@ export default function Home() {
     );
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-200 via-blue-50 to-white">
+    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-200 via-blue-50 to-white dark:bg-gray-900 dark:from-gray-900 dark:via-gray-900">
       <div className="w-full max-w-6xl p-4 space-y-5">
-        <div className="bg-white shadow p-4 rounded-2xl flex justify-between items-center border border-indigo-100">
-          <h1 className="text-xl font-bold text-gray-800">🕒 Quản Lý Tăng Ca</h1>
+        <div className="bg-white shadow p-4 rounded-2xl flex justify-between items-center border border-indigo-100 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            🕒 Quản Lý Tăng Ca
+          </h1>
           <div className="flex items-center gap-2">
             <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Chuyển giao diện"
+            >
+              {dark ? (
+                <Sun className="w-5 h-5 text-yellow-300" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
+            <button
               onClick={() => setShowManager(true)}
-              className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm dark:bg-indigo-600 dark:hover:bg-indigo-700"
             >
               ⚙️ Quản lý
             </button>
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-full"
+              className="p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-full"
               title="Thoát"
             >
               <LogOut className="w-5 h-5" />
@@ -283,9 +308,8 @@ export default function Home() {
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
           selectedDate={selectedDate}
-          shiftSchedules={shiftSchedules} // ✅ thêm dòng này
+          shiftSchedules={shiftSchedules}
         />
-
 
         <OvertimeSummary
           user={user}
@@ -304,60 +328,28 @@ export default function Home() {
         />
 
         <div ref={chartRef}>
-          <OvertimeChart overtimes={overtimeItems} selectedYear={selectedYear} />
+          <OvertimeChart
+            overtimes={overtimeItems}
+            selectedYear={selectedYear}
+          />
         </div>
       </div>
-
-      {showOvertimeForm && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowOvertimeForm(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 w-[90%] max-w-2xl shadow-2xl animate-fadeIn overflow-y-auto max-h-[90vh]"
-          >
-            <OvertimeForm
-              user={user}
-              members={members}
-              setMembers={setMembers}
-              setItems={setOvertimeItems}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              selectedDate={selectedDate}
-            />
-            <button
-              onClick={() => setShowOvertimeForm(false)}
-              className="mt-5 w-full bg-gray-100 hover:bg-gray-200 py-2 rounded-lg text-gray-700 font-medium"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
 
       {showManager && (
         <PopupManager
           onClose={() => setShowManager(false)}
           user={user}
-          members={members}
-          setMembers={setMembers}
-          overtimeLimit={overtimeLimit}
-          setOvertimeLimit={setOvertimeLimit}
-          overtimeItems={overtimeItems}
-          setOvertimeItems={setOvertimeItems}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          selectedDate={selectedDate}
-          shiftSchedules={shiftSchedules}   // ✅ thêm dòng này
           handleDeleteAll={handleDeleteAll}
         />
       )}
 
       {toast && (
         <div
-          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100] ${toast.type === "error" ? "bg-red-500" : "bg-green-500"
-            }`}
+          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100] ${
+            toast.type === "error" ? "bg-red-500" : "bg-green-500"
+          }`}
         >
           {toast.msg}
         </div>
@@ -366,7 +358,7 @@ export default function Home() {
       {showScrollTop && (
         <motion.button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 right-6 w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600"
+          className="fixed bottom-6 right-6 w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600 dark:bg-indigo-600"
         >
           <ArrowUp className="w-5 h-5" />
         </motion.button>

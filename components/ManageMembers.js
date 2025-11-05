@@ -1,4 +1,5 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import dayjs from "dayjs";
 import {
@@ -10,23 +11,23 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import {
-  Search, //search icon
-  UserPlus, // người dùng
-  Trash2, // thùng rác
-  Clock, // đồng hồ
-  Loader2, // biểu tượng tải
-  Moon, // moon icon
-  SunMedium, // sun icon
-  CircleUser, // vòng tròn người dùng
-  User, // người dùng
-  ListOrdered, // danh sách có thứ tự
-  BriefcaseBusiness, // cặp doanh nghiệp
-  ClockArrowUp, // đồng hồ mũi tên lên
-  ClockFading, // đồng hồ mờ dần
-  CalendarClock, // đồng hồ kiểm tra
-  Hourglass, // đồng hồ cát
-  Timer, // hẹn giờ
-  CalendarArrowUp, // lịch mũi tên lên
+  Search,
+  UserPlus,
+  Trash2,
+  Clock,
+  Loader2,
+  Moon,
+  SunMedium,
+  CircleUser,
+  User,
+  ListOrdered,
+  BriefcaseBusiness,
+  ClockArrowUp,
+  ClockFading,
+  CalendarClock,
+  Hourglass,
+  Timer,
+  CalendarArrowUp,
 } from "lucide-react";
 
 import Toast from "./Toast";
@@ -35,8 +36,6 @@ import PopupAssignShift from "./PopupAssignShift";
 
 export default function ManageMembers({
   user,
-  members,
-  setMembers,
   selectedMonth,
   selectedYear,
   selectedDate,
@@ -45,13 +44,16 @@ export default function ManageMembers({
   const [searchTerm, setSearchTerm] = useState("");
   const [adding, setAdding] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const modalRef = useRef();
-
+  const [toast, setToast] = useState({ message: "", type: "" });
   const [showAdd, setShowAdd] = useState(false);
   const [showLimit, setShowLimit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [limitInput, setLimitInput] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [members, setMembers] = useState([]); // ✅ thêm dòng này
+
+  const modalRef = useRef();
 
   const [form, setForm] = useState({
     realName: "",
@@ -59,31 +61,36 @@ export default function ManageMembers({
     shift: "Ca ngày",
     shiftStart: "07:00",
   });
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, "members"), where("userId", "==", user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        overtimeLimit: d.data().overtimeLimit || {},
+      }));
+      setMembers(data);
+    });
+    return () => unsub();
+  }, [user?.uid]);
 
-  const [limitInput, setLimitInput] = useState("");
-  const [selectedIds, setSelectedIds] = useState([]);
-
-  // ✅ Toast
-  const [toast, setToast] = useState({ message: "", type: "" });
   const showToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast({ message: "", type: "" }), 3000);
   };
 
-  // ✅ Toggle chọn tất cả
   const toggleAll = () => {
     if (selectedIds.length === members.length) setSelectedIds([]);
     else setSelectedIds(members.map((m) => m.id));
   };
 
-  // ✅ Toggle chọn từng người
   const toggleSelect = (id) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
-  // ✅ Giới hạn tăng ca
   const handleSetLimit = async () => {
     const val = Number(limitInput);
     if (!val || val <= 0) return showToast("Nhập số giờ hợp lệ.", "error");
@@ -119,7 +126,6 @@ export default function ManageMembers({
     }
   };
 
-  // ✅ Thêm nhân viên mới
   const handleAddMember = async (e) => {
     e?.preventDefault();
     if (!form.realName.trim()) return showToast("Nhập tên thật.", "error");
@@ -154,16 +160,13 @@ export default function ManageMembers({
     }
   };
 
-  // ✅ Xóa nhân viên
   const handleDeleteMembers = async () => {
     if (selectedIds.length === 0)
       return showToast("Chọn ít nhất 1 nhân viên.", "error");
 
     setLoading(true);
     try {
-      for (const id of selectedIds) {
-        await deleteDoc(doc(db, "members", id));
-      }
+      for (const id of selectedIds) await deleteDoc(doc(db, "members", id));
       setMembers((prev) => prev.filter((m) => !selectedIds.includes(m.id)));
       setSelectedIds([]);
       showToast(`Đã xóa ${selectedIds.length} nhân viên.`, "success");
@@ -179,45 +182,44 @@ export default function ManageMembers({
   const fmt = (n) => `${Number(n || 0).toLocaleString()}h`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-gray-800 dark:text-gray-200">
       {/* --- Thanh công cụ --- */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-gray-400" />
+          <Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm nhân viên..."
-            className="border px-2 py-1 rounded-lg text-sm"
+            className="border px-2 py-1 rounded-lg text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200"
           />
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLimit(true)}
-            className="flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm dark:bg-indigo-600 dark:hover:bg-indigo-700"
           >
             <Clock className="w-4 h-4" /> Giới hạn tăng ca
           </button>
 
           <button
             onClick={() => setShowAssign(true)}
-            className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm dark:bg-purple-600 dark:hover:bg-purple-700"
           >
-            <CalendarArrowUp className="w-4 h-4" />
-             Phân ca theo ngày
+            <CalendarArrowUp className="w-4 h-4" /> Phân ca theo ngày
           </button>
 
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm dark:bg-green-600 dark:hover:bg-green-700"
           >
             <UserPlus className="w-4 h-4" /> Thêm nhân viên
           </button>
 
           <button
             onClick={() => setShowDelete(true)}
-            className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm dark:bg-red-600 dark:hover:bg-red-700"
           >
             <Trash2 className="w-4 h-4" /> Xóa nhân viên
           </button>
@@ -225,9 +227,9 @@ export default function ManageMembers({
       </div>
 
       {/* --- Bảng nhân viên --- */}
-      <div className="overflow-x-auto border border-gray-800 rounded-xl shadow-sm">
-        <table className="w-full text-sm border border-gray-300 border-collapse rounded-xl overflow-hidden mx-auto [&_th]:border [&_td]:border [&_th]:border-gray-800 [&_td]:border-gray-800">
-          <thead className="bg-gray-200 text-gray-700 font-semibold">
+      <div className="overflow-x-auto border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm">
+        <table className="w-full text-sm border border-gray-300 dark:border-gray-700 border-collapse rounded-xl overflow-hidden mx-auto [&_th]:border [&_td]:border [&_th]:border-gray-300 dark:[&_th]:border-gray-700 [&_td]:border-gray-300 dark:[&_td]:border-gray-700">
+          <thead className="bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold">
             <tr>
               <th className="p-2 text-center w-12">
                 <div className="flex items-center justify-center gap-1">
@@ -289,7 +291,10 @@ export default function ManageMembers({
           <tbody className="text-center">
             {members.length === 0 ? (
               <tr>
-                <td colSpan="9" className="text-center py-4 text-gray-400">
+                <td
+                  colSpan="9"
+                  className="text-center py-4 text-gray-400 dark:text-gray-500"
+                >
                   Không có nhân viên.
                 </td>
               </tr>
@@ -298,8 +303,7 @@ export default function ManageMembers({
                 const limit = m.overtimeLimit?.monthlyLimit || 0;
                 const worked = m.overtimeLimit?.workedHours || 0;
                 const total = limit + worked;
-
-                let dateStr = selectedDate
+                const dateStr = selectedDate
                   ? dayjs(selectedDate).format("YYYY-MM-DD")
                   : null;
                 const shiftData = dateStr
@@ -309,7 +313,10 @@ export default function ManageMembers({
                 const shiftStart = shiftData?.shiftStart || m.shiftStart;
 
                 return (
-                  <tr key={m.id} className="hover:bg-purple-100 transition-colors">
+                  <tr
+                    key={m.id}
+                    className="hover:bg-purple-100 dark:hover:bg-gray-800 transition-colors"
+                  >
                     <td className="p-2 font-medium">{index + 1}</td>
                     <td className="p-2">{m.realName}</td>
                     <td className="p-2">{m.nickname}</td>
@@ -327,13 +334,13 @@ export default function ManageMembers({
                       )}
                     </td>
                     <td className="p-2">{shiftStart}</td>
-                    <td className="p-2 text-green-600 font-semibold">
+                    <td className="p-2 text-green-600 dark:text-green-400 font-semibold">
                       {fmt(limit)}
                     </td>
-                    <td className="p-2 text-yellow-600 font-semibold">
+                    <td className="p-2 text-yellow-600 dark:text-yellow-400 font-semibold">
                       {fmt(worked)}
                     </td>
-                    <td className="p-2 text-indigo-700 font-semibold">
+                    <td className="p-2 text-indigo-700 dark:text-indigo-400 font-semibold">
                       {fmt(total)}
                     </td>
                     <td className="p-2">
@@ -342,10 +349,11 @@ export default function ManageMembers({
                         checked={m.earlyShift || false}
                         onChange={async (e) => {
                           const checked = e.target.checked;
-                          const updated = members.map((mem) => {
-                            if (mem.id !== m.id) return mem;
-                            const isNight = mem.shift
-                              ?.toLowerCase()
+
+                          try {
+                            // 🔹 Xác định ca làm
+                            const isNight = (m.shift || "")
+                              .toLowerCase()
                               .includes("đêm");
                             const newShiftStart = checked
                               ? isNight
@@ -354,29 +362,50 @@ export default function ManageMembers({
                               : isNight
                               ? "20:00"
                               : "08:00";
-                            return {
-                              ...mem,
+
+                            // 🔹 Cập nhật UI ngay lập tức
+                            setMembers((prev) =>
+                              prev.map((mem) =>
+                                mem.id === m.id
+                                  ? {
+                                      ...mem,
+                                      earlyShift: checked,
+                                      shiftStart: newShiftStart,
+                                    }
+                                  : mem
+                              )
+                            );
+
+                            // 🔹 Cập nhật Firestore
+                            const memberRef = doc(db, "members", m.id);
+                            await updateDoc(memberRef, {
                               earlyShift: checked,
                               shiftStart: newShiftStart,
-                            };
-                          });
-                          setMembers(updated);
+                            });
 
-                          const ref = doc(db, "members", m.id);
-                          const isNight = m.shift
-                            ?.toLowerCase()
-                            .includes("đêm");
-                          const newShiftStart = checked
-                            ? isNight
-                              ? "19:00"
-                              : "07:00"
-                            : isNight
-                            ? "20:00"
-                            : "08:00";
-                          await updateDoc(ref, {
-                            earlyShift: checked,
-                            shiftStart: newShiftStart,
-                          });
+                            // 🔹 Đồng bộ shiftSchedules nếu có ngày đang chọn
+                            if (selectedDate) {
+                              const dateStr =
+                                dayjs(selectedDate).format("YYYY-MM-DD");
+                              const shiftRef = collection(db, "shiftSchedules");
+                              await addDoc(shiftRef, {
+                                userId: user.uid,
+                                realName: m.realName,
+                                shift: m.shift,
+                                shiftStart: newShiftStart,
+                                date: dateStr,
+                              });
+                            }
+
+                            console.log(
+                              `✅ Đã cập nhật ${m.realName} → ${newShiftStart}`
+                            );
+                          } catch (err) {
+                            console.error("❌ Lỗi cập nhật Firestore:", err);
+                            alert(
+                              "Không thể cập nhật Firestore. Kiểm tra console để biết chi tiết."
+                            );
+                          }
                         }}
                       />
                     </td>
@@ -401,14 +430,14 @@ export default function ManageMembers({
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div
             ref={modalRef}
-            className="relative bg-white w-11/12 max-w-md p-6 rounded-xl shadow-2xl z-10"
+            className="relative bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 w-11/12 max-w-md p-6 rounded-xl shadow-2xl z-10"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-semibold">Thêm nhân viên</h3>
               <button
                 onClick={() => setShowAdd(false)}
-                className="text-gray-500 hover:text-gray-800"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 ✕
               </button>
@@ -416,24 +445,28 @@ export default function ManageMembers({
 
             <form onSubmit={handleAddMember} className="space-y-3">
               <div>
-                <label className="text-sm text-gray-600">Tên Chính</label>
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  Tên Chính
+                </label>
                 <input
                   value={form.realName}
                   onChange={(e) =>
                     setForm({ ...form, realName: e.target.value })
                   }
-                  className="w-full border p-2 rounded mt-1"
+                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
                 />
               </div>
 
               <div>
-                <label className="text-sm text-gray-600">Tên Phụ</label>
+                <label className="text-sm text-gray-600 dark:text-gray-400">
+                  Tên Phụ
+                </label>
                 <input
                   value={form.nickname}
                   onChange={(e) =>
                     setForm({ ...form, nickname: e.target.value })
                   }
-                  className="w-full border p-2 rounded mt-1"
+                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
                 />
               </div>
 
@@ -441,7 +474,7 @@ export default function ManageMembers({
                 <button
                   type="submit"
                   disabled={adding}
-                  className="flex-1 bg-indigo-600 text-white py-2 rounded hover:brightness-110 flex justify-center items-center gap-2"
+                  className="flex-1 bg-indigo-600 text-white py-2 rounded hover:brightness-110 flex justify-center items-center gap-2 dark:bg-indigo-700 dark:hover:bg-indigo-800"
                 >
                   {adding ? (
                     <>
@@ -459,7 +492,7 @@ export default function ManageMembers({
                 <button
                   type="button"
                   onClick={() => setShowAdd(false)}
-                  className="flex-1 bg-gray-200 py-2 rounded hover:bg-gray-300"
+                  className="flex-1 bg-gray-200 dark:bg-gray-700 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
                 >
                   Hủy
                 </button>
@@ -469,7 +502,6 @@ export default function ManageMembers({
         </div>
       )}
 
-      {/* --- Popup Giới hạn tăng ca --- */}
       {showLimit && (
         <PopupSelect
           title="Giới hạn tăng ca"
@@ -490,7 +522,7 @@ export default function ManageMembers({
       {/* --- Popup phân ca theo ngày --- */}
       {showAssign && (
         <PopupAssignShift
-          user={user} // ✅ thêm truyền user
+          user={user}
           members={members}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
