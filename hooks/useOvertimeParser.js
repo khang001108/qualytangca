@@ -1,6 +1,7 @@
 // src/hooks/useOvertimeParser.js
 import { useState, useRef } from "react";
 import { db } from "../lib/firebase";
+import dayjs from "dayjs";
 import {
   collection,
   query,
@@ -68,11 +69,10 @@ export default function useOvertimeParser({
         .map((l) => l.trim())
         .filter((l) => l.length > 0 && !/上下班打卡记录/.test(l));
 
-      const dateObj = selectedDate ? new Date(selectedDate) : new Date();
-      const currentDate = dateObj.toISOString().split("T")[0];
-      const month = dateObj.getMonth() + 1;
-      const year = dateObj.getFullYear();
-
+      const dateObj = selectedDate ? dayjs(selectedDate) : dayjs();
+      const currentDate = dateObj.format("YYYY-MM-DD");
+      const month = dateObj.month() + 1;
+      const year = dateObj.year();
       // load shiftSchedules for this date (if any) to avoid per-line queries
       const shiftMap = {}; // realName -> {shift, shiftStart}
       const shiftQ = query(collection(db, "shiftSchedules"), where("userId", "==", user.uid), where("date", "==", currentDate));
@@ -84,7 +84,7 @@ export default function useOvertimeParser({
 
       let added = 0, updated = 0, skipped = 0;
 
-      const leaveCodes = ["休","年假","病假","事假","调休","婚假","丧假","产假","陪产假","工伤假","产检假","哺乳假","旷工"];
+      const leaveCodes = ["休", "年假", "病假", "事假", "调休", "婚假", "丧假", "产假", "陪产假", "工伤假", "产检假", "哺乳假", "旷工"];
 
       for (const rawLine of lines) {
         const line = rawLine.replace(/^\d+\.\s*/, "").trim();
@@ -98,7 +98,7 @@ export default function useOvertimeParser({
         if (rawLine.includes("4h事假")) {
           const memberMatch = members.find(m => m.realName.trim() === realName);
           if (memberMatch) {
-            const q = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+            const q = query(collection(db, "overtimes"), where("userId", "==", user.uid), where("realName", "==", realName), where("currentDate", "==", currentDate));
             const snap = await getDocs(q);
             if (snap.empty) {
               await addDoc(collection(db, "overtimes"), {
@@ -127,7 +127,7 @@ export default function useOvertimeParser({
         if (isLeave) {
           const memberMatch = members.find(m => m.realName.trim() === realName);
           if (!memberMatch) { skipped++; continue; }
-          const q = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+          const q = query(collection(db, "overtimes"), where("userId", "==", user.uid), where("realName", "==", realName), where("currentDate", "==", currentDate));
           const snap = await getDocs(q);
           if (snap.empty) {
             await addDoc(collection(db, "overtimes"), {
@@ -190,7 +190,7 @@ export default function useOvertimeParser({
 
         // check-in existence for checkout
         if (mode === "checkin") {
-          const qCheck = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+          const qCheck = query(collection(db, "overtimes"), where("userId", "==", user.uid), where("realName", "==", realName), where("currentDate", "==", currentDate));
           const snapCheck = await getDocs(qCheck);
           if (!snapCheck.empty) {
             showUniqueToast("error", `⚠️ ${realName} đã có check-in hôm nay, vui lòng kiểm tra lại.`);
@@ -206,7 +206,7 @@ export default function useOvertimeParser({
         }
 
         // save overtime
-        const q = query(collection(db, "overtimes"), where("userId","==",user.uid), where("realName","==",realName), where("currentDate","==",currentDate));
+        const q = query(collection(db, "overtimes"), where("userId", "==", user.uid), where("realName", "==", realName), where("currentDate", "==", currentDate));
         const snap = await getDocs(q);
 
         let hours = 0;

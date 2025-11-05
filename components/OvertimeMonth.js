@@ -15,10 +15,12 @@ export default function OvertimeMonth({
   const popupRef = useRef();
 
   const today = dayjs();
-  const firstDay = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`);
-  const days = new Array(firstDay.daysInMonth())
-    .fill(0)
-    .map((_, i) => firstDay.date(i + 1));
+
+  // ✅ Lấy số ngày trong tháng và tạo danh sách ngày an toàn (không mutate)
+  const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`).daysInMonth();
+  const days = Array.from({ length: daysInMonth }, (_, i) =>
+    dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`)
+  );
 
   // click outside → close popup
   useEffect(() => {
@@ -30,11 +32,12 @@ export default function OvertimeMonth({
   }, []);
 
   // chọn ngày
-  const handleSelectDate = (d) => {
-    setSelectedDate?.(d);
+  const handleSelectDate = (dateStr) => {
+    const d = dayjs(dateStr);
+    setSelectedDate?.(d.toDate());
     setSelectedMonth?.(d.month() + 1);
     setSelectedYear?.(d.year());
-    onDateSelect?.(d); // 🔹 Gọi callback để đổi dữ liệu member
+    onDateSelect?.(d);
   };
 
   return (
@@ -110,19 +113,21 @@ export default function OvertimeMonth({
               });
 
               const bg =
-                counts.day > counts.night
-                  ? "bg-yellow-50"
-                  : counts.night > counts.day
-                  ? "bg-indigo-50"
-                  : "bg-white";
+                counts.night > 0
+                  ? "bg-indigo-50"     // có ca đêm
+                  : counts.day > 0
+                    ? "bg-yellow-50"     // có ca ngày
+                    : "bg-white";        // trống
+
+
 
               return (
                 <button
                   key={dateStr}
-                  onClick={() => handleSelectDate(d)}
+                  onClick={() => handleSelectDate(dateStr)}
                   className={`p-2 rounded border text-xs ${bg} 
-                    ${isToday ? "border-green-400" : "border-gray-200"} 
-                    ${isSelected ? "bg-orange-100 border-orange-400" : ""} 
+                    ${isToday ? "bg-green-300 border-green-400" : "border-gray-200"} 
+                    ${isSelected ? "bg-orange-300 border-orange-400" : ""} 
                     hover:scale-105 transition`}
                 >
                   {d.date()}

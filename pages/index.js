@@ -9,6 +9,8 @@ import OvertimeMonth from "../components/OvertimeMonth";
 import OvertimeForm from "../components/OvertimeForm";
 import PopupManager from "../components/PopupManager";
 import { auth, db } from "../lib/firebase";
+import dayjs from "dayjs";
+
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { LogOut, ArrowUp } from "lucide-react";
 import {
@@ -72,16 +74,21 @@ export default function Home() {
     if (!user) return;
     const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
     const lastDay = new Date(selectedYear, selectedMonth, 0);
-    const startStr = firstDay.toISOString().split("T")[0];
-    const endStr = lastDay.toISOString().split("T")[0];
+    const startStr = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`)
+      .format("YYYY-MM-DD");
+
+    const endStr = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}`)
+      .endOf("month")
+      .format("YYYY-MM-DD");
 
     const col = collection(db, "shiftSchedules");
     const q = query(
-      col,
+      collection(db, "shiftSchedules"),
       where("userId", "==", user.uid),
       where("date", ">=", startStr),
       where("date", "<=", endStr)
     );
+
     const unsub = onSnapshot(q, (snap) => {
       const map = {};
       snap.docs.forEach((d) => {
@@ -107,19 +114,42 @@ export default function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // 🔁 Khi đổi ngày hoặc shiftSchedules cập nhật → đồng bộ ca làm của member
+  useEffect(() => {
+    const dateStr = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : "";
+    if (!dateStr) return;
+
+    // Nếu không có phân ca trong ngày đó, giữ nguyên danh sách
+    if (!shiftSchedules[dateStr]) {
+      setMembers((prev) =>
+        prev.map((m) => ({
+          ...m,
+          currentShift: m.shift || "Chưa phân ca",
+          currentShiftStart: m.shiftStart || "",
+        }))
+      );
+      return;
+    }
+
+    // Gán ca theo dữ liệu shiftSchedules của ngày đang chọn
+    setMembers((prev) =>
+      prev.map((m) => {
+        const shiftData = shiftSchedules[dateStr]?.[m.realName];
+        return {
+          ...m,
+          currentShift: shiftData?.shift || m.shift || "Chưa phân ca",
+          currentShiftStart: shiftData?.shiftStart || m.shiftStart || "",
+        };
+      })
+    );
+  }, [selectedDate, shiftSchedules]);
+
+
   // 🔹 Hàm mới: đổi ngày + lọc members theo shiftSchedules
   const fetchMembersForDate = (dateStr) => {
-    setSelectedDate(new Date(dateStr));
-
-    // Nếu có ca làm trong shiftSchedules thì lọc theo ngày đó
-    if (shiftSchedules[dateStr]) {
-      const filtered = members.filter((m) => shiftSchedules[dateStr][m.realName]);
-      setMembers(filtered);
-    } else {
-      // Nếu không có ca nào trong ngày đó thì giữ nguyên hoặc xóa danh sách hiển thị
-      setMembers([]);
-    }
+    setSelectedDate(new Date(dateStr)); // chỉ set ngày, không lọc ngay
   };
+
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -129,6 +159,7 @@ export default function Home() {
   const handleDeleteAll = async () => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?")) return;
     try {
+      // 🔹 Xóa toàn bộ dữ liệu tăng ca trong tháng
       const q = query(
         collection(db, "overtimes"),
         where("month", "==", selectedMonth),
@@ -139,39 +170,54 @@ export default function Home() {
         await deleteDoc(doc(db, "overtimes", d.id));
       }
 
+      // 🔹 Lấy danh sách nhân viên và reset dữ liệu
       const membersRef = collection(db, "members");
       const membersSnap = await getDocs(membersRef);
+
       for (const m of membersSnap.docs) {
+        const data = m.data();
+        const isNight = data.shift?.toLowerCase().includes("đêm");
+        const defaultStart = isNight ? "20:00" : "08:00";
+
         await updateDoc(doc(db, "members", m.id), {
           lastCheckInDate: "",
           lastCheckInTime: "",
           lastCheckOutTime: "",
+          earlyShift: false, // ✅ bỏ tích lên ca sớm
+          shiftStart: defaultStart, // ✅ reset giờ ca mặc định
           "overtimeLimit.workedHours": 0,
-          "overtimeLimit.remaining": m.data().overtimeLimit?.monthlyLimit ?? 0,
+          "overtimeLimit.remaining": data.overtimeLimit?.monthlyLimit ?? 0,
         });
       }
 
+      // 🔹 Cập nhật lại state hiển thị
       setOvertimeItems([]);
       setMembers((prev) =>
-        prev.map((m) => ({
-          ...m,
-          lastCheckInDate: "",
-          lastCheckInTime: "",
-          lastCheckOutTime: "",
-          overtimeLimit: {
-            ...m.overtimeLimit,
-            workedHours: 0,
-            remaining: m.overtimeLimit?.monthlyLimit || 0,
-          },
-        }))
+        prev.map((m) => {
+          const isNight = m.shift?.toLowerCase().includes("đêm");
+          return {
+            ...m,
+            lastCheckInDate: "",
+            lastCheckInTime: "",
+            lastCheckOutTime: "",
+            earlyShift: false,
+            shiftStart: isNight ? "20:00" : "08:00",
+            overtimeLimit: {
+              ...m.overtimeLimit,
+              workedHours: 0,
+              remaining: m.overtimeLimit?.monthlyLimit || 0,
+            },
+          };
+        })
       );
 
-      alert("✅ Đã xóa toàn bộ dữ liệu tăng ca, giới hạn, và reset trạng thái chấm công.");
+      alert("✅ Đã xóa toàn bộ dữ liệu tháng và bỏ tích 'Lên ca sớm'.");
     } catch (err) {
       console.error("Lỗi khi xóa dữ liệu:", err);
       alert("❌ Lỗi khi xóa dữ liệu, kiểm tra console.");
     }
   };
+
 
   if (!user)
     return (
@@ -227,7 +273,7 @@ export default function Home() {
           shiftSchedules={shiftSchedules}
           onDateSelect={(d) => fetchMembersForDate(d.format("YYYY-MM-DD"))}
         />
-        
+
         <OverMember
           user={user}
           overtimes={overtimeItems}

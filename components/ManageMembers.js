@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { db } from "../lib/firebase";
+import dayjs from "dayjs";
 import {
   collection,
   addDoc,
@@ -208,6 +209,7 @@ export default function ManageMembers({
         <table className="w-full text-sm">
           <thead className="bg-gray-100 text-gray-600">
             <tr>
+              <th className="p-2 text-center w-10">STT</th>
               <th className="p-2 text-left">Tên thật</th>
               <th className="p-2 text-left">Biệt danh</th>
               <th className="p-2 text-center">Ca</th>
@@ -215,12 +217,14 @@ export default function ManageMembers({
               <th className="p-2 text-center">Giới hạn</th>
               <th className="p-2 text-center">Đã tăng</th>
               <th className="p-2 text-center">Tổng</th>
+              <th className="p-2 text-center">Lên ca sớm</th>
+
             </tr>
           </thead>
           <tbody>
             {members.length === 0 ? (
               <tr>
-                <td colSpan="7" className="text-center py-4 text-gray-400">
+                <td colSpan="9" className="text-center py-4 text-gray-400">
                   Không có nhân viên.
                 </td>
               </tr>
@@ -228,21 +232,26 @@ export default function ManageMembers({
               members
                 .filter(
                   (m) =>
-                    m.realName.includes(searchTerm) ||
-                    m.nickname.includes(searchTerm)
+                    m.realName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    m.nickname.toLowerCase().includes(searchTerm.toLowerCase())
                 )
-                .map((m) => {
+                .map((m, index) => {
                   const limit = m.overtimeLimit?.monthlyLimit || 0;
                   const worked = m.overtimeLimit?.workedHours || 0;
                   const total = limit + worked;
+
                   return (
                     <tr key={m.id} className="border-t hover:bg-gray-50">
+                      {/* ✅ Cột số thứ tự */}
+                      <td className="p-2 text-center font-medium">{index + 1}</td>
+
                       <td className="p-2 font-medium">{m.realName}</td>
                       <td className="p-2">{m.nickname}</td>
+
                       {(() => {
                         let dateStr = null;
-                        if (selectedDate && !isNaN(new Date(selectedDate))) {
-                          dateStr = new Date(selectedDate).toISOString().split("T")[0];
+                        if (selectedDate) {
+                          dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
                         }
                         const shiftData = dateStr ? shiftSchedules?.[dateStr]?.[m.realName] : null;
                         const shiftName = shiftData?.shift || m.shift;
@@ -267,11 +276,61 @@ export default function ManageMembers({
                       <td className="p-2 text-center text-indigo-700 font-semibold">
                         {fmt(total)}
                       </td>
+
+                      {/* ✅ Cột "Lên ca sớm" */}
+                      <td className="p-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={m.earlyShift || false}
+                          onChange={async (e) => {
+                            const checked = e.target.checked;
+
+                            // cập nhật tại chỗ trong state
+                            const updated = members.map((mem) => {
+                              if (mem.id !== m.id) return mem;
+
+                              const isNight = mem.shift?.toLowerCase().includes("đêm");
+                              const newShiftStart = checked
+                                ? isNight
+                                  ? "19:00"
+                                  : "07:00"
+                                : isNight
+                                  ? "20:00"
+                                  : "08:00";
+
+                              return {
+                                ...mem,
+                                earlyShift: checked,
+                                shiftStart: newShiftStart,
+                              };
+                            });
+
+                            setMembers(updated);
+
+                            // 🔥 cập nhật Firestore
+                            const ref = doc(db, "members", m.id);
+                            const isNight = m.shift?.toLowerCase().includes("đêm");
+                            const newShiftStart = checked
+                              ? isNight
+                                ? "19:00"
+                                : "07:00"
+                              : isNight
+                                ? "20:00"
+                                : "08:00";
+
+                            await updateDoc(ref, {
+                              earlyShift: checked,
+                              shiftStart: newShiftStart,
+                            });
+                          }}
+                        />
+                      </td>
                     </tr>
                   );
                 })
             )}
           </tbody>
+
         </table>
       </div>
 

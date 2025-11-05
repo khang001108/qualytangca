@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
-import { Save, User, Pen, Clock, X } from "lucide-react";
+import { Save, User, Pen, X } from "lucide-react";
 import { ICONS } from "../utils/iconUtils";
 
 const COLORS = [
@@ -23,15 +23,15 @@ const COLORS = [
 export default function PopupSettings({ member, setMembers, onClose }) {
   const [saving, setSaving] = useState(false);
   const [showName, setShowName] = useState(false);
-  const [showShift, setShowShift] = useState(false);
   const [showIcon, setShowIcon] = useState(false);
+
   const [form, setForm] = useState({
     nickname: member.nickname || "",
-    shiftStart: member.shiftStart || "07:00",
     avatar: member.avatar || "User",
     color: member.color || "#3B82F6",
   });
 
+  // 🔹 Lưu thay đổi nickname / avatar / màu
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -40,11 +40,6 @@ export default function PopupSettings({ member, setMembers, onClose }) {
         nickname: form.nickname,
         avatar: form.avatar,
         color: form.color,
-        shiftStart: form.shiftStart,
-        shift:
-          form.shiftStart.startsWith("19") || form.shiftStart.startsWith("20")
-            ? "Ca đêm"
-            : "Ca ngày",
       });
       const snap = await getDoc(ref);
       const updated = { id: member.id, ...snap.data() };
@@ -71,7 +66,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           ⚙️ Cài đặt nhân viên
         </h2>
 
-        {/* Hiển thị tóm tắt */}
+        {/* Tóm tắt */}
         <div className="flex flex-col items-center gap-2 mb-4">
           {(() => {
             const Icon =
@@ -88,20 +83,14 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           <div className="font-medium text-gray-800">
             {form.nickname || member.realName}
           </div>
-          <div className="text-xs text-gray-500">{member.shift}</div>
         </div>
 
         {/* Các nút chức năng */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <ActionButton
             icon={Pen}
             label="Đổi tên"
             onClick={() => setShowName(true)}
-          />
-          <ActionButton
-            icon={Clock}
-            label="Giờ ca"
-            onClick={() => setShowShift(true)}
           />
           <ActionButton
             icon={User}
@@ -110,6 +99,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           />
         </div>
 
+        {/* Nút Lưu & Hủy */}
         <button
           onClick={handleSave}
           disabled={saving}
@@ -126,14 +116,12 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           Hủy
         </button>
 
-        {/* Popup con */}
+        {/* Popup con - Đổi tên */}
         {showName && (
           <SmallPopup title="Đổi biệt danh" onClose={() => setShowName(false)}>
             <input
               value={form.nickname}
-              onChange={(e) =>
-                setForm({ ...form, nickname: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, nickname: e.target.value })}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none"
               placeholder="Nhập biệt danh mới..."
             />
@@ -146,37 +134,12 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           </SmallPopup>
         )}
 
-        {showShift && (
-          <SmallPopup title="Chọn giờ bắt đầu" onClose={() => setShowShift(false)}>
-            <div className="grid grid-cols-2 gap-2">
-              {["07:00", "08:00", "19:00", "20:00"].map((t) => {
-                const label = {
-                  "07:00": "Sáng sớm",
-                  "08:00": "Sáng muộn",
-                  "19:00": "Tối sớm",
-                  "20:00": "Tối muộn",
-                }[t];
-                const active = form.shiftStart === t;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setForm({ ...form, shiftStart: t })}
-                    className={`py-2 rounded-lg border text-sm transition ${
-                      active
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-600"
-                        : "border-gray-200 hover:bg-gray-50"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </SmallPopup>
-        )}
-
+        {/* Popup con - Biểu tượng */}
         {showIcon && (
-          <SmallPopup title="Chọn biểu tượng" onClose={() => setShowIcon(false)}>
+          <SmallPopup
+            title="Chọn biểu tượng"
+            onClose={() => setShowIcon(false)}
+          >
             <div className="flex justify-center mb-3">
               {(() => {
                 const Icon =

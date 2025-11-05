@@ -4,6 +4,7 @@ import PopupSettings from "./PopupSettings";
 import { ICONS } from "../utils/iconUtils";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import dayjs from "dayjs";
 import { Trash2, User, IdCard, CalendarCheck } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 
@@ -59,9 +60,9 @@ export default function OverMember({
 
   // 🧠 Lấy trạng thái tăng ca hôm nay
   const getTodayStatus = (member) => {
-    const targetDate = selectedDate ? new Date(selectedDate) : new Date();
-    const dateStr = targetDate.toISOString().split("T")[0];
-    const formatted = targetDate.toLocaleDateString("vi-VN");
+    const targetDate = selectedDate ? dayjs(selectedDate) : dayjs();
+    const dateStr = targetDate.format("YYYY-MM-DD");
+    const formatted = targetDate.format("DD/MM/YYYY");
 
     // Tìm bản ghi chấm công trong ngày
     const todayOvertime = overtimes.find(
@@ -142,7 +143,7 @@ export default function OverMember({
         updateDoc,
       } = await import("firebase/firestore");
 
-      const currentDate = new Date(selectedDate).toISOString().split("T")[0];
+      const currentDate = dayjs(selectedDate).format("YYYY-MM-DD");
 
       // 🔹 1. Xóa document trong overtimes
       const q = query(
@@ -291,12 +292,16 @@ export default function OverMember({
 
                 {/* Giờ ca (hiển thị theo shiftSchedules) */}
                 {(() => {
+                  // 🔹 Lấy ngày đang chọn
                   const dateStr = selectedDate
-                    ? new Date(selectedDate).toISOString().split("T")[0]
-                    : new Date().toISOString().split("T")[0];
+                    ? dayjs(selectedDate).format("YYYY-MM-DD")
+                    : dayjs().format("YYYY-MM-DD");
+
+                  // 🔹 Lấy dữ liệu phân ca từ shiftSchedules
                   const shiftData = shiftSchedules?.[dateStr]?.[m.realName];
-                  const shiftDisplay = shiftData?.shift || m.shift;
-                  const shiftStart = shiftData?.shiftStart || m.shiftStart;
+                  const shiftDisplay = shiftData?.shift || m.shift || "Chưa có ca";
+                  const shiftStart = shiftData?.shiftStart || m.shiftStart || "08:00";
+
                   const shiftStartLabel =
                     {
                       "07:00": "Sáng sớm",
@@ -311,6 +316,7 @@ export default function OverMember({
                     </div>
                   );
                 })()}
+
 
 
                 {/* Tóm tắt */}
