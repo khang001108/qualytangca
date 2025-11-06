@@ -11,7 +11,7 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, CardSim, Undo2 } from "lucide-react";
 
 export default function ShiftAssign({
     user,
@@ -350,7 +350,8 @@ export default function ShiftAssign({
                         onClick={onCancel}
                         className="px-5 py-2 rounded bg-gray-200 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition"
                     >
-                        Hủy
+                        <Undo2 className="w-5 h-5 inline-block mr-1" />
+                        Quay lại
                     </button>
                     <button
                         onClick={handleApply}
@@ -362,7 +363,10 @@ export default function ShiftAssign({
                                 <Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...
                             </>
                         ) : (
-                            "💾 Lưu phân ca"
+                            <>
+                                <CardSim className="w-4 h-4" />
+                                Lưu phân ca
+                            </>
                         )}
                     </button>
                 </div>

@@ -3,7 +3,6 @@ import { CirclePlus } from "lucide-react";
 import Toast from "./Toast";
 import useOvertimeParser from "../hooks/useOvertimeParser/index";
 
-
 export default function OvertimeForm({
   user,
   members = [],
@@ -17,12 +16,10 @@ export default function OvertimeForm({
   const [textInput, setTextInput] = useState("");
   const [mode, setMode] = useState("checkin"); // "checkin" | "checkout"
   const modalRef = useRef();
-
-  // 🔹 Toast song song
   const [toasts, setToasts] = useState([]);
 
   const showToast = (type, message) => {
-    const id = Date.now() + Math.random(); // tránh trùng id
+    const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, type, message }]);
   };
 
@@ -67,7 +64,7 @@ export default function OvertimeForm({
       <div className="flex justify-end mb-2">
         <button
           onClick={() => setFormOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg"
+          className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition"
         >
           <CirclePlus className="w-5 h-5" /> Thêm tăng ca
         </button>
@@ -83,49 +80,60 @@ export default function OvertimeForm({
             setFormOpen(false)
           }
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+          {/* Popup */}
           <div
             ref={modalRef}
-            className="relative bg-white w-11/12 max-w-xl p-6 rounded-xl shadow-2xl z-10"
+            className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-11/12 max-w-xl p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors"
             onMouseDown={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold">Thêm tăng ca</h3>
-              <button onClick={() => setFormOpen(false)}>✕</button>
+              <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400">
+                Thêm tăng ca
+              </h3>
+              <button
+                onClick={() => setFormOpen(false)}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
+              >
+                ✕
+              </button>
             </div>
 
             {/* 🔹 Chọn chế độ */}
             <div className="flex gap-2 mb-4">
               <button
-                className={`flex-1 py-2 rounded-lg border transition ${
+                className={`flex-1 py-2 rounded-lg border transition font-medium ${
                   mode === "checkin"
-                    ? "bg-green-500 text-white shadow-md"
-                    : "bg-white hover:bg-gray-100"
+                    ? "bg-green-500 hover:bg-green-600 text-white shadow"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                 }`}
                 onClick={() => setMode("checkin")}
               >
-                Lên ca (Check-in)
+                ☀️ Lên ca (Check-in)
               </button>
               <button
-                className={`flex-1 py-2 rounded-lg border transition ${
+                className={`flex-1 py-2 rounded-lg border transition font-medium ${
                   mode === "checkout"
-                    ? "bg-blue-500 text-white shadow-md"
-                    : "bg-white hover:bg-gray-100"
+                    ? "bg-blue-500 hover:bg-blue-600 text-white shadow"
+                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                 }`}
                 onClick={() => setMode("checkout")}
               >
-                Xuống ca (Check-out)
+                🌙 Xuống ca (Check-out)
               </button>
             </div>
 
             {/* 🔹 Ô nhập dữ liệu */}
-            <label className="text-sm text-gray-600 mb-1 block">
+            <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
               Dán dữ liệu chấm công (
               {mode === "checkin" ? "Lên ca" : "Xuống ca"})
             </label>
             <textarea
               rows={6}
-              className="w-full border p-3 rounded-lg mb-4 focus:ring-2 focus:ring-orange-400 outline-none"
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded-lg mb-4 focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 outline-none transition"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={
@@ -139,16 +147,16 @@ export default function OvertimeForm({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setFormOpen(false)}
-                className="px-4 py-2 rounded-lg border hover:bg-gray-100"
+                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition"
               >
-                Hủy
+                Quay lại
               </button>
               <button
                 onClick={handleParse}
-                className={`px-5 py-2 rounded-lg text-white shadow-md ${
+                className={`px-5 py-2 rounded-lg text-white shadow-md transition ${
                   mode === "checkin"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    ? "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+                    : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
                 }`}
               >
                 {mode === "checkin"

@@ -1,5 +1,5 @@
 import React from "react";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Undo2 } from "lucide-react";
 
 export default function DeleteConfirm({
   members = [],
@@ -108,7 +108,8 @@ export default function DeleteConfirm({
             onClick={onCancel}
             className="flex-1 bg-gray-200 dark:bg-gray-700 py-2 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
           >
-            Hủy
+            <Undo2 className="w-4 h-4 inline-block mr-1" />
+            Quay lại
           </button>
         </div>
       </div>

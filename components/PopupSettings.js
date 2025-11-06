@@ -99,7 +99,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           />
         </div>
 
-        {/* Nút Lưu & Hủy */}
+        {/* Nút Lưu & Quay lại */}
         <button
           onClick={handleSave}
           disabled={saving}
@@ -113,7 +113,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
           onClick={onClose}
           className="mt-2 w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 py-2 rounded-lg text-gray-700 dark:text-gray-200 text-sm transition"
         >
-          Hủy
+          Quay lại
         </button>
 
         {/* Popup con - Đổi tên */}

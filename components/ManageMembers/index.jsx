@@ -7,7 +7,6 @@ import ShiftAssign from "./ShiftAssign";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
 import dayjs from "dayjs";
-
 import { Clock, UserPlus, Trash2, CalendarArrowUp } from "lucide-react";
 import {
   doc,
@@ -27,22 +26,18 @@ export default function ManageMembers({
   selectedMonth,
   selectedYear,
   selectedDate,
-  setToast, // ✅ nhận từ PopupManager để hiển thị toast ngoài Main
+  setToast,
 }) {
-  const { members, setMembers, showToast, toast } = useMembersData(user);
+  const { members, setMembers, showToast } = useMembersData(user);
 
-  // popup state
   const [showAdd, setShowAdd] = useState(false);
   const [showLimit, setShowLimit] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
-  // limit state
   const [limitInput, setLimitInput] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // realtime shiftSchedules
   const [shiftSchedules, setShiftSchedules] = useState({});
 
   // === Load shiftSchedules realtime
@@ -76,36 +71,6 @@ export default function ManageMembers({
 
     return () => unsub();
   }, [user?.uid, selectedDate]);
-
-  // 🔁 Đồng bộ ca làm trong ngày với members
-  useEffect(() => {
-    if (!user?.uid || !members?.length || !Object.keys(shiftSchedules).length)
-      return;
-
-    const todayStr = dayjs().format("YYYY-MM-DD");
-    const todayData = shiftSchedules[todayStr];
-    if (!todayData) return;
-
-    members.forEach(async (m) => {
-      const shiftEntry =
-        todayData[m.realName] ||
-        Object.values(todayData).find((s) => s.memberId === m.id);
-
-      if (!shiftEntry) return;
-
-      const { shift, shiftStart } = shiftEntry;
-      if (m.shift !== shift || m.shiftStart !== shiftStart) {
-        const ref = doc(db, "members", m.id);
-        await updateDoc(ref, {
-          shift,
-          shiftStart,
-          updatedDate: todayStr,
-          updatedAt: serverTimestamp(),
-        });
-        console.log(`🔄 Đồng bộ ${m.realName}: ${shift} (${shiftStart})`);
-      }
-    });
-  }, [user?.uid, members, shiftSchedules]);
 
   // --- chọn / bỏ chọn nhân viên ---
   const toggleAll = () => {
@@ -174,9 +139,12 @@ export default function ManageMembers({
           where("memberId", "==", id)
         );
         const snap = await getDocs(qShift);
-        for (const d of snap.docs) await deleteDoc(doc(db, "shiftSchedules", d.id));
+        for (const d of snap.docs)
+          await deleteDoc(doc(db, "shiftSchedules", d.id));
 
-        console.log(`🗑️ Đã xóa nhân viên ${member.realName} và các ca liên quan.`);
+        console.log(
+          `🗑️ Đã xóa nhân viên ${member.realName} và các ca liên quan.`
+        );
       }
 
       setMembers((prev) => prev.filter((m) => !selectedIds.includes(m.id)));
@@ -198,7 +166,7 @@ export default function ManageMembers({
     <div className="space-y-4 text-gray-800 dark:text-gray-200">
       {/* Toolbar */}
       <div className="flex items-center gap-2 justify-between">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setShowLimit(true)}
             className="flex items-center gap-1 bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm"
@@ -229,14 +197,16 @@ export default function ManageMembers({
         </div>
       </div>
 
-      {/* Members Table */}
-      <MembersTable
-        members={members}
-        setMembers={setMembers}
-        user={user}
-        selectedDate={selectedDate}
-        shiftSchedules={shiftSchedules}
-      />
+      {/* 🔹 Bảng nhân viên — chỉ cuộn trong bảng */}
+      <div className="rounded-xl border border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-gray-800/30">
+        <MembersTable
+          members={members}
+          setMembers={setMembers}
+          user={user}
+          selectedDate={selectedDate}
+          shiftSchedules={shiftSchedules}
+        />
+      </div>
 
       {/* Popups */}
       {showAdd && (

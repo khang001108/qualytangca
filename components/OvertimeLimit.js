@@ -188,7 +188,7 @@ export default function OvertimeLimit({ user, selectedMonth, selectedYear }) {
                 onClick={() => setOpen(false)}
                 className="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300 text-gray-700"
               >
-                Hủy
+                Quay lại
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Undo2 } from "lucide-react";
 
 export default function LimitSelector({
   title = "Giới hạn tăng ca",
@@ -115,8 +115,8 @@ export default function LimitSelector({
             onClick={onCancel}
             className="flex items-center gap-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 px-3 py-1.5 rounded text-sm"
           >
-            <XCircle className="w-4 h-4" />
-            Hủy
+            <Undo2 className="w-4 h-4" />
+            Quay lại
           </button>
           <button
             onClick={onConfirm}

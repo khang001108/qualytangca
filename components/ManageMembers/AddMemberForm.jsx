@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { addDoc, collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Undo2 } from "lucide-react";
 import dayjs from "dayjs";
 
 export default function AddMemberForm({ user, setShowAdd, members, setMembers, showToast }) {
@@ -168,7 +168,8 @@ export default function AddMemberForm({ user, setShowAdd, members, setMembers, s
               onClick={() => setShowAdd(false)}
               className="flex-1 bg-gray-300 dark:bg-gray-700 py-2 rounded"
             >
-              Hủy
+              <Undo2 className="w-4 h-4 inline-block mr-1" />
+              Quay lại
             </button>
           </div>
         </form>
