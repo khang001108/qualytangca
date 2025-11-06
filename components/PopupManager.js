@@ -49,13 +49,13 @@ export default function PopupManager({
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
+        exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
         className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 
-                   rounded-2xl w-[90%] max-w-5xl shadow-2xl border border-gray-200 
-                   dark:border-gray-700 flex flex-col"
+             rounded-2xl w-[90%] max-w-5xl shadow-2xl border border-gray-200 
+             dark:border-gray-700 flex flex-col"
         style={{ maxHeight: "90vh" }}
       >
         {/* 🔹 Nút đóng góc phải */}
@@ -68,13 +68,13 @@ export default function PopupManager({
         </button>
 
         {/* 🔹 Nội dung chính có thể cuộn */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 p-6">
           {/* 🔹 Tiêu đề */}
-          <div className="flex flex-col items-center mb-5 text-purple-600 dark:text-purple-400 font-bold">
-            <motion.div whileHover={{ scale: 1.15 }} className="mb-2">
-              <Users className="w-10 h-10" />
+          <div className="flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400 font-semibold gap-2">
+            <motion.div whileHover={{ scale: 1.1 }}>
+              <Users className="w-6 h-6" />
             </motion.div>
-            <span className="text-2xl tracking-wide">Quản lý nhân viên</span>
+            <span className="text-xl tracking-wide">Quản lý nhân viên</span>
           </div>
 
           {/* 🔹 Ngày hiện tại */}

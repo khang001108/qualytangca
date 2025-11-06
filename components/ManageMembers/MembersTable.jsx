@@ -103,7 +103,7 @@ export default function MembersTable({
   return (
     <div
       className="relative border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden"
-      style={{ height: "60vh" }}
+      style={{ height: "40vh" }}
     >
       {/* Wrapper cuộn */}
       <div className="h-full overflow-y-auto">
