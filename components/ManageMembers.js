@@ -142,10 +142,10 @@ export default function ManageMembers({
         );
         return refMember
           ? {
-              monthlyLimit: refMember.overtimeLimit.monthlyLimit,
-              workedHours: 0,
-              remaining: refMember.overtimeLimit.monthlyLimit,
-            }
+            monthlyLimit: refMember.overtimeLimit.monthlyLimit,
+            workedHours: 0,
+            remaining: refMember.overtimeLimit.monthlyLimit,
+          }
           : { monthlyLimit: 0, workedHours: 0, remaining: 0 };
       };
 
@@ -226,7 +226,7 @@ export default function ManageMembers({
           <button
             onClick={() => setShowAssign(true)}
             className="flex items-center gap-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm dark:bg-purple-600 dark:hover:bg-purple-700"
-          >
+          >{/* --- Giờ bắt đầu --- */}
             <CalendarArrowUp className="w-4 h-4" /> Phân ca theo ngày
           </button>
 
@@ -380,18 +380,18 @@ export default function ManageMembers({
                                 ? "19:00"
                                 : "07:00"
                               : isNight
-                              ? "20:00"
-                              : "08:00";
+                                ? "20:00"
+                                : "08:00";
 
                             // 🔹 Cập nhật UI ngay lập tức
                             setMembers((prev) =>
                               prev.map((mem) =>
                                 mem.id === m.id
                                   ? {
-                                      ...mem,
-                                      earlyShift: checked,
-                                      shiftStart: newShiftStart,
-                                    }
+                                    ...mem,
+                                    earlyShift: checked,
+                                    shiftStart: newShiftStart,
+                                  }
                                   : mem
                               )
                             );
@@ -520,21 +520,27 @@ export default function ManageMembers({
                 </select>
               </div>
 
-              {/* --- Giờ bắt đầu --- */}
+              {/* --- Giờ bắt đầu (định dạng 24h, không AM/PM) --- */}
               <div>
                 <label className="text-sm text-gray-600 dark:text-gray-400">
                   Giờ bắt đầu
                 </label>
                 <input
-                  type="time"
+                  type="text"
                   value={form.shiftStart}
-                  onChange={(e) =>
-                    setForm({ ...form, shiftStart: e.target.value })
-                  }
-                  step="900" // 15 phút
-                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200"
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9:]/g, "");
+                    setForm({ ...form, shiftStart: val });
+                  }}
+                  placeholder="08:00 hoặc 20:00"
+                  pattern="^([0-1]\d|2[0-3]):([0-5]\d)$"
+                  title="Nhập giờ theo định dạng 24h (HH:mm)"
+                  className="w-full border p-2 rounded mt-1 bg-white dark:bg-gray-700 
+               border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 
+               placeholder-gray-400 dark:placeholder-gray-500"
                 />
               </div>
+
 
               {/* --- Checkbox giới hạn tăng ca --- */}
               <div className="flex items-center gap-2">

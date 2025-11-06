@@ -127,7 +127,7 @@ export default function OvertimeMonth({
 
               // Viền và nền ưu tiên cho ngày hiện tại / được chọn
               const border = isSelected
-                ? "border-blue-500 bg-blue-200 dark:bg-blue-600 dark:border-blue-400"
+                ? "border-green-500 bg-green-300 dark:bg-green-500 dark:border-green-200"
                 : isToday
                 ? "border-orange-500 bg-orange-200 dark:bg-orange-600 dark:border-orange-400"
                 : "border-gray-300 dark:border-gray-600";
