@@ -1,6 +1,9 @@
+// src/components/PopupManager.jsx
 import { motion } from "framer-motion";
+import { useState } from "react";
 import ManageMembers from "./ManageMembers";
-import { Users, Trash2 } from "lucide-react";
+import ShiftAssign from "./ManageMembers/ShiftAssign";
+import { Users, Trash2, CalendarArrowUp } from "lucide-react";
 
 export default function PopupManager({
   onClose,
@@ -10,7 +13,35 @@ export default function PopupManager({
   selectedDate,
   shiftSchedules = {},
   handleDeleteAll,
+  setToast, // ✅ nhận từ index.js để hiển thị toast toàn cục
 }) {
+  const [showAssign, setShowAssign] = useState(false);
+
+  // 🔹 Nếu đang bật phân ca tháng
+  if (showAssign) {
+    return (
+      <ShiftAssign
+        user={user}
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        onCancel={() => setShowAssign(false)} // quay lại giao diện quản lý
+        onStatusChange={({ loading, success, month }) => {
+          if (loading) {
+            setToast({ type: "loading", msg: "⏳ Đang lưu phân ca..." });
+          } else if (success) {
+            setToast({
+              type: "success",
+              msg: `✅ Phân ca tháng ${month} hoàn tất.`,
+            });
+            setShowAssign(false);
+          } else {
+            setToast({ type: "error", msg: "❌ Lỗi khi lưu phân ca!" });
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-x-hidden"
@@ -26,13 +57,12 @@ export default function PopupManager({
       >
         {/* --- Header --- */}
         <div className="flex items-center gap-2 mb-3 text-purple-600 dark:text-purple-400 font-semibold">
-          {/* --- Hiển thị ngày --- */}
-
           <motion.div whileHover={{ scale: 1.1 }}>
             <Users className="w-5 h-5" />
           </motion.div>
           <span>Quản lý nhân viên</span>
         </div>
+
         <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
           Ngày hiện tại:{" "}
           <span className="font-medium text-indigo-600 dark:text-indigo-400">
@@ -40,7 +70,7 @@ export default function PopupManager({
           </span>
         </div>
 
-        {/* --- Nội dung chính --- */}
+        {/* --- Quản lý nhân viên --- */}
         <div className="border border-zinc-300 dark:border-zinc-700 rounded-xl p-4 mb-4 hover:border-zinc-400 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-gray-800 transition">
           <ManageMembers
             user={user}
@@ -48,11 +78,23 @@ export default function PopupManager({
             selectedYear={selectedYear}
             selectedDate={selectedDate}
             shiftSchedules={shiftSchedules}
+            setToast={setToast} // ✅ truyền xuống để toast hiển thị ngoài Main
           />
         </div>
 
+        {/* --- Phân ca tháng --- */}
+        <div className="mt-4">
+          <button
+            onClick={() => setShowAssign(true)}
+            className="w-full border border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-500 dark:hover:border-purple-600 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+          >
+            <CalendarArrowUp className="w-4 h-4" />
+            Phân ca tháng {selectedMonth}/{selectedYear}
+          </button>
+        </div>
+
         {/* --- Xóa toàn bộ dữ liệu tháng --- */}
-        <div className="mt-6 text-center">
+        <div className="mt-3 text-center">
           <button
             onClick={handleDeleteAll}
             className="w-full border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-500 dark:hover:border-red-600 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
