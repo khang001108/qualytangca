@@ -1,5 +1,5 @@
+// src/components/ManageMembers/ManageMembers.jsx
 import React, { useState, useEffect } from "react";
-import Toast from "../Toast";
 import AddMemberForm from "./AddMemberForm";
 import LimitSelector from "./LimitSelector";
 import DeleteConfirm from "./DeleteConfirm";
@@ -27,6 +27,7 @@ export default function ManageMembers({
   selectedMonth,
   selectedYear,
   selectedDate,
+  setToast, // ✅ nhận từ PopupManager để hiển thị toast ngoài Main
 }) {
   const { members, setMembers, showToast, toast } = useMembersData(user);
 
@@ -41,7 +42,7 @@ export default function ManageMembers({
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 state realtime ca làm
+  // realtime shiftSchedules
   const [shiftSchedules, setShiftSchedules] = useState({});
 
   // === Load shiftSchedules realtime
@@ -76,7 +77,7 @@ export default function ManageMembers({
     return () => unsub();
   }, [user?.uid, selectedDate]);
 
-  // 🔁 Tự động đồng bộ shift hằng ngày với shiftSchedules
+  // 🔁 Đồng bộ ca làm trong ngày với members
   useEffect(() => {
     if (!user?.uid || !members?.length || !Object.keys(shiftSchedules).length)
       return;
@@ -93,8 +94,6 @@ export default function ManageMembers({
       if (!shiftEntry) return;
 
       const { shift, shiftStart } = shiftEntry;
-
-      // Nếu khác ca hiện tại -> cập nhật Firestore
       if (m.shift !== shift || m.shiftStart !== shiftStart) {
         const ref = doc(db, "members", m.id);
         await updateDoc(ref, {
@@ -103,7 +102,6 @@ export default function ManageMembers({
           updatedDate: todayStr,
           updatedAt: serverTimestamp(),
         });
-
         console.log(`🔄 Đồng bộ ${m.realName}: ${shift} (${shiftStart})`);
       }
     });
@@ -168,19 +166,15 @@ export default function ManageMembers({
         const member = members.find((m) => m.id === id);
         if (!member) continue;
 
-        // 🔹 Xóa bản ghi trong members
         await deleteDoc(doc(db, "members", id));
 
-        // 🔹 Xóa toàn bộ lịch làm (shiftSchedules) của nhân viên này
         const qShift = query(
           collection(db, "shiftSchedules"),
           where("userId", "==", user.uid),
           where("memberId", "==", id)
         );
         const snap = await getDocs(qShift);
-        for (const d of snap.docs) {
-          await deleteDoc(doc(db, "shiftSchedules", d.id));
-        }
+        for (const d of snap.docs) await deleteDoc(doc(db, "shiftSchedules", d.id));
 
         console.log(`🗑️ Đã xóa nhân viên ${member.realName} và các ca liên quan.`);
       }
@@ -279,7 +273,25 @@ export default function ManageMembers({
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
           onCancel={() => setShowAssign(false)}
-          onSuccess={() => showToast("✅ Đã lưu phân ca thành công!")}
+          onStatusChange={({ loading, success, month }) => {
+            if (loading) {
+              setToast({
+                type: "loading",
+                msg: "⏳ Đang lưu phân ca...",
+              });
+            } else if (success) {
+              setToast({
+                type: "success",
+                msg: `✅ Phân ca tháng ${month} hoàn tất.`,
+              });
+              setShowAssign(false);
+            } else {
+              setToast({
+                type: "error",
+                msg: "❌ Lỗi khi lưu phân ca!",
+              });
+            }
+          }}
         />
       )}
 
@@ -294,8 +306,6 @@ export default function ManageMembers({
           onCancel={() => setShowDelete(false)}
         />
       )}
-
-      {toast.message && <Toast message={toast.message} type={toast.type} />}
     </div>
   );
 }
