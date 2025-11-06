@@ -26,10 +26,18 @@ export default function PopupManager({
       >
         {/* --- Header --- */}
         <div className="flex items-center gap-2 mb-3 text-purple-600 dark:text-purple-400 font-semibold">
+          {/* --- Hiển thị ngày --- */}
+
           <motion.div whileHover={{ scale: 1.1 }}>
             <Users className="w-5 h-5" />
           </motion.div>
           <span>Quản lý nhân viên</span>
+        </div>
+        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Ngày hiện tại:{" "}
+          <span className="font-medium text-indigo-600 dark:text-indigo-400">
+            {new Date().toLocaleDateString("vi-VN")}
+          </span>
         </div>
 
         {/* --- Nội dung chính --- */}

@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { CirclePlus } from "lucide-react";
 import Toast from "./Toast";
-import useOvertimeParser from "../hooks/useOvertimeParser";
+import useOvertimeParser from "../hooks/useOvertimeParser/index";
+
 
 export default function OvertimeForm({
   user,

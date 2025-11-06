@@ -32,7 +32,7 @@ import {
 
 import Toast from "./Toast";
 import PopupSelect from "./PopupSelect";
-import PopupAssignShift from "./PopupAssignShift";
+import PopupAssignShift from "./PopupAssignShiftc";
 
 export default function ManageMembers({
   user,

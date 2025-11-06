@@ -1,4 +1,3 @@
-// src/components/OverMember.js
 import { useState, useEffect } from "react";
 import PopupCalendar from "./PopupCalendar";
 import PopupSettings from "./PopupSettings";
@@ -16,7 +15,6 @@ import {
 import { db } from "../lib/firebase";
 import dayjs from "dayjs";
 import { Trash2, User, IdCard, CalendarCheck } from "lucide-react";
-import * as Tooltip from "@radix-ui/react-tooltip";
 
 function formatHours(n) {
   return `${Number(n || 0).toLocaleString()} giờ`;
@@ -45,9 +43,9 @@ export default function OverMember({
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [shiftSchedules, setShiftSchedules] = useState({}); // ✅ tách state riêng
+  const [shiftSchedules, setShiftSchedules] = useState({});
 
-  // 🔹 Load members realtime từ Firestore
+  // 🔹 Load members realtime
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(collection(db, "members"), where("userId", "==", user.uid));
@@ -63,7 +61,7 @@ export default function OverMember({
     return () => unsub();
   }, [user?.uid]);
 
-  // 🔹 Load shiftSchedules realtime cho tháng hiện tại
+  // 🔹 Load shiftSchedules realtime
   useEffect(() => {
     if (!user?.uid) return;
     const safeDate = selectedDate ? dayjs(selectedDate) : dayjs();
@@ -85,6 +83,7 @@ export default function OverMember({
         data[item.date][item.realName] = {
           shift: item.shift,
           shiftStart: item.shiftStart,
+          memberId: item.memberId || null,
         };
       });
       setShiftSchedules(data);
@@ -212,7 +211,17 @@ export default function OverMember({
             const remaining = Math.max(limit - done, 0);
 
             const dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
-            const shiftData = shiftSchedules?.[dateStr]?.[m.realName];
+
+            // ✅ Ưu tiên tìm ca làm theo memberId (đồng bộ chuẩn)
+            let shiftData = null;
+            if (shiftSchedules?.[dateStr]) {
+              const dateData = shiftSchedules[dateStr];
+              shiftData = Object.values(dateData).find(
+                (s) => s.memberId === m.id
+              );
+              if (!shiftData) shiftData = dateData[m.realName];
+            }
+
             const shift = shiftData?.shift || m.shift || "Chưa có ca";
             const shiftStart = shiftData?.shiftStart || m.shiftStart || "08:00";
 
