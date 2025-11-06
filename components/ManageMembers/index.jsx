@@ -18,6 +18,7 @@ import {
   where,
   getDocs,
   onSnapshot,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
@@ -43,7 +44,7 @@ export default function ManageMembers({
   // 🔹 state realtime ca làm
   const [shiftSchedules, setShiftSchedules] = useState({});
 
-  // === Load shiftSchedules realtime (🔥 phần quan trọng nhất)
+  // === Load shiftSchedules realtime
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -74,6 +75,39 @@ export default function ManageMembers({
 
     return () => unsub();
   }, [user?.uid, selectedDate]);
+
+  // 🔁 Tự động đồng bộ shift hằng ngày với shiftSchedules
+  useEffect(() => {
+    if (!user?.uid || !members?.length || !Object.keys(shiftSchedules).length)
+      return;
+
+    const todayStr = dayjs().format("YYYY-MM-DD");
+    const todayData = shiftSchedules[todayStr];
+    if (!todayData) return;
+
+    members.forEach(async (m) => {
+      const shiftEntry =
+        todayData[m.realName] ||
+        Object.values(todayData).find((s) => s.memberId === m.id);
+
+      if (!shiftEntry) return;
+
+      const { shift, shiftStart } = shiftEntry;
+
+      // Nếu khác ca hiện tại -> cập nhật Firestore
+      if (m.shift !== shift || m.shiftStart !== shiftStart) {
+        const ref = doc(db, "members", m.id);
+        await updateDoc(ref, {
+          shift,
+          shiftStart,
+          updatedDate: todayStr,
+          updatedAt: serverTimestamp(),
+        });
+
+        console.log(`🔄 Đồng bộ ${m.realName}: ${shift} (${shiftStart})`);
+      }
+    });
+  }, [user?.uid, members, shiftSchedules]);
 
   // --- chọn / bỏ chọn nhân viên ---
   const toggleAll = () => {
@@ -207,7 +241,7 @@ export default function ManageMembers({
         setMembers={setMembers}
         user={user}
         selectedDate={selectedDate}
-        shiftSchedules={shiftSchedules} // ✅ realtime shiftSchedules
+        shiftSchedules={shiftSchedules}
       />
 
       {/* Popups */}

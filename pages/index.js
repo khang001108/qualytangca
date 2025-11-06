@@ -9,6 +9,9 @@ import OvertimeMonth from "../components/OvertimeMonth";
 import OvertimeForm from "../components/OvertimeForm";
 import PopupManager from "../components/PopupManager";
 import { auth, db } from "../lib/firebase";
+import ShiftAssign from "../components/ManageMembers/ShiftAssign";
+import { Loader2, CheckCircle2, XCircle, Hourglass } from "lucide-react";
+
 import dayjs from "dayjs";
 
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -128,6 +131,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!toast) return;
+    if (toast.type === "loading") return; // 🔹 giữ toast khi đang loading
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
@@ -336,24 +340,68 @@ export default function Home() {
       </div>
 
       {showManager && (
-        <PopupManager
-          onClose={() => setShowManager(false)}
+        <ShiftAssign
           user={user}
+          members={members}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          handleDeleteAll={handleDeleteAll}
+          onCancel={() => setShowManager(false)}
+          onSuccess={() => {
+            setToast({
+              type: "success",
+              msg: `✅ Phân ca tháng ${selectedMonth} hoàn tất.`,
+            });
+          }}
+          onStatusChange={({ loading, success, month }) => {
+            if (loading) {
+              setToast({
+                type: "loading",
+                msg: " Đang lưu phân ca...",
+              });
+            } else if (success) {
+              setToast({
+                type: "success",
+                msg: `✅ Phân ca tháng ${month} hoàn tất.`,
+              });
+            } else {
+              setToast({
+                type: "error",
+                msg: "❌ Lỗi khi lưu phân ca!",
+              });
+            }
+          }}
         />
       )}
 
+
       {toast && (
         <div
-          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100] ${
-            toast.type === "error" ? "bg-red-500" : "bg-green-500"
-          }`}
+          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm z-[100] ${toast.type === "error" ? "bg-red-500" : "bg-green-500"
+            }`}
         >
           {toast.msg}
         </div>
       )}
+
+
+      {toast && (
+        <div
+          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
+            ? "bg-red-500"
+            : toast.type === "loading"
+              ? "bg-blue-500"
+              : "bg-green-500"
+            }`}
+        >
+          {toast.type === "loading" && (
+            <Hourglass className="w-4 h-4 animate-pulse" />
+          )}
+          {toast.type === "success" && <CheckCircle2 className="w-4 h-4" />}
+          {toast.type === "error" && <XCircle className="w-4 h-4" />}
+          <span>{toast.msg}</span>
+        </div>
+      )}
+
 
       {showScrollTop && (
         <motion.button
