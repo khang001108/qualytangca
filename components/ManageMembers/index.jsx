@@ -4,6 +4,7 @@ import AddMemberForm from "./AddMemberForm";
 import LimitSelector from "./LimitSelector";
 import DeleteConfirm from "./DeleteConfirm";
 import ShiftAssign from "./ShiftAssign";
+import OvertimeFormulaPopup from "./OvertimeFormulaPopup";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
 import dayjs from "dayjs";
@@ -34,6 +35,7 @@ export default function ManageMembers({
   const [showLimit, setShowLimit] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showFormula, setShowFormula] = useState(false);
 
   const [limitInput, setLimitInput] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -189,6 +191,13 @@ export default function ManageMembers({
           </button>
 
           <button
+            onClick={() => setShowFormula(true)}
+            className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm"
+          >
+            <Clock className="w-4 h-4" /> Công thức tăng ca
+          </button>
+
+          <button
             onClick={() => setShowDelete(true)}
             className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm"
           >
@@ -262,6 +271,14 @@ export default function ManageMembers({
               });
             }
           }}
+        />
+      )}
+
+      {showFormula && (
+        <OvertimeFormulaPopup
+          user={user}
+          onClose={() => setShowFormula(false)}
+          showToast={showToast}
         />
       )}
 
