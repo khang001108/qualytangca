@@ -50,17 +50,21 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
       const baseData = { ...config, updatedAt: serverTimestamp() };
 
       await Promise.all([
-        setDoc(doc(db, "overtimeConfigs_day", user.uid), baseData, {
-          merge: true,
+        // Document cho ca ngày
+        setDoc(doc(db, "overtimeConfigs", `${user.uid}_day`), {
+          ...baseData,
+          shiftType: "day",
         }),
-        setDoc(doc(db, "overtimeConfigs_night", user.uid), baseData, {
-          merge: true,
+        // Document cho ca đêm
+        setDoc(doc(db, "overtimeConfigs", `${user.uid}_night`), {
+          ...baseData,
+          shiftType: "night",
         }),
       ]);
 
       showToast("Đã lưu cấu hình cho ca ngày và ca đêm.", "success");
-      // Giữ popup mở
     } catch (err) {
+      console.error(err);
       showToast("Lỗi khi lưu dữ liệu.", "error");
     }
   };

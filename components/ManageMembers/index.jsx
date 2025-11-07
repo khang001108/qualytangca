@@ -232,6 +232,7 @@ export default function ManageMembers({
         <LimitSelector
           title="Giới hạn tăng ca"
           confirmText="Lưu thay đổi"
+          onConfirm={handleSetLimit}
           onCancel={() => setShowLimit(false)}
           members={members}
           selectedIds={selectedIds}
@@ -239,8 +240,7 @@ export default function ManageMembers({
           toggleAll={toggleAll}
           inputValue={limitInput}
           setInputValue={setLimitInput}
-          user={user}
-          showToast={showToast}
+          loading={loading}
           color="indigo"
         />
       )}
@@ -260,8 +260,8 @@ export default function ManageMembers({
               });
             } else if (success) {
               setToast({
-                type: "success",
                 msg: `✅ Phân ca tháng ${month} hoàn tất.`,
+                type: "success",
               });
               setShowAssign(false);
             } else {
