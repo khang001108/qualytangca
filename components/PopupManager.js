@@ -53,11 +53,10 @@ export default function PopupManager({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
-        className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 
-             rounded-2xl w-[95vw] sm:w-[90vw] md:w-[80vw] lg:w-[70vw] xl:w-[60vw] 
-             shadow-2xl border border-gray-200 dark:border-gray-700 
-             flex flex-col overflow-hidden"
-        style={{ maxHeight: "90vh" }}
+        className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
+             rounded-2xl w-[90vw] max-w-[1200px] shadow-2xl border border-gray-200
+             dark:border-gray-700 flex flex-col overflow-hidden"
+        style={{ height: "min(95vh, 1000px)" }}
       >
         {/* 🔹 Nút đóng góc phải */}
         <button

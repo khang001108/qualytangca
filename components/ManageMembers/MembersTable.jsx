@@ -103,7 +103,7 @@ export default function MembersTable({
   return (
     <div
       className="relative border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden flex flex-col"
-      style={{ maxHeight: "40vh", minHeight: "200px" }}
+      style={{ maxHeight: "50vh", minHeight: "200px" }}
     >
       {/* Wrapper cuộn */}
       <div className="flex-1 overflow-y-auto">
