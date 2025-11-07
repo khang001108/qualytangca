@@ -13,6 +13,9 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     bonusEnabled: true,
     bonusEvery: 2,
     bonusAmount: 0.5,
+    monthlyLimit: 0,
+    workedHours: 0,
+    remaining: 0,
   });
 
   const shiftOptions = {
@@ -20,16 +23,42 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     night: { start: [19, 20] },
   };
 
+  // --- Load dữ liệu từ Firestore ---
   useEffect(() => {
     if (!user?.uid) return;
     const fetchData = async () => {
-      const ref = doc(db, "overtimeConfigs", user.uid);
-      const snap = await getDoc(ref);
-      if (snap.exists()) setConfig((prev) => ({ ...prev, ...snap.data() }));
+      // Load cấu hình tăng ca
+      const refConfig = doc(db, "overtimeConfigs", user.uid);
+      const snapConfig = await getDoc(refConfig);
+      let cfg = {};
+      if (snapConfig.exists()) cfg = snapConfig.data();
+
+      // Load giới hạn tháng từ members
+      const refMember = doc(db, "members", user.uid);
+      const snapMember = await getDoc(refMember);
+      let monthlyLimit = 0,
+        workedHours = 0,
+        remaining = 0;
+
+      if (snapMember.exists()) {
+        const overtime = snapMember.data()?.overtimeLimit || {};
+        monthlyLimit = overtime.monthlyLimit || 0;
+        workedHours = overtime.workedHours || 0;
+        remaining = overtime.remaining || 0;
+      }
+
+      setConfig((prev) => ({
+        ...prev,
+        ...cfg,
+        monthlyLimit,
+        workedHours,
+        remaining,
+      }));
     };
     fetchData();
   }, [user?.uid]);
 
+  // --- Tính giờ hành chính ---
   const calcOffice = (start, end, half) => {
     const duration = end > start ? end - start : 24 - start + end;
     return duration - half;
@@ -99,6 +128,17 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     config.shiftHalf
   );
 
+  const daysRequired =
+    config.bonusEnabled && config.bonusEvery > 0
+      ? Math.floor((config.monthlyLimit || 0) / config.bonusEvery)
+      : 0;
+
+  // --- % tiến độ tăng ca ---
+  const progress =
+    config.monthlyLimit > 0
+      ? Math.min((config.workedHours / config.monthlyLimit) * 100, 100)
+      : 0;
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -122,7 +162,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           </button>
         </div>
 
-        {/* Nội dung cuộn riêng */}
+        {/* Nội dung */}
         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
           <div className="grid grid-cols-2 gap-6">
             {/* === CỘT 1 === */}
@@ -136,7 +176,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
                   Loại ca
                 </label>
                 <select
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2"
                   value={config.shiftType}
                   onChange={(e) => handleChange("shiftType", e.target.value)}
                 >
@@ -151,7 +191,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
                     Giờ lên ca
                   </label>
                   <select
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2 focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2"
                     value={config.shiftStart}
                     onChange={(e) =>
                       handleChange("shiftStart", Number(e.target.value))
@@ -170,7 +210,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
                     Giờ xuống ca
                   </label>
                   <select
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2 focus:ring-2 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2"
                     value={config.shiftEnd}
                     onChange={(e) =>
                       handleChange("shiftEnd", Number(e.target.value))
@@ -193,7 +233,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
                   type="number"
                   step="0.5"
                   min="0"
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2 focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-2"
                   value={config.shiftHalf}
                   onChange={(e) =>
                     handleChange("shiftHalf", Number(e.target.value))
@@ -217,60 +257,99 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
                 ⏱️ Giờ tăng ca & thưởng
               </h3>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={config.bonusEnabled}
-                    onChange={(e) =>
-                      handleChange("bonusEnabled", e.target.checked)
-                    }
-                    className="w-4 h-4 text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-800 dark:text-gray-200">
-                    Áp dụng thưởng tăng ca
-                  </span>
-                </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={config.bonusEnabled}
+                  onChange={(e) =>
+                    handleChange("bonusEnabled", e.target.checked)
+                  }
+                  className="w-4 h-4 text-indigo-600"
+                />
+                <span className="text-sm text-gray-800 dark:text-gray-200">
+                  Áp dụng thưởng tăng ca
+                </span>
+              </label>
 
-                {config.bonusEnabled && (
-                  <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-lg space-y-2">
-                    <div className="flex justify-between items-center flex-wrap gap-2">
-                      <label className="text-sm text-gray-700 dark:text-gray-300">
-                        Mỗi
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        className="w-20 text-center rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-1"
-                        value={config.bonusEvery}
-                        onChange={(e) =>
-                          handleChange("bonusEvery", Number(e.target.value))
-                        }
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        tiếng tăng ca cộng
-                      </span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        className="w-20 text-center rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-1"
-                        value={config.bonusAmount}
-                        onChange={(e) =>
-                          handleChange("bonusAmount", Number(e.target.value))
-                        }
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        giờ thưởng
+              {config.bonusEnabled && (
+                <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-lg space-y-3">
+                  <div className="flex flex-wrap items-center gap-2 justify-between">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Mỗi
+                    </span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="w-20 text-center rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-1"
+                      value={config.bonusEvery}
+                      onChange={(e) =>
+                        handleChange("bonusEvery", Number(e.target.value))
+                      }
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      tiếng tăng ca cộng
+                    </span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      className="w-20 text-center rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 p-1"
+                      value={config.bonusAmount}
+                      onChange={(e) =>
+                        handleChange("bonusAmount", Number(e.target.value))
+                      }
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      giờ thưởng
+                    </span>
+                  </div>
+
+                  {/* Giới hạn tháng này */}
+                  <div className="bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3 space-y-1">
+                    <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                      <span>Giới hạn tháng:</span>
+                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                        {config.monthlyLimit} tiếng
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Chỉ áp dụng khi làm đủ giờ hành chính (≥ 8h).
+                    <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                      <span>Đã làm:</span>
+                      <span className="font-semibold text-green-500">
+                        {config.workedHours} tiếng
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
+                      <span>Còn lại:</span>
+                      <span className="font-semibold text-amber-500">
+                        {config.remaining} tiếng
+                      </span>
+                    </div>
+
+                    {/* Thanh tiến độ */}
+                    <div className="mt-2 w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full bg-indigo-500 dark:bg-indigo-400 transition-all"
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Hoàn thành {progress.toFixed(1)}% giới hạn tháng này.
                     </p>
                   </div>
-                )}
-              </div>
+
+                  {/* Ngày phải tăng ca */}
+                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-2 text-sm flex justify-between">
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Ngày cần tăng ca:
+                    </span>
+                    <span className="font-semibold text-amber-500">
+                      {daysRequired} ngày
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -223,7 +223,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-blue-200 via-blue-50 to-white dark:bg-gray-900 dark:from-gray-900 dark:via-gray-900">
-      <div className="w-full max-w-6xl p-4 space-y-5">
+      <div className="w-full p-6 space-y-5">
         {/* Header */}
         <div className="bg-white shadow p-4 rounded-2xl flex justify-between items-center border border-indigo-100 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">🕒 Quản Lý Tăng Ca</h1>

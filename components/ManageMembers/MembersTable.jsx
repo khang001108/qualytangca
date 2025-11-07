@@ -33,8 +33,8 @@ export default function MembersTable({
           ? "19:00"
           : "07:00"
         : isNight
-        ? "20:00"
-        : "08:00";
+          ? "20:00"
+          : "08:00";
 
       const today = dayjs().format("YYYY-MM-DD");
       const dateStr = selectedDate
@@ -57,12 +57,12 @@ export default function MembersTable({
         prev.map((mem) =>
           mem.id === m.id
             ? {
-                ...mem,
-                earlyShift: checked,
-                shiftStart: newShiftStart,
-                shift: shiftName,
-                updatedDate: today,
-              }
+              ...mem,
+              earlyShift: checked,
+              shiftStart: newShiftStart,
+              shift: shiftName,
+              updatedDate: today,
+            }
             : mem
         )
       );
@@ -102,11 +102,11 @@ export default function MembersTable({
 
   return (
     <div
-      className="relative border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden"
-      style={{ height: "40vh" }}
+      className="relative border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden flex flex-col"
+      style={{ maxHeight: "40vh", minHeight: "200px" }}
     >
       {/* Wrapper cuộn */}
-      <div className="h-full overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold z-10">
             <tr className="[&>th]:border-b [&>th]:border-gray-300 dark:[&>th]:border-gray-700">
@@ -254,8 +254,8 @@ export default function MembersTable({
         </table>
       </div>
 
-      {/* ✅ Giữ border dưới khi cuộn */}
-      <div className="absolute bottom-0 left-0 right-0 border-t border-gray-300 dark:border-gray-700" />
+      {/* ✅ Viền dưới luôn hiển thị trong vùng cuộn */}
+      <div className="border-t border-gray-300 dark:border-gray-700 mt-auto" />
     </div>
   );
 }
