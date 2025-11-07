@@ -1,10 +1,11 @@
-import React, { useRef } from "react";
-import { Loader2, CheckCircle2, XCircle, Undo2 } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Loader2, CheckCircle2, Undo2 } from "lucide-react";
+import { db } from "../../lib/firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function LimitSelector({
   title = "Giới hạn tăng ca",
   confirmText = "Lưu thay đổi",
-  onConfirm,
   onCancel,
   members = [],
   selectedIds = [],
@@ -12,18 +13,55 @@ export default function LimitSelector({
   toggleAll,
   inputValue,
   setInputValue,
-  loading,
+  user,
+  showToast, // truyền hàm toast từ cha vào
   color = "indigo",
 }) {
   const modalRef = useRef();
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!selectedIds.length || !inputValue) {
+      showToast?.("Vui lòng chọn nhân viên và nhập giới hạn.", "warning");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      for (const id of selectedIds) {
+        const data = {
+          memberId: id,
+          monthlyLimit: Number(inputValue),
+          updatedBy: user?.uid || "system",
+          updatedAt: serverTimestamp(),
+        };
+
+        const dayRef = doc(db, "overtimeConfigs_day", id);
+        const nightRef = doc(db, "overtimeConfigs_night", id);
+
+        await Promise.all([
+          setDoc(dayRef, data, { merge: true }),
+          setDoc(nightRef, data, { merge: true }),
+        ]);
+      }
+
+      showToast?.(
+        "Đã cập nhật giới hạn tăng ca cho ca ngày và ca đêm.",
+        "success"
+      );
+    } catch (err) {
+      console.error(err);
+      showToast?.("Lỗi khi lưu dữ liệu.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       onMouseDown={(e) =>
-        modalRef.current &&
-        !modalRef.current.contains(e.target) &&
-        onCancel?.()
+        modalRef.current && !modalRef.current.contains(e.target) && onCancel?.()
       }
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -119,7 +157,7 @@ export default function LimitSelector({
             Quay lại
           </button>
           <button
-            onClick={onConfirm}
+            onClick={handleConfirm}
             disabled={loading}
             className={`flex items-center gap-1 bg-${color}-600 hover:bg-${color}-700 text-white px-3 py-1.5 rounded text-sm`}
           >

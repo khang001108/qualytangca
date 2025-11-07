@@ -232,7 +232,6 @@ export default function ManageMembers({
         <LimitSelector
           title="Giới hạn tăng ca"
           confirmText="Lưu thay đổi"
-          onConfirm={handleSetLimit}
           onCancel={() => setShowLimit(false)}
           members={members}
           selectedIds={selectedIds}
@@ -240,7 +239,8 @@ export default function ManageMembers({
           toggleAll={toggleAll}
           inputValue={limitInput}
           setInputValue={setLimitInput}
-          loading={loading}
+          user={user}
+          showToast={showToast}
           color="indigo"
         />
       )}
