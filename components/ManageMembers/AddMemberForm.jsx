@@ -69,7 +69,7 @@ export default function AddMemberForm({ user, setShowAdd, members, setMembers, s
       });
 
       setShowAdd(false);
-      showToast("✅ Đã thêm nhân viên mới và ghi ca hôm nay!", "success");
+      showToast("✅ Đã thêm nhân viên mới và ghi ca hôm nay!", "info");
     } catch (err) {
       console.error("❌ Lỗi khi thêm nhân viên:", err);
       showToast("Không thể thêm nhân viên mới.", "error");

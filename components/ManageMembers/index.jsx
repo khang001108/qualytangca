@@ -155,7 +155,7 @@ export default function ManageMembers({
       setSelectedIds([]);
       showToast(
         `Đã xóa ${selectedIds.length} nhân viên và toàn bộ ca liên quan.`,
-        "success"
+        "caution"
       );
       setShowDelete(false);
     } catch (err) {
@@ -304,7 +304,7 @@ export default function ManageMembers({
         }
         onClose={() => {}}
       />
-      
+
     </div>
   );
 }

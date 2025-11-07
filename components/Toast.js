@@ -14,6 +14,7 @@ export default function Toast({ toasts = [], onClose }) {
     success: "bg-green-500",
     error: "bg-red-500",
     info: "bg-blue-500",
+    caution: "bg-yellow-500",
   };
 
   return (
