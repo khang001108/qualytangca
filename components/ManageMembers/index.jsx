@@ -4,7 +4,7 @@ import AddMemberForm from "./AddMemberForm";
 import LimitSelector from "./LimitSelector";
 import DeleteConfirm from "./DeleteConfirm";
 import ShiftAssign from "./ShiftAssign";
-import OvertimeFormulaPopup from "./OvertimeFormulaPopup";
+import OvertimeConfigPopup from "./overtimeConfig/OvertimeConfigPopup";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
 import dayjs from "dayjs";
@@ -194,7 +194,7 @@ export default function ManageMembers({
             onClick={() => setShowFormula(true)}
             className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm"
           >
-            <Clock className="w-4 h-4" /> Công thức tăng ca
+            <Clock className="w-4 h-4" /> Cấu hình tăng ca
           </button>
 
           <button
@@ -275,7 +275,7 @@ export default function ManageMembers({
       )}
 
       {showFormula && (
-        <OvertimeFormulaPopup
+        <OvertimeConfigPopup
           user={user}
           onClose={() => setShowFormula(false)}
           showToast={showToast}
