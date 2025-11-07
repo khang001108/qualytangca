@@ -108,7 +108,7 @@ export default function MembersTable({
       {/* Wrapper cuộn */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className="sticky top-0 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold z-10">
+          <thead className="sticky top-0 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold z-10">
             <tr className="[&>th]:border-b [&>th]:border-gray-300 dark:[&>th]:border-gray-700">
               <th className="p-2 text-center w-12">
                 <div className="flex items-center justify-center gap-1">
