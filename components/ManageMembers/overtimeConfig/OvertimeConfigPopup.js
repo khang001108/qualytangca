@@ -31,7 +31,9 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
       const cfg = snap.exists() ? snap.data() : {};
       const refMember = doc(db, "members", user.uid);
       const snapMember = await getDoc(refMember);
-      const ot = snapMember.exists() ? snapMember.data().overtimeLimit || {} : {};
+      const ot = snapMember.exists()
+        ? snapMember.data().overtimeLimit || {}
+        : {};
       setConfig((prev) => ({
         ...prev,
         ...cfg,
@@ -45,15 +47,21 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
 
   const handleSave = async () => {
     try {
-      await setDoc(
-        doc(db, "overtimeConfigs", user.uid),
-        { ...config, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-      showToast("Đã lưu cấu hình tăng ca.", "success");
-      onClose();
+      const baseData = { ...config, updatedAt: serverTimestamp() };
+
+      await Promise.all([
+        setDoc(doc(db, "overtimeConfigs_day", user.uid), baseData, {
+          merge: true,
+        }),
+        setDoc(doc(db, "overtimeConfigs_night", user.uid), baseData, {
+          merge: true,
+        }),
+      ]);
+
+      showToast("Đã lưu cấu hình cho ca ngày và ca đêm.", "success");
+      // Giữ popup mở
     } catch (err) {
-      showToast("Lỗi khi lưu.", "error");
+      showToast("Lỗi khi lưu dữ liệu.", "error");
     }
   };
 
