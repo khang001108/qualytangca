@@ -55,7 +55,7 @@ export default function PopupManager({
         transition={{ duration: 0.25, ease: "easeOut" }}
         className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 
              rounded-2xl w-[90%] max-w-5xl shadow-2xl border border-gray-200 
-             dark:border-gray-700 flex flex-col"
+             dark:border-gray-700 flex flex-col overflow-hidden"
         style={{ maxHeight: "90vh" }}
       >
         {/* 🔹 Nút đóng góc phải */}
