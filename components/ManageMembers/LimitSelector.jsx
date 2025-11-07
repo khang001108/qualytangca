@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { Loader2, CheckCircle2, XCircle, Undo2 } from "lucide-react";
+import { Loader2, CheckCircle2, Undo2 } from "lucide-react";
 
 export default function LimitSelector({
   title = "Giới hạn tăng ca",
@@ -17,13 +17,19 @@ export default function LimitSelector({
 }) {
   const modalRef = useRef();
 
+  // Tailwind không hỗ trợ class động — dùng map tĩnh
+  const colorClasses = {
+    indigo: "bg-indigo-600 hover:bg-indigo-700 hover:bg-indigo-50",
+    blue: "bg-blue-600 hover:bg-blue-700 hover:bg-blue-50",
+    green: "bg-green-600 hover:bg-green-700 hover:bg-green-50",
+    red: "bg-red-600 hover:bg-red-700 hover:bg-red-50",
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       onMouseDown={(e) =>
-        modalRef.current &&
-        !modalRef.current.contains(e.target) &&
-        onCancel?.()
+        modalRef.current && !modalRef.current.contains(e.target) && onCancel?.()
       }
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -33,6 +39,7 @@ export default function LimitSelector({
         className="relative bg-white dark:bg-gray-800 w-11/12 max-w-md p-5 rounded-xl shadow-2xl text-gray-800 dark:text-gray-200 z-10"
         onMouseDown={(e) => e.stopPropagation()}
       >
+        {/* --- Header --- */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button
@@ -89,7 +96,9 @@ export default function LimitSelector({
                 members.map((m) => (
                   <tr
                     key={m.id}
-                    className={`border-t border-gray-200 dark:border-gray-700 hover:bg-${color}-50 dark:hover:bg-gray-700`}
+                    className={`border-t border-gray-200 dark:border-gray-700 hover:${
+                      colorClasses[color]?.split(" ")[2] || "hover:bg-indigo-50"
+                    } dark:hover:bg-gray-700`}
                   >
                     <td className="p-2">
                       <input
@@ -121,7 +130,9 @@ export default function LimitSelector({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex items-center gap-1 bg-${color}-600 hover:bg-${color}-700 text-white px-3 py-1.5 rounded text-sm`}
+            className={`flex items-center gap-1 ${
+              colorClasses[color] || colorClasses.indigo
+            } text-white px-3 py-1.5 rounded text-sm`}
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />

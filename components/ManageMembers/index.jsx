@@ -8,6 +8,8 @@ import OvertimeConfigPopup from "./overtimeConfig/OvertimeConfigPopup";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
 import dayjs from "dayjs";
+import Toast from "../Toast";
+
 import { Clock, UserPlus, Trash2, CalendarArrowUp } from "lucide-react";
 import {
   doc,
@@ -29,7 +31,7 @@ export default function ManageMembers({
   selectedDate,
   setToast,
 }) {
-  const { members, setMembers, showToast } = useMembersData(user);
+  const { members, setMembers, toast, showToast } = useMembersData(user);
 
   const [showAdd, setShowAdd] = useState(false);
   const [showLimit, setShowLimit] = useState(false);
@@ -293,6 +295,16 @@ export default function ManageMembers({
           onCancel={() => setShowDelete(false)}
         />
       )}
+
+      <Toast
+        toasts={
+          toast.message
+            ? [{ id: Date.now(), message: toast.message, type: toast.type }]
+            : []
+        }
+        onClose={() => {}}
+      />
+      
     </div>
   );
 }
