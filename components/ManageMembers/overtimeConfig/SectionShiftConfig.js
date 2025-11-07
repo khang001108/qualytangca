@@ -2,14 +2,25 @@ import React, { useState } from "react";
 import { Settings } from "lucide-react";
 
 export default function SectionShiftConfig({ config, setConfig }) {
-  const [popupType, setPopupType] = useState(null); // 'start' hoặc 'end'
-  const [subType, setSubType] = useState("early"); // 'early' hoặc 'late'
-  const [gapMinutes, setGapMinutes] = useState(15); // mặc định 15p
-  const [labelRange, setLabelRange] = useState(""); // hiển thị khung giờ
+  const [popupType, setPopupType] = useState(null);
+  const [subType, setSubType] = useState("early");
+  const [gapMinutes, setGapMinutes] = useState(15);
+  const [labelRange, setLabelRange] = useState("");
 
   const shiftOptions = {
     day: { start: [7, 8] },
     night: { start: [19, 20] },
+  };
+
+  // === 1️⃣ Sửa: tính giờ kết thúc đúng theo giờ bắt đầu ===
+  const getShiftEndOptions = (startHour, shiftHalf = 1) => {
+    const ends = [];
+    const baseHours = 8 + shiftHalf;
+    for (let extra = 0; extra <= 3; extra++) {
+      const val = (startHour + baseHours + extra) % 24;
+      ends.push(Math.round(val));
+    }
+    return ends;
   };
 
   const calcOffice = (start, end, half) => {
@@ -17,21 +28,12 @@ export default function SectionShiftConfig({ config, setConfig }) {
     return duration - half;
   };
 
-  const getShiftEndOptions = (shiftType, startHour, shiftHalf = 1) => {
-    const ends = [];
-    const baseHours = 8 + shiftHalf;
-    for (let extra = 0; extra <= 3; extra++) {
-      ends.push((startHour + baseHours + extra) % 24);
-    }
-    return ends;
-  };
-
   const handleChange = (key, value) => {
     setConfig((prev) => {
       let newState = { ...prev, [key]: value };
       if (key === "shiftType") {
         const start = shiftOptions[value].start[0];
-        const end = getShiftEndOptions(value, start, prev.shiftHalf)[0];
+        const end = getShiftEndOptions(start, prev.shiftHalf)[0];
         newState = {
           ...newState,
           shiftStart: start,
@@ -40,11 +42,7 @@ export default function SectionShiftConfig({ config, setConfig }) {
         };
       }
       if (key === "shiftStart") {
-        const end = getShiftEndOptions(
-          prev.shiftType,
-          value,
-          prev.shiftHalf
-        )[0];
+        const end = getShiftEndOptions(value, prev.shiftHalf)[0];
         newState.shiftEnd = end;
         newState.shiftOffice = calcOffice(value, end, prev.shiftHalf);
       }
@@ -61,9 +59,17 @@ export default function SectionShiftConfig({ config, setConfig }) {
 
   const openPopup = (type) => {
     setPopupType(type);
-    setSubType("early");
-    setGapMinutes(15);
-    const [start, end] = getDefaultTime(config.shiftType, type, "early", 15);
+    setSubType(config[`${type}Mode`] || "early");
+    const currentGap = config[`${type}Gap`] || 15;
+    setGapMinutes(currentGap);
+    const [start, end] = getDefaultTime(
+      config.shiftType,
+      type,
+      subType,
+      currentGap,
+      config.shiftStart,
+      config.shiftEnd
+    );
     setLabelRange(`${convertToTime(start)} – ${convertToTime(end)}`);
   };
 
@@ -73,7 +79,9 @@ export default function SectionShiftConfig({ config, setConfig }) {
       config.shiftType,
       popupType,
       mode,
-      gapMinutes
+      gapMinutes,
+      config.shiftStart,
+      config.shiftEnd
     );
     setLabelRange(`${convertToTime(start)} – ${convertToTime(end)}`);
   };
@@ -84,7 +92,9 @@ export default function SectionShiftConfig({ config, setConfig }) {
       config.shiftType,
       popupType,
       subType,
-      val
+      val,
+      config.shiftStart,
+      config.shiftEnd
     );
     setLabelRange(`${convertToTime(start)} – ${convertToTime(end)}`);
   };
@@ -95,7 +105,9 @@ export default function SectionShiftConfig({ config, setConfig }) {
       config.shiftType,
       popupType,
       subType,
-      gapMinutes
+      gapMinutes,
+      config.shiftStart,
+      config.shiftEnd
     );
     setConfig((prev) => ({
       ...prev,
@@ -107,30 +119,25 @@ export default function SectionShiftConfig({ config, setConfig }) {
     setPopupType(null);
   };
 
+  // === 2️⃣ Sửa: truyền đúng shiftStart, không còn shiftType ===
   const shiftEndOptions = getShiftEndOptions(
-    config.shiftType,
     config.shiftStart,
     config.shiftHalf
   );
 
-  // Tính nhãn động cho giờ sớm
-  const getDynamicLabels = () => {
-    const gap = 15 / 60;
-    const startEarlyFrom = convertToTime(
-      config.shiftStart - gap < 0
-        ? 24 + (config.shiftStart - gap)
-        : config.shiftStart - gap
+  const getModeLabel = (type) => {
+    const mode = config[`${type}Mode`] || "early";
+    const gap = config[`${type}Gap`] || 15;
+    const [from, to] = getDefaultTime(
+      config.shiftType,
+      type,
+      mode,
+      gap,
+      config.shiftStart,
+      config.shiftEnd
     );
-    const startEarlyTo = convertToTime(config.shiftStart);
-    const endEarlyFrom = convertToTime(config.shiftEnd + 1 / 60);
-    const endEarlyTo = convertToTime(config.shiftEnd + 16 / 60);
-    return {
-      start: `(${startEarlyFrom}–${startEarlyTo})`,
-      end: `(${endEarlyFrom}–${endEarlyTo})`,
-    };
+    return `(${convertToTime(from)}–${convertToTime(to)})`;
   };
-
-  const labels = getDynamicLabels();
 
   return (
     <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
@@ -159,7 +166,8 @@ export default function SectionShiftConfig({ config, setConfig }) {
         <div>
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-700 dark:text-gray-300">
-              Giờ lên ca <span className="text-gray-500">{labels.start}</span>
+              Giờ lên ca{" "}
+              <span className="text-gray-500">{getModeLabel("start")}</span>
             </label>
             <Settings
               onClick={() => openPopup("start")}
@@ -184,7 +192,8 @@ export default function SectionShiftConfig({ config, setConfig }) {
         <div>
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-700 dark:text-gray-300">
-              Giờ xuống ca <span className="text-gray-500">{labels.end}</span>
+              Giờ xuống ca{" "}
+              <span className="text-gray-500">{getModeLabel("end")}</span>
             </label>
             <Settings
               onClick={() => openPopup("end")}
@@ -314,35 +323,37 @@ export default function SectionShiftConfig({ config, setConfig }) {
   );
 }
 
-// === Logic chuẩn theo yêu cầu ===
-function getDefaultTime(shiftType, type, mode, gap = 15) {
+// === Logic chuẩn ===
+function getDefaultTime(
+  shiftType,
+  type,
+  mode,
+  gap = 15,
+  shiftStart = 7.0,
+  shiftEnd = 16.0
+) {
   const gapHours = gap / 60;
   const oneMin = 1 / 60;
   const oneHour = 1.0;
 
   if (type === "start") {
-    if (shiftType === "day") {
-      return mode === "early" ? [7 - gapHours, 7.0] : [7.0 + gapHours, 8.0];
-    } else {
-      return mode === "early" ? [19 - gapHours, 19.0] : [19.0 + gapHours, 20.0];
-    }
-  } else {
-    if (shiftType === "day") {
-      const base = 16.0;
-      return mode === "early"
-        ? [base + oneMin, base + oneMin + gapHours]
-        : [base + oneHour + oneMin, base + oneHour + oneMin + gapHours];
-    } else {
-      const base = 4.0;
-      return mode === "early"
-        ? [base + oneMin, base + oneMin + gapHours]
-        : [base + oneHour + oneMin, base + oneHour + oneMin + gapHours];
-    }
+    const base = shiftStart;
+    return mode === "early"
+      ? [base - gapHours, base]
+      : [base + oneHour - gapHours, base + oneHour];
   }
+
+  // Tan ca
+  const base = shiftEnd;
+  return mode === "early"
+    ? [base + oneMin, base + oneMin + gapHours]
+    : [base + oneHour + oneMin, base + oneHour + oneMin + gapHours];
 }
 
+// === 3️⃣ Sửa: hiển thị thời gian chính xác, tránh lỗi 04:01–04:00 ===
 function convertToTime(hour) {
-  const h = Math.floor(hour);
-  const m = Math.round((hour - h) * 60);
+  const totalMinutes = Math.round(hour * 60);
+  const h = Math.floor((totalMinutes / 60) % 24);
+  const m = totalMinutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }

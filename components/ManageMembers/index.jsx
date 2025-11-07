@@ -255,8 +255,8 @@ export default function ManageMembers({
           onStatusChange={({ loading, success, month }) => {
             if (loading) {
               setToast({
+                msg: "Đang lưu phân ca... ",
                 type: "loading",
-                msg: "⏳ Đang lưu phân ca...",
               });
             } else if (success) {
               setToast({

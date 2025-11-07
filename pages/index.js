@@ -44,7 +44,9 @@ export default function Home() {
   // 🔹 Khởi tạo theme
   useEffect(() => {
     const saved = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
     const enabled = saved === "dark" || (!saved && prefersDark);
     setDark(enabled);
     if (enabled) document.documentElement.classList.add("dark");
@@ -70,7 +72,11 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
     const col = collection(db, "overtimes");
-    const q = query(col, where("userId", "==", user.uid), where("year", "==", selectedYear));
+    const q = query(
+      col,
+      where("userId", "==", user.uid),
+      where("year", "==", selectedYear)
+    );
     const unsub = onSnapshot(q, (snap) => {
       setOvertimeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
@@ -79,8 +85,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return;
-    const startStr = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`).format("YYYY-MM-DD");
-    const endStr = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}`)
+    const startStr = dayjs(
+      `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`
+    ).format("YYYY-MM-DD");
+    const endStr = dayjs(
+      `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`
+    )
       .endOf("month")
       .format("YYYY-MM-DD");
 
@@ -123,7 +133,9 @@ export default function Home() {
 
   // 🔹 Cập nhật ca làm theo ngày chọn
   useEffect(() => {
-    const dateStr = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : "";
+    const dateStr = selectedDate
+      ? dayjs(selectedDate).format("YYYY-MM-DD")
+      : "";
     if (!dateStr) return;
     if (!shiftSchedules[dateStr]) {
       setMembers((prev) =>
@@ -155,7 +167,12 @@ export default function Home() {
   };
 
   const handleDeleteAll = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?")) return;
+    if (
+      !window.confirm(
+        "Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?"
+      )
+    )
+      return;
     try {
       const q = query(
         collection(db, "overtimes"),
@@ -226,14 +243,20 @@ export default function Home() {
       <div className="w-full p-6 space-y-5">
         {/* Header */}
         <div className="bg-white shadow p-4 rounded-2xl flex justify-between items-center border border-indigo-100 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">🕒 Quản Lý Tăng Ca</h1>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            🕒 Quản Lý Tăng Ca
+          </h1>
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               title="Chuyển giao diện"
             >
-              {dark ? <Sun className="w-5 h-5 text-yellow-300" /> : <Moon className="w-5 h-5" />}
+              {dark ? (
+                <Sun className="w-5 h-5 text-yellow-300" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
             </button>
             <button
               onClick={() => setShowManager(true)}
@@ -302,7 +325,10 @@ export default function Home() {
         />
 
         <div ref={chartRef}>
-          <OvertimeChart overtimes={overtimeItems} selectedYear={selectedYear} />
+          <OvertimeChart
+            overtimes={overtimeItems}
+            selectedYear={selectedYear}
+          />
         </div>
       </div>
 
@@ -320,7 +346,7 @@ export default function Home() {
       {/* ✅ Toast duy nhất */}
       {toast && (
         <div
-          className={`fixed top-6 right-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
+          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
             toast.type === "error"
               ? "bg-red-500"
               : toast.type === "loading"
@@ -328,7 +354,9 @@ export default function Home() {
               : "bg-green-500"
           }`}
         >
-          {toast.type === "loading" && <Hourglass className="w-4 h-4 animate-pulse" />}
+          {toast.type === "loading" && (
+            <Hourglass className="w-4 h-4 animate-spin" />
+          )}
           {toast.type === "success" && <CheckCircle2 className="w-4 h-4" />}
           {toast.type === "error" && <XCircle className="w-4 h-4" />}
           <span>{toast.msg}</span>
