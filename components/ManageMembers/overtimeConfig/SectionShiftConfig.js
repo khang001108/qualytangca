@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Sun, Moon } from "lucide-react";
 
 export default function SectionShiftConfig({ config, setConfig }) {
   const [popupType, setPopupType] = useState(null);

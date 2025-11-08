@@ -76,7 +76,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[1000px] max-w-[95vw] border border-gray-200 dark:border-gray-700 animate-fadeIn flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[1200px] max-w-[98vw] border border-gray-200 dark:border-gray-700 animate-fadeIn flex flex-col overflow-hidden"
         style={{ maxHeight: "90vh" }}
       >
         {/* Header */}
