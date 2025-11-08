@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, LogIn, LogOut } from "lucide-react";
 import Toast from "./Toast";
 import useOvertimeParser from "../hooks/useOvertimeParser/index";
 
@@ -14,7 +14,7 @@ export default function OvertimeForm({
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const [mode, setMode] = useState("checkin"); // "checkin" | "checkout"
+  const [mode, setMode] = useState("checkin");
   const modalRef = useRef();
   const [toasts, setToasts] = useState([]);
 
@@ -57,7 +57,6 @@ export default function OvertimeForm({
 
   return (
     <>
-      {/* 🔹 Toast nhiều cái cùng lúc */}
       <Toast toasts={toasts} onClose={removeToast} />
 
       {/* Nút mở form */}
@@ -90,7 +89,7 @@ export default function OvertimeForm({
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center mb-5">
               <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400">
                 Thêm tăng ca
               </h3>
@@ -102,34 +101,47 @@ export default function OvertimeForm({
               </button>
             </div>
 
-            {/* 🔹 Chọn chế độ */}
-            <div className="flex gap-2 mb-4">
-              <button
-                className={`flex-1 py-2 rounded-lg border transition font-medium ${
-                  mode === "checkin"
-                    ? "bg-green-500 hover:bg-green-600 text-white shadow"
-                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-                }`}
-                onClick={() => setMode("checkin")}
+            {/* 🔹 Slider switch */}
+            <div className="flex justify-center mb-5">
+              <div
+                className="relative flex items-center w-44 h-10 bg-gray-200 dark:bg-gray-800 rounded-full cursor-pointer transition"
+                onClick={() =>
+                  setMode((prev) =>
+                    prev === "checkin" ? "checkout" : "checkin"
+                  )
+                }
               >
-                ☀️ Lên ca (Check-in)
-              </button>
-              <button
-                className={`flex-1 py-2 rounded-lg border transition font-medium ${
-                  mode === "checkout"
-                    ? "bg-blue-500 hover:bg-blue-600 text-white shadow"
-                    : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-                }`}
-                onClick={() => setMode("checkout")}
-              >
-                🌙 Xuống ca (Check-out)
-              </button>
+                <div
+                  className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${
+                    mode === "checkin"
+                      ? "from-yellow-500 to-yellow-600"
+                      : "from-green-500 to-green-600"
+                  } shadow-md transform transition-all duration-300 ${
+                    mode === "checkout" ? "translate-x-full" : "translate-x-0"
+                  }`}
+                />
+                <div className="flex justify-between items-center w-full px-4 z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <div
+                    className={`flex items-center gap-1 transition ${
+                      mode === "checkin" ? "text-white" : ""
+                    }`}
+                  >
+                    <LogIn className="w-4 h-4" /> In
+                  </div>
+                  <div
+                    className={`flex items-center gap-1 transition ${
+                      mode === "checkout" ? "text-white" : ""
+                    }`}
+                  >
+                    <LogOut className="w-4 h-4" /> Out
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 🔹 Ô nhập dữ liệu */}
             <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
-              Dán dữ liệu chấm công (
-              {mode === "checkin" ? "Lên ca" : "Xuống ca"})
+              Dán dữ liệu chấm công ({mode === "checkin" ? "Lên ca" : "Xuống ca"})
             </label>
             <textarea
               rows={6}
@@ -155,13 +167,11 @@ export default function OvertimeForm({
                 onClick={handleParse}
                 className={`px-5 py-2 rounded-lg text-white shadow-md transition ${
                   mode === "checkin"
-                    ? "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
-                    : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
+                    ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800"
+                    : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
                 }`}
               >
-                {mode === "checkin"
-                  ? "Xử lý Check-in"
-                  : "Xử lý Check-out"}
+                {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
               </button>
             </div>
           </div>
