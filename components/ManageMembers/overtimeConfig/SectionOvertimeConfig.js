@@ -145,32 +145,45 @@ export default function SectionOvertimeLimit({
             ))}
           </div>
         </div>
-
-        {/* === Giờ ra hôm nay + kết quả tính === */}
+        {/* === Kế hoạch tăng ca tháng === */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-          <label className="text-sm text-gray-600 dark:text-gray-400">
-            Giờ ra hôm nay
-          </label>
-          <input
-            type="text"
-            value={checkOut}
-            onChange={(e) => setCheckOut(normalizeTimeText(e.target.value))}
-            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 mt-1 
-                       bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 
-                       focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
-          />
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            Kế hoạch tăng ca tháng này
+          </div>
 
-          <div className="mt-3 text-center">
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              Tính theo quy tắc: 1h sau giờ tan ca = 1h tăng ca
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
+            <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Giới hạn/ngày
+              </div>
+              <div className="text-lg font-semibold text-indigo-500 dark:text-indigo-400">
+                ≤ 6 h
+              </div>
             </div>
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {overtimeToday}
-              <span className="text-base font-medium">h</span>
+
+            <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Số ngày trong tháng
+              </div>
+              <div className="text-lg font-semibold text-gray-700 dark:text-gray-100">
+                {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} ngày
+              </div>
             </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              (từ {shiftEnd} → {checkOut})
+
+            <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800 col-span-2 sm:col-span-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Tổng giờ tối đa
+              </div>
+              <div className="text-lg font-semibold text-amber-500">
+                {new Date().getDate() * 6} h
+              </div>
             </div>
+          </div>
+
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
+            Công thức: (số ngày × 6 giờ) → tổng giới hạn tháng.
+            <br />
+            Mỗi ngày không vượt quá 6 giờ tăng ca.
           </div>
         </div>
       </div>
