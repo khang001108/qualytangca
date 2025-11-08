@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
-import { ChevronRight, ChevronDown, Users, Plus, Clock } from "lucide-react";
+import { ChevronRight, ChevronDown, Users, Clock } from "lucide-react";
 
 export default function SectionOvertimeLimit({
   shiftConfig = { shiftEnd: "17:00" },
@@ -12,32 +12,23 @@ export default function SectionOvertimeLimit({
   const [loading, setLoading] = useState(true);
   const [selectedOption, setSelectedOption] = useState({});
   const [openGroups, setOpenGroups] = useState({});
-  const [showAddLimitPopup, setShowAddLimitPopup] = useState(false);
   const [checkOut, setCheckOut] = useState("19:00");
   const [dailyCap, setDailyCap] = useState(defaultDailyCap);
+  const [useLimitMode, setUseLimitMode] = useState(
+    localStorage.getItem("useLimitMode") === "true"
+  );
 
-  // 1️⃣ Khởi tạo state
-  const [useLimitMode, setUseLimitMode] = useState(() => {
-    // đọc giá trị đã lưu
-    const saved = localStorage.getItem("useLimitMode");
-    return saved === "true";
-  });
-
-  // 2️⃣ Khi user đổi trạng thái, lưu lại
   const handleToggleMode = (checked) => {
     setUseLimitMode(checked);
     localStorage.setItem("useLimitMode", checked);
   };
 
-  // ==== Utility: time parsing ====
+  // ====== TIME UTILS ======
   const parseTimeToMinutes = (t) => {
     if (typeof t === "number") return Math.round(t * 60);
-    if (!t) return 0;
-    const m = t.match(/^(\d{1,2}):(\d{2})$/);
+    const m = t?.match?.(/^(\d{1,2}):(\d{2})$/);
     if (!m) return 0;
-    const h = Number(m[1]);
-    const mm = Number(m[2]);
-    return h * 60 + mm;
+    return Number(m[1]) * 60 + Number(m[2]);
   };
 
   const normalizeTimeText = (text) => {
@@ -52,114 +43,133 @@ export default function SectionOvertimeLimit({
     const endMin = parseTimeToMinutes(shiftEndText);
     const outMin = parseTimeToMinutes(checkOutText);
     let diff = outMin - endMin;
-    if (diff <= 0) {
-      if (outMin !== endMin) diff = outMin + 24 * 60 - endMin;
-      else diff = 0;
-    }
-    if (diff <= 0) return 0;
-    return Math.floor(diff / 60);
+    if (diff <= 0) diff = outMin + 24 * 60 - endMin;
+    return diff > 0 ? Math.floor(diff / 60) : 0;
   };
 
-  // ==== Firestore ====
+  // ====== FIRESTORE ======
   useEffect(() => {
-    let mounted = true;
     const fetchMembers = async () => {
       setLoading(true);
       try {
         const snap = await getDocs(collection(db, "members"));
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        if (mounted) setMembers(data);
+        setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error("Fetch members error:", err);
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
     };
     fetchMembers();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
-  // group members by monthlyLimit
+  // ====== GROUP MEMBERS ======
   useEffect(() => {
     const grouped = {};
     members.forEach((m) => {
-      const limit = (m.overtimeLimit && m.overtimeLimit.monthlyLimit) || 0;
+      const limit = m.overtimeLimit?.monthlyLimit || 0;
       const key = String(limit);
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(m);
     });
     Object.keys(grouped).forEach((k) => {
-      grouped[k].sort((a, b) => {
-        const an = (a.nickname || a.realName || "").toLowerCase();
-        const bn = (b.nickname || b.realName || "").toLowerCase();
-        return an.localeCompare(bn);
-      });
+      grouped[k].sort((a, b) =>
+        (a.nickname || a.realName || "").localeCompare(
+          b.nickname || b.realName || ""
+        )
+      );
     });
     setTree(grouped);
   }, [members]);
 
   const sortedLimits = Object.keys(tree)
-    .map((k) => Number(k))
+    .map(Number)
     .sort((a, b) => b - a)
     .map(String);
 
-  const toggleGroup = (limitKey) =>
-    setOpenGroups((p) => ({ ...p, [limitKey]: !p[limitKey] }));
+  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
-  // ==== View: No Limit Mode ====
+  // ====== VIEW: NO LIMIT ======
   const renderNoLimitView = () => {
+    // Các giờ tan ca mẫu — sau này bạn có thể lấy từ shiftConfig
+    const dayShifts = [
+      { label: "Tan ca sớm", time: "16:15" },
+      { label: "Tan ca muộn", time: "17:00" },
+    ];
+    const nightShifts = [
+      { label: "Tan ca sớm", time: "04:15" },
+      { label: "Tan ca muộn", time: "05:00" },
+    ];
+
     const shiftEnd = shiftConfig.shiftEnd || "17:00";
     const overtimeToday = computeOvertimeToday(shiftEnd, checkOut);
-    const displayedOvertime = Math.min(overtimeToday, Number(dailyCap || 0));
 
     return (
-      <div className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-500" />
-            <div>
-              <div className="text-sm text-gray-700 dark:text-gray-300">
-                Giờ tan ca
-              </div>
-              <div className="font-semibold text-indigo-600 dark:text-indigo-400">
-                {shiftEnd}
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500">Giới hạn/ngày</div>
-            <div className="font-semibold text-gray-800 dark:text-gray-100">
-              {dailyCap}h
-            </div>
+      <div className="border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 p-4 space-y-5 shadow-sm transition-colors">
+        {/* === Ca ngày === */}
+        <div>
+          <div className="text-amber-500 font-semibold mb-2">Ca ngày</div>
+          <div className="flex flex-wrap gap-2">
+            {dayShifts.map((s, i) => (
+              <button
+                key={i}
+                className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 
+                           bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 
+                           text-gray-800 dark:text-gray-200 transition-colors w-full sm:w-auto"
+              >
+                <span className="text-sm">{s.label}</span>
+                <span className="ml-3 text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                  {s.time}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 items-center">
-          <div>
-            <label className="text-sm text-gray-600 dark:text-gray-400">
-              Giờ ra hôm nay
-            </label>
-            <input
-              type="text"
-              value={checkOut}
-              onChange={(e) => setCheckOut(normalizeTimeText(e.target.value))}
-              className="w-full border rounded-lg p-2 mt-1 dark:bg-gray-800 dark:text-gray-100"
-            />
-            <div className="text-sm text-gray-500 mt-1">
-              Overtime tính theo: mỗi 1h sau giờ tan ca = 1h tăng ca
-            </div>
+        {/* === Ca đêm === */}
+        <div>
+          <div className="text-amber-500 font-semibold mb-2">Ca đêm</div>
+          <div className="flex flex-wrap gap-2">
+            {nightShifts.map((s, i) => (
+              <button
+                key={i}
+                className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 
+                           bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 
+                           text-gray-800 dark:text-gray-200 transition-colors w-full sm:w-auto"
+              >
+                <span className="text-sm">{s.label}</span>
+                <span className="ml-3 text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                  {s.time}
+                </span>
+              </button>
+            ))}
           </div>
+        </div>
 
-          <div className="text-center">
-            <div className="text-sm text-gray-500">Giờ tăng ca hôm nay</div>
-            <div className="text-2xl font-bold text-indigo-600">
-              {displayedOvertime}
+        {/* === Giờ ra hôm nay + kết quả tính === */}
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+          <label className="text-sm text-gray-600 dark:text-gray-400">
+            Giờ ra hôm nay
+          </label>
+          <input
+            type="text"
+            value={checkOut}
+            onChange={(e) => setCheckOut(normalizeTimeText(e.target.value))}
+            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 mt-1 
+                       bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 
+                       focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+          />
+
+          <div className="mt-3 text-center">
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+              Tính theo quy tắc: 1h sau giờ tan ca = 1h tăng ca
+            </div>
+            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+              {overtimeToday}
               <span className="text-base font-medium">h</span>
             </div>
-            <div className="text-sm text-gray-400 mt-1">
-              (tính từ {shiftEnd} → {checkOut})
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              (từ {shiftEnd} → {checkOut})
             </div>
           </div>
         </div>
@@ -167,7 +177,7 @@ export default function SectionOvertimeLimit({
     );
   };
 
-  // ==== View: Limit Mode ====
+  // ====== VIEW: LIMIT MODE ======
   const renderLimitTreeView = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -181,19 +191,19 @@ export default function SectionOvertimeLimit({
         if (Number.isInteger(d) && d <= daysInMonth)
           options.push({ perDay: h, days: d });
       }
-      if (options.length === 0) {
+      if (!options.length) {
         for (let h = 6; h >= 1; h--) {
           const d = Math.ceil(monthlyLimit / h);
           if (d <= daysInMonth) options.push({ perDay: h, days: d });
         }
       }
-      options.sort((a, b) => b.days - a.days);
-      return options;
+      return options.sort((a, b) => b.days - a.days);
     };
 
     return (
-      <div className="border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="border rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
+        {/* === Header cố định === */}
+        <div className="flex justify-between items-center border-b border-gray-700 pb-2">
           <div>
             <div className="text-sm text-gray-700 dark:text-gray-300">
               Số giờ tăng ca / ngày (hệ thống)
@@ -207,146 +217,127 @@ export default function SectionOvertimeLimit({
           </div>
         </div>
 
-        {loading ? (
-          <p className="text-gray-400 text-sm italic">
-            Đang tải danh sách nhân viên...
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {sortedLimits.length === 0 ? (
-              <div className="text-sm text-gray-500">Không có nhân viên.</div>
-            ) : (
-              sortedLimits.map((limitKey) => {
-                const membersInGroup = tree[limitKey] || [];
-                const limitNum = Number(limitKey);
-                const options = getMonthSplitOptions(limitNum);
-                const selected = selectedOption[limitKey];
-                const chosen = selected || options[0] || { days: 0, perDay: 1 };
-                const isOpen = openGroups[limitKey] ?? false;
+        {/* === Nội dung cuộn trong vùng này === */}
+        <div
+          className="space-y-2 overflow-y-auto pr-1 mt-2"
+          style={{
+            maxHeight: "180px", // hiển thị vừa khoảng 2 card
+            scrollbarWidth: "thin",
+          }}
+        >
+          {loading ? (
+            <p className="text-gray-400 text-sm italic">
+              Đang tải danh sách nhân viên...
+            </p>
+          ) : sortedLimits.length === 0 ? (
+            <div className="text-sm text-gray-500">Không có nhân viên.</div>
+          ) : (
+            sortedLimits.map((limitKey) => {
+              const membersInGroup = tree[limitKey] || [];
+              const limitNum = Number(limitKey);
+              const options = getMonthSplitOptions(limitNum);
+              const chosen = selectedOption[limitKey] || options[0];
+              const isOpen = openGroups[limitKey] ?? false;
 
-                return (
-                  <div
-                    key={limitKey}
-                    className="border border-gray-700/30 rounded-lg bg-gray-800/70 overflow-hidden"
+              return (
+                <div
+                  key={limitKey}
+                  className="border border-gray-700/30 rounded-lg bg-gray-800/70 overflow-hidden"
+                >
+                  <button
+                    onClick={() => toggleGroup(limitKey)}
+                    className="flex justify-between items-center w-full px-3 py-2 text-left hover:bg-gray-700/50 transition-colors"
                   >
-                    <button
-                      onClick={() => toggleGroup(limitKey)}
-                      className="flex justify-between items-center w-full px-3 py-2 text-left hover:bg-gray-700/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        {isOpen ? (
-                          <ChevronDown className="w-4 h-4 text-amber-400" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-amber-400" />
-                        )}
-                        <span className="font-medium text-amber-300">
-                          Giới hạn {limitNum} giờ
-                        </span>
-                        <span className="text-sm text-gray-400 ml-2">
-                          → {chosen.days} ngày × {chosen.perDay}h/ngày (đang
-                          chọn)
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      {isOpen ? (
+                        <ChevronDown className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-amber-400" />
+                      )}
+                      <span className="font-medium text-amber-300">
+                        Giới hạn {limitNum} giờ
+                      </span>
+                      <span className="text-sm text-gray-400 ml-2">
+                        → {chosen.days} ngày × {chosen.perDay}h/ngày
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400 text-sm">
+                      <Users className="w-4 h-4" /> {membersInGroup.length}
+                    </div>
+                  </button>
 
-                      <div className="flex items-center gap-2 text-gray-400 text-sm">
-                        <Users className="w-4 h-4" />
-                        {membersInGroup.length}
-                      </div>
-                    </button>
-
-                    {/* ==== lựa chọn phương án chia ==== */}
-                    {options.length > 1 && (
-                      <div className="px-4 py-2 border-t border-gray-700 bg-gray-900/40">
-                        <div className="text-xs text-gray-400 mb-2">
-                          Chọn phương án chia giới hạn:
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {options.map((opt, i) => {
-                            const active =
-                              chosen.perDay === opt.perDay &&
-                              chosen.days === opt.days;
-                            return (
-                              <button
-                                key={i}
-                                onClick={() =>
-                                  setSelectedOption((prev) => ({
-                                    ...prev,
-                                    [limitKey]: opt,
-                                  }))
-                                }
-                                className={`px-2 py-1 rounded-lg text-xs border ${
-                                  active
-                                    ? "bg-amber-500 text-white border-amber-600"
-                                    : "bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700"
-                                } transition-colors`}
-                              >
-                                {opt.days} ngày × {opt.perDay}h/ngày
-                                {active && " ✅"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    <div
-                      className={`transition-all duration-300 ${
-                        isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                      } overflow-hidden border-t border-gray-700`}
-                    >
-                      <ul className="px-4 py-2 space-y-1 text-sm">
-                        {membersInGroup.map((m) => {
-                          const name = m.nickname || m.realName || "Không tên";
-                          const worked =
-                            (m.overtimeLimit && m.overtimeLimit.workedHours) ||
-                            0;
-                          const remaining = Math.max(limitNum - worked, 0);
-                          const remainDays = Math.ceil(
-                            remaining / chosen.perDay
-                          );
-                          return (
-                            <li
-                              key={m.id}
-                              className="flex justify-between border-b border-gray-700/50 pb-1 py-1"
-                            >
-                              <div>
-                                <div className="text-green-400">{name}</div>
-                                <div className="text-xs text-gray-400">
-                                  Đã làm: {worked}h · Còn: {remaining}h
-                                </div>
-                              </div>
-
-                              <div className="text-right">
-                                <div className="text-gray-300 font-semibold">
-                                  {remainDays} ngày
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  ({remaining}h)
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                  {/* Chọn phương án */}
+                  <div className="px-4 py-2 border-t border-gray-700 bg-gray-900/40">
+                    <div className="flex flex-wrap gap-2">
+                      {options.map((opt, i) => {
+                        const active =
+                          chosen.perDay === opt.perDay &&
+                          chosen.days === opt.days;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() =>
+                              setSelectedOption((prev) => ({
+                                ...prev,
+                                [limitKey]: opt,
+                              }))
+                            }
+                            className={`px-2 py-1 rounded-lg text-xs border ${
+                              active
+                                ? "bg-amber-500 text-white border-amber-600"
+                                : "bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700"
+                            } transition-colors`}
+                          >
+                            {opt.days} ngày × {opt.perDay}h/ngày
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        )}
+
+                  {/* Chi tiết nhân viên */}
+                  {isOpen && (
+                    <ul className="px-4 py-2 border-t border-gray-700 text-sm space-y-1">
+                      {membersInGroup.map((m) => {
+                        const name = m.nickname || m.realName || "Không tên";
+                        const worked = m.overtimeLimit?.workedHours || 0;
+                        const remaining = Math.max(limitNum - worked, 0);
+                        const remainDays = Math.ceil(remaining / chosen.perDay);
+                        return (
+                          <li
+                            key={m.id}
+                            className="flex justify-between border-b border-gray-700/50 pb-1"
+                          >
+                            <div>
+                              <div className="text-green-400">{name}</div>
+                              <div className="text-xs text-gray-400">
+                                Đã làm: {worked}h · Còn: {remaining}h
+                              </div>
+                            </div>
+                            <div className="text-right text-xs text-gray-400">
+                              {remainDays} ngày ({remaining}h)
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     );
   };
 
-  // ==== Main ====
   return (
     <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4 shadow-sm">
-      <h3 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+      <h3 className="font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
         ⏱️ Giờ tăng ca
       </h3>
 
-      <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-900 border rounded-lg p-2">
+      <div className="flex justify-between bg-gray-100 dark:bg-gray-900 border rounded-lg p-2">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-500" />
           <div>
@@ -354,9 +345,7 @@ export default function SectionOvertimeLimit({
               Chế độ
             </div>
             <div className="font-medium text-gray-800 dark:text-gray-100">
-              {useLimitMode
-                ? "Dùng giới hạn (monthlyLimit)"
-                : "Không dùng giới hạn"}
+              {useLimitMode ? "Giới hạn (monthlyLimit)" : "Không giới hạn"}
             </div>
           </div>
         </div>
@@ -368,41 +357,11 @@ export default function SectionOvertimeLimit({
             onChange={(e) => handleToggleMode(e.target.checked)}
             className="sr-only peer"
           />
-          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+          <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-indigo-600 transition-all relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:h-5 after:w-5 after:rounded-full after:transition-all peer-checked:after:translate-x-full"></div>
         </label>
       </div>
 
       {useLimitMode ? renderLimitTreeView() : renderNoLimitView()}
-
-      {showAddLimitPopup && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowAddLimitPopup(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-2xl w-80 space-y-4"
-          >
-            <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-center">
-              ➕ Thêm giới hạn tăng ca
-            </h4>
-            <div className="flex justify-end gap-2 pt-3">
-              <button
-                onClick={() => setShowAddLimitPopup(false)}
-                className="px-4 py-1 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => setShowAddLimitPopup(false)}
-                className="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                Lưu
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
