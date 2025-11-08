@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Settings, Sun, Moon } from "lucide-react";
+import { db } from "../../../lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
 
 export default function SectionShiftConfig({ config, setConfig }) {
   const [popupType, setPopupType] = useState(null);
@@ -22,6 +25,21 @@ export default function SectionShiftConfig({ config, setConfig }) {
     }
     return ends;
   };
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, "shiftConfig", "default"));
+        if (snap.exists()) {
+          setConfig(snap.data());
+          console.log("Loaded shift config:", snap.data());
+        }
+      } catch (err) {
+        console.error("Lỗi khi load config:", err);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const calcOffice = (start, end, half) => {
     const duration = end > start ? end - start : 24 - start + end;
@@ -139,6 +157,18 @@ export default function SectionShiftConfig({ config, setConfig }) {
     return `(${convertToTime(from)}–${convertToTime(to)})`;
   };
 
+  // Hàm lưu toàn bộ config lên Firestore
+  const saveToFirestore = async () => {
+    try {
+      await setDoc(doc(db, "shiftConfig", "default"), config, { merge: true });
+      console.log("Shift config saved:", config);
+      alert("Đã lưu cấu hình ca làm việc lên Firestore ✅");
+    } catch (err) {
+      console.error("Lỗi khi lưu cấu hình:", err);
+      alert("❌ Lưu thất bại, xem console log.");
+    }
+  };
+
   return (
     <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
       <h3 className="font-semibold text-gray-800 dark:text-gray-100">
@@ -238,6 +268,16 @@ export default function SectionShiftConfig({ config, setConfig }) {
         <span className="font-semibold text-indigo-600 dark:text-indigo-400">
           {config.shiftOffice} tiếng
         </span>
+      </div>
+
+      {/*  */}
+      <div className="flex justify-end">
+        <button
+          onClick={saveToFirestore}
+          className="px-4 py-2 mt-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+        >
+          💾 Lưu cấu hình
+        </button>
       </div>
 
       {/* Popup ⚙️ chỉnh chi tiết */}

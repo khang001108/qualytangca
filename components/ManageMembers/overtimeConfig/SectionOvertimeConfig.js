@@ -14,10 +14,22 @@ export default function SectionOvertimeLimit({
   const [openGroups, setOpenGroups] = useState({});
   const [checkOut, setCheckOut] = useState("19:00");
   const [dailyCap, setDailyCap] = useState(defaultDailyCap);
+
+  // Định dạng giờ từ dạng số (vd: 16.25 => "16:15")
+  const formatHour = (hour) => {
+    if (hour == null || isNaN(hour)) return "--:--";
+    const totalMinutes = Math.round(hour * 60);
+    const h = Math.floor((totalMinutes / 60) % 24);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  // giữ trạng thái chế độ giới hạn
   const [useLimitMode, setUseLimitMode] = useState(
     localStorage.getItem("useLimitMode") === "true"
   );
 
+  // xử lý chuyển đổi chế độ
   const handleToggleMode = (checked) => {
     setUseLimitMode(checked);
     localStorage.setItem("useLimitMode", checked);
@@ -92,17 +104,48 @@ export default function SectionOvertimeLimit({
   // ====== VIEW: NO LIMIT ======
   const renderNoLimitView = () => {
     // Các giờ tan ca mẫu — sau này bạn có thể lấy từ shiftConfig
+    // Lấy giờ tan ca thực từ shiftConfig (SectionShiftConfig truyền vào)
     const dayShifts = [
-      { label: "Tan ca sớm", time: "16:15" },
-      { label: "Tan ca muộn", time: "17:00" },
-    ];
-    const nightShifts = [
-      { label: "Tan ca sớm", time: "04:15" },
-      { label: "Tan ca muộn", time: "05:00" },
+      {
+        label: "Tan ca sớm",
+        time:
+          shiftConfig?.earlyEndTo != null
+            ? formatHour(shiftConfig.earlyEndTo)
+            : "--:--",
+      },
+      {
+        label: "Tan ca muộn",
+        time:
+          shiftConfig?.lateEndTo != null
+            ? formatHour(shiftConfig.lateEndTo)
+            : "--:--",
+      },
     ];
 
-    const shiftEnd = shiftConfig.shiftEnd || "17:00";
-    const overtimeToday = computeOvertimeToday(shiftEnd, checkOut);
+    const nightShifts = [
+      {
+        label: "Tan ca sớm (đêm)",
+        time:
+          shiftConfig?.earlyEndToNight != null
+            ? formatHour(shiftConfig.earlyEndToNight)
+            : "--:--",
+      },
+      {
+        label: "Tan ca muộn (đêm)",
+        time:
+          shiftConfig?.lateEndToNight != null
+            ? formatHour(shiftConfig.lateEndToNight)
+            : "--:--",
+      },
+    ];
+
+    // Dữ liệu tháng
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const maxHoursPerDay = 6;
+    const totalMaxHours = daysInMonth * maxHoursPerDay;
 
     return (
       <div className="border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 p-4 space-y-5 shadow-sm transition-colors">
@@ -145,6 +188,7 @@ export default function SectionOvertimeLimit({
             ))}
           </div>
         </div>
+
         {/* === Kế hoạch tăng ca tháng === */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -157,7 +201,7 @@ export default function SectionOvertimeLimit({
                 Giới hạn/ngày
               </div>
               <div className="text-lg font-semibold text-indigo-500 dark:text-indigo-400">
-                ≤ 6 h
+                ≤ {maxHoursPerDay} h
               </div>
             </div>
 
@@ -166,7 +210,7 @@ export default function SectionOvertimeLimit({
                 Số ngày trong tháng
               </div>
               <div className="text-lg font-semibold text-gray-700 dark:text-gray-100">
-                {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} ngày
+                {daysInMonth} ngày
               </div>
             </div>
 
@@ -175,7 +219,7 @@ export default function SectionOvertimeLimit({
                 Tổng giờ tối đa
               </div>
               <div className="text-lg font-semibold text-amber-500">
-                {new Date().getDate() * 6} h
+                {totalMaxHours} h
               </div>
             </div>
           </div>
