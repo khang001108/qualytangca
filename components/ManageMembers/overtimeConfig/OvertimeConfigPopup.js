@@ -3,7 +3,7 @@ import { Save, X } from "lucide-react";
 import { db } from "../../../lib/firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import SectionShiftConfig from "./SectionShiftConfig";
-import SectionOvertimeConfig from "./SectionOvertimeConfig";
+import SectionOvertimeLimit from "./SectionOvertimeConfig";
 import SectionBonusConfig from "./SectionBonusConfig";
 import FormulaPreview from "./FormulaPreview";
 
@@ -96,7 +96,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <SectionShiftConfig config={config} setConfig={setConfig} />
-            <SectionOvertimeConfig config={config} setConfig={setConfig} />
+            <SectionOvertimeLimit config={config} setConfig={setConfig} />
           </div>
 
           <SectionBonusConfig config={config} setConfig={setConfig} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { db } from "../../../lib/firebase";
+import { db } from "../../../../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { Clock } from "lucide-react";
 import LimitTreeView from "./LimitTreeView";
