@@ -1,9 +1,10 @@
+import { useCallback } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
 
 export function useShiftFirestore(setConfig) {
   // === Tải dữ liệu ca ngày & ca đêm ===
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
       const nightSnap = await getDoc(doc(db, "shiftConfig", "night"));
@@ -11,8 +12,7 @@ export function useShiftFirestore(setConfig) {
       const dayData = daySnap.exists() ? daySnap.data() : {};
       const nightData = nightSnap.exists() ? nightSnap.data() : {};
 
-      // === Cấu hình mặc định hoàn chỉnh, tiếng Việt hoàn toàn ===
-      setConfig({
+      const newConfig = {
         shiftType: "day",
         shiftStart: dayData.gioLenCa || 7,
         shiftEnd: dayData.gioXuongCa || 16,
@@ -56,13 +56,23 @@ export function useShiftFirestore(setConfig) {
           tongGioHanhChinh: 8,
           ...nightData,
         },
-      });
+      };
 
-      console.log("✅ Loaded shift config:", { dayData, nightData });
+      // ✅ Chỉ set nếu dữ liệu thực sự thay đổi
+      setConfig((prev) => {
+        const prevJson = JSON.stringify(prev);
+        const newJson = JSON.stringify(newConfig);
+        if (prevJson !== newJson) {
+          console.log("✅ Loaded shift config (updated):", { dayData, nightData });
+          return newConfig;
+        }
+        console.log("ℹ️ Config unchanged, skip re-render");
+        return prev;
+      });
     } catch (err) {
       console.error("❌ Lỗi khi tải cấu hình:", err);
     }
-  };
+  }, [setConfig]);
 
   // === Lưu dữ liệu theo loại ca hiện tại (day hoặc night) ===
   const saveConfig = async (config) => {

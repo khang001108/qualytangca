@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Settings } from "lucide-react";
 import { useShiftFirestore } from "./useShiftFirestore";
 
@@ -6,6 +6,7 @@ export default function SectionShiftConfig({ config, setConfig }) {
   const { fetchConfig, saveConfig } = useShiftFirestore(setConfig);
   const [gapMinutes, setGapMinutes] = useState(15);
   const [popupOpen, setPopupOpen] = useState(false);
+  const lastToggleRef = useRef(0);
 
   useEffect(() => {
     fetchConfig();
@@ -106,6 +107,8 @@ export default function SectionShiftConfig({ config, setConfig }) {
           <label className="text-sm text-gray-700 dark:text-gray-300">
             Khung giờ ca sớm / ca muộn
           </label>
+
+          {/* Nút cài đặt chênh phút */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-0.5">
               Chênh:{" "}
@@ -114,11 +117,23 @@ export default function SectionShiftConfig({ config, setConfig }) {
               </span>{" "}
               phút
             </span>
-            <Settings
-              onClick={() => setPopupOpen(true)}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();                     // chặn lan trong React
+                e.nativeEvent.stopImmediatePropagation(); // ✅ chặn lan trong DOM thật
+                const now = Date.now();
+                if (now - lastToggleRef.current < 400) return; // chống double-click
+                lastToggleRef.current = now;
+                setPopupOpen((prev) => !prev);
+              }}
+              className={`p-1 rounded transition-transform duration-300 hover:rotate-45 ${popupOpen ? "rotate-90 text-indigo-500" : ""
+                }`}
               title="Cài đặt chênh phút toàn ca"
-              className="w-4 h-4 text-gray-500 dark:text-gray-400 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
-            />
+            >
+              <Settings className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition" />
+            </button>
+
           </div>
         </div>
 
@@ -203,6 +218,7 @@ export default function SectionShiftConfig({ config, setConfig }) {
       {/* === Popup Cài đặt chênh phút === */}
       {popupOpen && (
         <div
+          key="gap-popup"
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in-out"
           onClick={() => setPopupOpen(false)}
         >
