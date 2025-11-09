@@ -1,272 +1,197 @@
 import React, { useState, useEffect } from "react";
 import { Settings } from "lucide-react";
-import { getDefaultTime, convertToTime } from "./utils";
 import { useShiftFirestore } from "./useShiftFirestore";
 
 export default function SectionShiftConfig({ config, setConfig }) {
   const { fetchConfig, saveConfig } = useShiftFirestore(setConfig);
-
-  const [popupType, setPopupType] = useState(null);
-  const [subType, setSubType] = useState("early");
   const [gapMinutes, setGapMinutes] = useState(15);
-  const [labelRange, setLabelRange] = useState("");
-
-  const shiftOptions = {
-    day: { start: [7, 8] },
-    night: { start: [19, 20] },
-  };
-
-  const getShiftEndOptions = (startHour, shiftHalf = 1) => {
-    const ends = [];
-    const baseHours = 8 + shiftHalf;
-    for (let extra = 0; extra <= 3; extra++) {
-      const val = (startHour + baseHours + extra) % 24;
-      ends.push(Math.round(val));
-    }
-    return ends;
-  };
+  const [popupOpen, setPopupOpen] = useState(false);
 
   useEffect(() => {
     fetchConfig();
   }, []);
 
   const calcOffice = (start, end, half) => {
-    const duration = end > start ? end - start : 24 - start + end;
+    let duration = end - start;
+    if (duration < 0) duration += 24;
     return duration - half;
   };
 
-  const handleChange = (key, value) => {
+  const toTime = (h) => {
+    const hh = Math.floor(h) % 24;
+    const mm = Math.round((h % 1) * 60);
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  };
+
+  const applyGapToAll = (gap) => {
+    const gapHours = gap / 60;
     setConfig((prev) => {
-      let newState = { ...prev, [key]: value };
-  
-      // === cập nhật logic giờ hành chính ===
-      if (key === "shiftType") {
-        const start = shiftOptions[value].start[0];
-        const end = getShiftEndOptions(start, prev.shiftHalf)[0];
-        newState = {
-          ...newState,
-          shiftStart: start,
-          shiftEnd: end,
-          shiftOffice: calcOffice(start, end, prev.shiftHalf),
-        };
-      }
-  
-      if (["shiftStart", "shiftEnd", "shiftHalf"].includes(key)) {
-        const start = key === "shiftStart" ? value : prev.shiftStart;
-        const end = key === "shiftEnd" ? value : prev.shiftEnd;
-        const half = key === "shiftHalf" ? value : prev.shiftHalf;
-        const office = calcOffice(start, end, half);
-  
-        // cập nhật tổng giờ
-        newState = { ...newState, shiftOffice: office };
-  
-        // cập nhật vào ca hiện tại (day / night)
-        const type = prev.shiftType;
-        const updatedShift = { ...(prev[type] || {}) };
-  
-        // chuyển giờ lên / xuống ca thành string HH:mm
-        const toTime = (h) =>
-          `${String(Math.floor(h)).padStart(2, "0")}:${String(
-            (h % 1) * 60
-          ).padStart(2, "0")}`;
-  
-        // cập nhật khung giờ mới theo shiftStart / shiftEnd
-        updatedShift.earlyStartStart = toTime(start - 0.25);
-        updatedShift.earlyStartEnd = toTime(start);
-        updatedShift.earlyEndStart = toTime(end + 0.016);
-        updatedShift.earlyEndEnd = toTime(end + 0.25);
-        updatedShift.lateStartStart = toTime(start + 0.75);
-        updatedShift.lateStartEnd = toTime(start + 1);
-        updatedShift.lateEndStart = toTime(end + 1.016);
-        updatedShift.lateEndEnd = toTime(end + 1.25);
-  
-        newState[type] = {
-          ...updatedShift,
-          shiftStart: start,
-          shiftEnd: end,
-          shiftHalf: half,
-          shiftOffice: office,
-        };
-      }
-  
-      return newState;
+      const type = prev.shiftType;
+      const start = prev.shiftStart;
+      const end = prev.shiftEnd;
+      const half = prev.shiftHalf;
+      const office = calcOffice(start, end, half);
+      const updated = { ...(prev[type] || {}) };
+
+      updated.lenCaSomBatDau = toTime(start - gapHours);
+      updated.lenCaSomKetThuc = toTime(start);
+      updated.lenCaMuonBatDau = toTime(start + 1);
+      updated.lenCaMuonKetThuc = toTime(start + 1 + gapHours);
+
+      updated.tanCaSomBatDau = toTime(end);
+      updated.tanCaSomKetThuc = toTime(end + gapHours);
+      updated.tanCaMuonBatDau = toTime(end + 1);
+      updated.tanCaMuonKetThuc = toTime(end + 1 + gapHours);
+
+      updated.gioLenCa = start;
+      updated.gioXuongCa = end;
+      updated.nghiGiuaCa = half;
+      updated.tongGioHanhChinh = office;
+
+      return {
+        ...prev,
+        shiftOffice: office,
+        [type]: updated,
+      };
+    });
+    setPopupOpen(false);
+  };
+
+  const handleBreakChange = (value) => {
+    const newHalf = Number(value);
+    setConfig((prev) => {
+      const start = prev.shiftStart;
+      const end = prev.shiftEnd;
+      const type = prev.shiftType;
+      const office = calcOffice(start, end, newHalf);
+      return {
+        ...prev,
+        shiftHalf: newHalf,
+        shiftOffice: office,
+        [type]: {
+          ...(prev[type] || {}),
+          nghiGiuaCa: newHalf,
+          tongGioHanhChinh: office,
+        },
+      };
     });
   };
-  
-  const openPopup = (type) => {
-    setPopupType(type);
-    setSubType(config[`${type}Mode`] || "early");
-    const currentGap = config[`${type}Gap`] || 15;
-    setGapMinutes(currentGap);
-    const [start, end] = getDefaultTime(
-      config.shiftType,
-      type,
-      subType,
-      currentGap,
-      config.shiftStart,
-      config.shiftEnd
-    );
-    setLabelRange(`${convertToTime(start)} – ${convertToTime(end)}`);
-  };
 
-  const handleSubtypeChange = (mode) => {
-    setSubType(mode);
-    const [start, end] = getDefaultTime(
-      config.shiftType,
-      popupType,
-      mode,
-      gapMinutes,
-      config.shiftStart,
-      config.shiftEnd
-    );
-    setLabelRange(`${convertToTime(start)} – ${convertToTime(end)}`);
-  };
-
-  const handleGapChange = (val) => {
-    setGapMinutes(val);
-    const [start, end] = getDefaultTime(
-      config.shiftType,
-      popupType,
-      subType,
-      val,
-      config.shiftStart,
-      config.shiftEnd
-    );
-    setLabelRange(`${convertToTime(start)} – ${convertToTime(end)}`);
-  };
-
-  const handleSave = () => {
-    const keyPrefix = `${subType}${popupType === "start" ? "Start" : "End"}`;
-    const [start, end] = getDefaultTime(
-      config.shiftType,
-      popupType,
-      subType,
-      gapMinutes,
-      config.shiftStart,
-      config.shiftEnd
-    );
-    setConfig((prev) => ({
-      ...prev,
-      [`${keyPrefix}From`]: start,
-      [`${keyPrefix}To`]: end,
-      [`${popupType}Mode`]: subType,
-      [`${popupType}Gap`]: gapMinutes,
-    }));
-    setPopupType(null);
-  };
-
-  const shiftEndOptions = getShiftEndOptions(
-    config.shiftStart,
-    config.shiftHalf
-  );
-
-  const getModeLabel = (type) => {
-    const mode = config[`${type}Mode`] || "early";
-    const gap = config[`${type}Gap`] || 15;
-    const [from, to] = getDefaultTime(
-      config.shiftType,
-      type,
-      mode,
-      gap,
-      config.shiftStart,
-      config.shiftEnd
-    );
-    return `(${convertToTime(from)}–${convertToTime(to)})`;
-  };
+  const current = config[config.shiftType] || {};
 
   return (
-    <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4">
-      <h3 className="font-semibold text-gray-800 dark:text-gray-100">
-        🕒 Giờ hành chính
+    <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-5 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 space-y-5 shadow-lg transition-colors">
+      <h3 className="font-semibold text-lg text-indigo-600 dark:text-indigo-400">
+        🕒 Cấu hình ca làm việc
       </h3>
 
       {/* Loại ca */}
       <div>
-        <label className="text-sm text-gray-700 dark:text-gray-300">
+        <label className="text-sm text-gray-700 dark:text-gray-300 mb-1 block">
           Loại ca
         </label>
         <select
-          className="w-full rounded-lg border p-2 dark:bg-gray-800 dark:text-gray-100"
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 p-2 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500"
           value={config.shiftType}
-          onChange={(e) => handleChange("shiftType", e.target.value)}
+          onChange={(e) => setConfig({ ...config, shiftType: e.target.value })}
         >
           <option value="day">🌤️ Ca ngày</option>
           <option value="night">🌙 Ca đêm</option>
         </select>
       </div>
 
-      {/* Giờ lên / ra ca */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Giờ lên ca */}
-        <div>
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-700 dark:text-gray-300">
-              Giờ lên ca{" "}
-              <span className="text-gray-500">{getModeLabel("start")}</span>
-            </label>
+      {/* Khung giờ */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="text-sm text-gray-700 dark:text-gray-300">
+            Khung giờ ca sớm / ca muộn
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-0.5">
+              Chênh:{" "}
+              <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                {gapMinutes}
+              </span>{" "}
+              phút
+            </span>
             <Settings
-              onClick={() => openPopup("start")}
-              title="Cài đặt giờ lên ca sớm / muộn"
-              className="w-4 h-4 text-gray-500 cursor-pointer hover:text-indigo-600"
+              onClick={() => setPopupOpen(true)}
+              title="Cài đặt chênh phút toàn ca"
+              className="w-4 h-4 text-gray-500 dark:text-gray-400 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
             />
           </div>
-          <select
-            className="w-full border rounded-lg p-2 dark:bg-gray-800 dark:text-gray-100"
-            value={config.shiftStart}
-            onChange={(e) => handleChange("shiftStart", Number(e.target.value))}
-          >
-            {shiftOptions[config.shiftType].start.map((h) => (
-              <option key={h} value={h}>
-                {h}:00
-              </option>
-            ))}
-          </select>
         </div>
 
-        {/* Giờ xuống ca */}
-        <div>
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-700 dark:text-gray-300">
-              Giờ xuống ca{" "}
-              <span className="text-gray-500">{getModeLabel("end")}</span>
-            </label>
-            <Settings
-              onClick={() => openPopup("end")}
-              title="Cài đặt giờ tan ca sớm / muộn"
-              className="w-4 h-4 text-gray-500 cursor-pointer hover:text-indigo-600"
-            />
+        {/* === Ca sớm === */}
+        <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 transition-colors">
+          <div className="font-medium text-amber-500 mb-2">Ca sớm</div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {/* Lên ca sớm */}
+            <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700">
+              <span className="text-gray-700 dark:text-gray-300">Lên ca:</span>
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                {current.lenCaSomBatDau && current.lenCaSomKetThuc
+                  ? `${current.lenCaSomBatDau} – ${current.lenCaSomKetThuc}`
+                  : "--:--"}
+              </span>
+            </div>
+
+            {/* Xuống ca sớm */}
+            <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700">
+              <span className="text-gray-700 dark:text-gray-300">Xuống ca:</span>
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                {current.tanCaSomBatDau && current.tanCaSomKetThuc
+                  ? `${current.tanCaSomBatDau} – ${current.tanCaSomKetThuc}`
+                  : "--:--"}
+              </span>
+            </div>
           </div>
-          <select
-            className="w-full border rounded-lg p-2 dark:bg-gray-800 dark:text-gray-100"
-            value={config.shiftEnd}
-            onChange={(e) => handleChange("shiftEnd", Number(e.target.value))}
-          >
-            {shiftEndOptions.map((h, idx) => (
-              <option key={idx} value={h}>
-                {h}:00
-              </option>
-            ))}
-          </select>
+        </div>
+
+        {/* === Ca muộn === */}
+        <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 transition-colors">
+          <div className="font-medium text-amber-500 mb-2">Ca muộn</div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {/* Lên ca muộn */}
+            <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700">
+              <span className="text-gray-700 dark:text-gray-300">Lên ca:</span>
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                {current.lenCaMuonBatDau && current.lenCaMuonKetThuc
+                  ? `${current.lenCaMuonBatDau} – ${current.lenCaMuonKetThuc}`
+                  : "--:--"}
+              </span>
+            </div>
+
+            {/* Xuống ca muộn */}
+            <div className="flex justify-between items-center px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700">
+              <span className="text-gray-700 dark:text-gray-300">Xuống ca:</span>
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                {current.tanCaMuonBatDau && current.tanCaMuonKetThuc
+                  ? `${current.tanCaMuonBatDau} – ${current.tanCaMuonKetThuc}`
+                  : "--:--"}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Nghỉ giữa ca */}
+      {/* Giờ nghỉ giữa ca */}
       <div>
         <label className="text-sm text-gray-700 dark:text-gray-300">
           Giờ nghỉ giữa ca
         </label>
         <input
           type="number"
-          step="0.5"
+          step="0.25"
           min="0"
-          className="w-full border rounded-lg p-2 dark:bg-gray-800 dark:text-gray-100"
+          className="w-full mt-1 border border-gray-300 dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500"
           value={config.shiftHalf}
-          onChange={(e) => handleChange("shiftHalf", Number(e.target.value))}
+          onChange={(e) => handleBreakChange(e.target.value)}
         />
       </div>
 
-      {/* Tổng giờ */}
-      <div className="flex justify-between bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border">
+      {/* Tổng giờ hành chính */}
+      <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 p-3 rounded-lg">
         <span className="text-sm text-gray-700 dark:text-gray-300">
           Tổng giờ hành chính
         </span>
@@ -275,105 +200,45 @@ export default function SectionShiftConfig({ config, setConfig }) {
         </span>
       </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={() => {
-            const type = config.shiftType || "day";
-
-            // đồng bộ giá trị hành chính hiện tại vào ca đang chọn
-            const updated = {
-              ...config,
-              [type]: {
-                ...(config[type] || {}),
-                shiftStart: config.shiftStart,
-                shiftEnd: config.shiftEnd,
-                shiftHalf: config.shiftHalf,
-                shiftOffice: config.shiftOffice,
-              },
-            };
-
-            saveConfig(updated); // gọi save với dữ liệu cập nhật
-          }}
-          className="px-4 py-2 mt-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-        >
-          💾 Lưu cấu hình
-        </button>
-      </div>
-
-      {/* Popup ⚙️ */}
-      {popupType && (
+      {/* === Popup Cài đặt chênh phút === */}
+      {popupOpen && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setPopupType(null)}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in-out"
+          onClick={() => setPopupOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-2xl w-72 space-y-3"
+            className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-300 dark:border-gray-700 shadow-2xl w-80 space-y-4"
           >
-            <h4 className="font-semibold text-gray-800 dark:text-gray-100 mb-2 text-center">
-              ⚙️ {popupType === "start" ? "Giờ lên ca" : "Giờ tan ca"} (
-              {config.shiftType === "day" ? "Ca ngày" : "Ca đêm"})
+            <h4 className="text-center font-semibold text-indigo-600 dark:text-indigo-400 text-lg">
+              ⚙️ Cài đặt chênh phút toàn ca
             </h4>
 
-            <div className="flex justify-center gap-3 mb-2">
-              <button
-                onClick={() => handleSubtypeChange("early")}
-                className={`px-3 py-1 rounded-lg text-sm ${
-                  subType === "early"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                }`}
-              >
-                Sớm
-              </button>
-              <button
-                onClick={() => handleSubtypeChange("late")}
-                className={`px-3 py-1 rounded-lg text-sm ${
-                  subType === "late"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                }`}
-              >
-                Muộn
-              </button>
-            </div>
+            <select
+              className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100"
+              value={gapMinutes}
+              onChange={(e) => setGapMinutes(Number(e.target.value))}
+            >
+              {[10, 15, 20, 30].map((m) => (
+                <option key={m} value={m}>
+                  {m} phút
+                </option>
+              ))}
+            </select>
 
-            <div>
-              <label className="text-sm text-gray-700 dark:text-gray-300">
-                Chênh (phút)
-              </label>
-              <select
-                className="w-full border rounded-lg p-2 dark:bg-gray-800 dark:text-gray-100"
-                value={gapMinutes}
-                onChange={(e) => handleGapChange(Number(e.target.value))}
-              >
-                {[30, 20, 15, 10].map((m) => (
-                  <option key={m} value={m}>
-                    {m} phút
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="text-center text-sm text-gray-700 dark:text-gray-300">
-              {subType === "early" ? "Khung sớm" : "Khung muộn"}:{" "}
-              <span className="font-semibold text-indigo-600">
-                {labelRange}
+            <p className="text-xs text-center text-gray-600 dark:text-gray-400">
+              Áp dụng đồng thời cho:{" "}
+              <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                Lên ca + Xuống ca
               </span>
-            </div>
+            </p>
 
-            <div className="flex justify-end gap-2 pt-3">
+            <div className="flex justify-end pt-2">
               <button
-                onClick={() => setPopupType(null)}
-                className="px-4 py-1 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                onClick={() => applyGapToAll(gapMinutes)}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition"
               >
-                Hủy
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                Lưu
+                Áp dụng
               </button>
             </div>
           </div>

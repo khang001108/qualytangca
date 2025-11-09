@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
 
 export function useShiftFirestore(setConfig) {
-  // Tải dữ liệu ca ngày & ca đêm
+  // === Tải dữ liệu ca ngày & ca đêm ===
   const fetchConfig = async () => {
     try {
       const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
@@ -11,49 +11,49 @@ export function useShiftFirestore(setConfig) {
       const dayData = daySnap.exists() ? daySnap.data() : {};
       const nightData = nightSnap.exists() ? nightSnap.data() : {};
 
-      // Dữ liệu mặc định
+      // === Cấu hình mặc định hoàn chỉnh, tiếng Việt hoàn toàn ===
       setConfig({
         shiftType: "day",
-        shiftStart: 7,
-        shiftEnd: 16,
-        shiftHalf: dayData.shiftHalf || 1,
-        shiftOffice: dayData.shiftOffice || 8,
+        shiftStart: dayData.gioLenCa || 7,
+        shiftEnd: dayData.gioXuongCa || 16,
+        shiftHalf: dayData.nghiGiuaCa || 1,
+        shiftOffice: dayData.tongGioHanhChinh || 8,
+
+        // --- Ca ngày ---
         day: {
-          ...{
-            earlyStartStart: "06:45",
-            earlyStartEnd: "07:00",
-            earlyStartGap: 15,
-            earlyEndStart: "16:01",
-            earlyEndEnd: "16:16",
-            earlyEndGap: 15,
-            lateStartStart: "07:45",
-            lateStartEnd: "08:00",
-            lateStartGap: 15,
-            lateEndStart: "17:01",
-            lateEndEnd: "17:16",
-            lateEndGap: 15,
-            shiftHalf: 1,
-            shiftOffice: 8,
-          },
+          lenCaSomBatDau: "06:45",
+          lenCaSomKetThuc: "07:00",
+          tanCaSomBatDau: "16:00",
+          tanCaSomKetThuc: "16:15",
+
+          lenCaMuonBatDau: "07:45",
+          lenCaMuonKetThuc: "08:00",
+          tanCaMuonBatDau: "17:00",
+          tanCaMuonKetThuc: "17:15",
+
+          gioLenCa: "7H",
+          gioXuongCa: "16H",
+          nghiGiuaCa: "1H",
+          tongGioHanhChinh: 8,
           ...dayData,
         },
+
+        // --- Ca đêm ---
         night: {
-          ...{
-            earlyStartStart: "18:45",
-            earlyStartEnd: "19:00",
-            earlyStartGap: 15,
-            earlyEndStart: "04:01",
-            earlyEndEnd: "04:16",
-            earlyEndGap: 15,
-            lateStartStart: "19:45",
-            lateStartEnd: "20:00",
-            lateStartGap: 15,
-            lateEndStart: "05:01",
-            lateEndEnd: "05:16",
-            lateEndGap: 15,
-            shiftHalf: 1,
-            shiftOffice: 8,
-          },
+          lenCaSomBatDau: "18:45",
+          lenCaSomKetThuc: "19:00",
+          tanCaSomBatDau: "04:00",
+          tanCaSomKetThuc: "04:15",
+
+          lenCaMuonBatDau: "19:45",
+          lenCaMuonKetThuc: "20:00",
+          tanCaMuonBatDau: "05:00",
+          tanCaMuonKetThuc: "05:15",
+
+          gioLenCa: "19H",
+          gioXuongCa: "4H",
+          nghiGiuaCa: "1H",
+          tongGioHanhChinh: 8,
           ...nightData,
         },
       });
@@ -64,7 +64,7 @@ export function useShiftFirestore(setConfig) {
     }
   };
 
-  // Lưu theo loại ca hiện tại (day hoặc night)
+  // === Lưu dữ liệu theo loại ca hiện tại (day hoặc night) ===
   const saveConfig = async (config) => {
     const type = config.shiftType || "day";
     const dataToSave = config[type];
