@@ -3,14 +3,26 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
 
 export function useShiftFirestore(setConfig) {
-  // === Tải dữ liệu ca ngày & ca đêm ===
   const fetchConfig = useCallback(async () => {
     try {
       const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
       const nightSnap = await getDoc(doc(db, "shiftConfig", "night"));
 
-      const dayData = daySnap.exists() ? daySnap.data() : {};
-      const nightData = nightSnap.exists() ? nightSnap.data() : {};
+      // giá trị mặc định để tính trong Firestore
+      const dayData = daySnap.exists() ? daySnap.data() : {
+        gioLenCa: 7,
+        gioXuongCa: 16,
+        nghiGiuaCa: 1,
+        tongGioHanhChinh: 8,
+      };
+
+      // giá trị mặc định để tính trong Firestore
+      const nightData = nightSnap.exists() ? nightSnap.data() : {
+        gioLenCa: 19,
+        gioXuongCa: 4,
+        nghiGiuaCa: 1,
+        tongGioHanhChinh: 8,
+      };
 
       const newConfig = {
         shiftType: "day",
@@ -19,18 +31,15 @@ export function useShiftFirestore(setConfig) {
         shiftHalf: dayData.nghiGiuaCa || 1,
         shiftOffice: dayData.tongGioHanhChinh || 8,
 
-        // --- Ca ngày ---
         day: {
           lenCaSomBatDau: "06:45",
           lenCaSomKetThuc: "07:00",
           tanCaSomBatDau: "16:00",
           tanCaSomKetThuc: "16:15",
-
           lenCaMuonBatDau: "07:45",
           lenCaMuonKetThuc: "08:00",
           tanCaMuonBatDau: "17:00",
           tanCaMuonKetThuc: "17:15",
-
           gioLenCa: "7H",
           gioXuongCa: "16H",
           nghiGiuaCa: "1H",
@@ -38,18 +47,15 @@ export function useShiftFirestore(setConfig) {
           ...dayData,
         },
 
-        // --- Ca đêm ---
         night: {
           lenCaSomBatDau: "18:45",
           lenCaSomKetThuc: "19:00",
           tanCaSomBatDau: "04:00",
           tanCaSomKetThuc: "04:15",
-
           lenCaMuonBatDau: "19:45",
           lenCaMuonKetThuc: "20:00",
           tanCaMuonBatDau: "05:00",
           tanCaMuonKetThuc: "05:15",
-
           gioLenCa: "19H",
           gioXuongCa: "4H",
           nghiGiuaCa: "1H",
@@ -58,7 +64,6 @@ export function useShiftFirestore(setConfig) {
         },
       };
 
-      // ✅ Chỉ set nếu dữ liệu thực sự thay đổi
       setConfig((prev) => {
         const prevJson = JSON.stringify(prev);
         const newJson = JSON.stringify(newConfig);
@@ -74,7 +79,6 @@ export function useShiftFirestore(setConfig) {
     }
   }, [setConfig]);
 
-  // === Lưu dữ liệu theo loại ca hiện tại (day hoặc night) ===
   const saveConfig = async (config) => {
     const type = config.shiftType || "day";
     const dataToSave = config[type];
