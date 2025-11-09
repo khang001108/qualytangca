@@ -1,7 +1,5 @@
 import React from "react";
-import { ChevronRight, ChevronDown, Users, Save } from "lucide-react";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../../../lib/firebase";
+import { ChevronRight, ChevronDown, Users } from "lucide-react";
 
 export default function LimitTreeView({
   tree,
@@ -10,9 +8,9 @@ export default function LimitTreeView({
   setSelectedOption,
   openGroups,
   setOpenGroups,
-  shiftConfig,
 }) {
-  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
+  const toggleGroup = (key) =>
+    setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
   const sortedLimits = Object.keys(tree)
     .map(Number)
@@ -23,43 +21,6 @@ export default function LimitTreeView({
   const year = now.getFullYear();
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // === Lưu báo cáo tăng ca vào Firestore ===
-  const handleSaveToFirestore = async () => {
-    try {
-      const promises = Object.keys(tree).map(async (limitKey) => {
-        const members = tree[limitKey] || [];
-        const data = {
-          createdAt: serverTimestamp(),
-          month: month + 1,
-          year,
-          limit: Number(limitKey),
-          rule: "1h sau tan ca hành chính (ca sớm/muộn) = 1h tăng ca",
-          shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
-          shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
-          shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
-          shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
-          memberCount: members.length,
-          members: members.map((m) => ({
-            id: m.id,
-            name: m.nickname || m.realName || "Không tên",
-            monthlyLimit: m.overtimeLimit?.monthlyLimit || 0,
-            workedHours: m.overtimeLimit?.workedHours || 0,
-          })),
-        };
-
-        await addDoc(collection(db, "overtimeLimits"), data);
-      });
-
-      await Promise.all(promises);
-      alert(
-        "✅ Đã lưu từng nhóm giới hạn thành các document riêng trong Firestore!"
-      );
-    } catch (err) {
-      console.error("❌ Lỗi khi lưu:", err);
-      alert("❌ Lưu thất bại, xem console.");
-    }
-  };
 
   const getMonthSplitOptions = (monthlyLimit) => {
     const opts = [];
@@ -79,49 +40,20 @@ export default function LimitTreeView({
 
   return (
     <div className="border rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
-      {/* === Header === */}
-      <div className="flex justify-between items-start border-b border-gray-700 pb-2">
+      <div className="flex justify-between items-center border-b border-gray-700 pb-2">
         <div>
           <div className="text-sm text-gray-700 dark:text-gray-300">
-            Quy tắc tính giờ tăng ca
+            Số giờ tăng ca / ngày (hệ thống)
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Sau tan ca hành chính (sớm hoặc muộn): mỗi 1h = 1h tăng ca
-          </div>
-
-          <div className="mt-2 text-xs text-gray-400 space-y-1">
-            <div>
-              <span className="font-semibold text-indigo-400">Ngày:</span> Sớm{" "}
-              <span className="text-indigo-400 font-semibold">
-                {shiftConfig?.day?.tanCaSomBatDau || "--:--"}
-              </span>{" "}
-              · Muộn{" "}
-              <span className="text-indigo-400 font-semibold">
-                {shiftConfig?.day?.tanCaMuonBatDau || "--:--"}
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold text-indigo-400">Đêm:</span> Sớm{" "}
-              <span className="text-indigo-400 font-semibold">
-                {shiftConfig?.night?.tanCaSomBatDau || "--:--"}
-              </span>{" "}
-              · Muộn{" "}
-              <span className="text-indigo-400 font-semibold">
-                {shiftConfig?.night?.tanCaMuonBatDau || "--:--"}
-              </span>
-            </div>
+          <div className="text-sm text-gray-500">
+            Quy tắc: 1h sau tan ca = 1h tăng ca
           </div>
         </div>
-
-        <button
-          onClick={handleSaveToFirestore}
-          className="flex items-center gap-2 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm shadow"
-        >
-          <Save size={16} /> Lưu
-        </button>
+        <div className="text-xs text-gray-400">
+          Tháng {month + 1}/{year} có {daysInMonth} ngày
+        </div>
       </div>
 
-      {/* === Tree view === */}
       <div
         className="space-y-2 overflow-y-auto pr-1 mt-2"
         style={{ maxHeight: "180px", scrollbarWidth: "thin" }}
@@ -199,7 +131,9 @@ export default function LimitTreeView({
                       const name = m.nickname || m.realName || "Không tên";
                       const worked = m.overtimeLimit?.workedHours || 0;
                       const remaining = Math.max(limitNum - worked, 0);
-                      const remainDays = Math.ceil(remaining / chosen.perDay);
+                      const remainDays = Math.ceil(
+                        remaining / chosen.perDay
+                      );
                       return (
                         <li
                           key={m.id}
