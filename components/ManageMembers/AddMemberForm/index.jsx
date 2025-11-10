@@ -185,7 +185,7 @@ export default function AddMemberForm({
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-4 flex items-center justify-center gap-2 font-semibold text-lg">
+        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-4 flex items-center justify-center gap-2 font-semibold text-lg">
           <UserCircle2 className="w-6 h-6" />
           Thêm nhân viên mới
         </div>
@@ -274,7 +274,7 @@ export default function AddMemberForm({
                       setSelectedLimitOption(null);
                     }
                   }}
-                  className="w-4 h-4 accent-indigo-600"
+                  className="w-4 h-4 accent-green-600"
                 />
                 <span className="font-medium">
                   Áp dụng giới hạn tăng ca của nhánh hiện có
@@ -286,7 +286,7 @@ export default function AddMemberForm({
                   {selectedLimitKey ? (
                     <span>
                       Đã chọn:{" "}
-                      <span className="font-semibold text-indigo-600">
+                      <span className="font-semibold text-green-600">
                         {selectedLimitKey}h
                       </span>
                       {selectedLimitOption ? (
@@ -308,7 +308,7 @@ export default function AddMemberForm({
                   <button
                     type="button"
                     onClick={() => setShowBranchPopup(true)}
-                    className="ml-2 text-indigo-500 underline hover:text-indigo-700"
+                    className="ml-2 text-green-500 underline hover:text-green-700"
                   >
                     Chọn lại
                   </button>
@@ -321,7 +321,7 @@ export default function AddMemberForm({
               <button
                 type="submit"
                 disabled={adding}
-                className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded-lg flex justify-center items-center gap-2"
+                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-2 rounded-lg flex justify-center items-center gap-2"
               >
                 {adding ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

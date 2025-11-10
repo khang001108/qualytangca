@@ -14,7 +14,15 @@ export default function BranchPopup({
   const [openGroups, setOpenGroups] = useState({});
   const [tempKey, setTempKey] = useState(selectedLimitKey);
   const [tempOption, setTempOption] = useState(selectedLimitOption);
-  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
+  // Chỉ cho phép 1 nhóm mở duy nhất
+  const toggleGroup = (key) =>
+    setOpenGroups((p) => {
+      const isOpen = !!p[key];
+      // Nếu đang mở → đóng hết
+      if (isOpen) return {};
+      // Nếu đang đóng → đóng hết và mở duy nhất key này
+      return { [key]: true };
+    });
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -85,24 +93,24 @@ export default function BranchPopup({
               >
                 <button
                   onClick={() => toggleGroup(limitKey)}
-                  className="w-full flex justify-between items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="w-full flex justify-between items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors border border-gray-300 dark:border-gray-600 rounded-md"
                 >
                   <div className="flex items-center gap-2">
                     {isOpen ? (
-                      <ChevronDown className="w-4 h-4 text-amber-400" />
+                      <ChevronDown className="w-4 h-4 text-amber-600" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-amber-400" />
+                      <ChevronRight className="w-4 h-4 text-amber-600" />
                     )}
                     <div>
-                      <div className="font-medium text-amber-300">
+                      <div className="font-medium text-amber-500">
                         Giới hạn {limitKey}h
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-600">
                         {members.length} người
                       </div>
                     </div>
                   </div>
-                  <Users className="w-4 h-4 text-gray-400" />
+                  <Users className="w-4 h-4 text-gray-600" />
                 </button>
 
                 {isOpen && (
@@ -157,7 +165,7 @@ export default function BranchPopup({
         <div className="flex justify-end gap-2 mt-4">
           <button
             onClick={() => setShowBranchPopup(false)}
-            className="px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800"
+            className="px-3 py-2 rounded-lg border bg-gray-300 dark:bg-gray-800"
           >
             Hủy
           </button>
@@ -172,7 +180,7 @@ export default function BranchPopup({
               setShowBranchPopup(false);
               showToast("✅ Đã chọn nhánh tăng ca.", "info");
             }}
-            className="px-3 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white"
+            className="px-3 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white"
           >
             Áp dụng
           </button>

@@ -54,11 +54,15 @@ export default function PopupManager({
       onClick={onClose} // <-- ấn ra ngoài để đóng
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
+        exit={{ opacity: 0, scale: 0.9 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
+        style={{
+          transform: "scale(0.9)", // 👈 chỉnh tỉ lệ tổng thể
+          transformOrigin: "center", // 👈 giữ popup ở giữa
+        }}
         className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
              rounded-2xl w-[95vw] max-w-[1600px] shadow-2xl border border-gray-200
              dark:border-gray-700 flex flex-col overflow-visible"
