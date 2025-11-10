@@ -1,7 +1,6 @@
 // components/ManageMembers/overtimeConfig/SectionShiftConfig/index.jsx
 // Cấu hình ca làm việc cho nhân viên (ca ngày/ca đêm)
 
-
 import React, { useState, useEffect } from "react";
 import { Sun, Moon, Save, Edit3, X } from "lucide-react";
 import { useShiftFirestore } from "./useShiftFirestore";
@@ -18,7 +17,10 @@ export default function SectionShiftConfig({ config, setConfig }) {
 
   const parseTime = (t) => {
     if (!t) return 0;
-    const [h, m] = t.replace(/[^\d:]/g, "").split(":").map(Number);
+    const [h, m] = t
+      .replace(/[^\d:]/g, "")
+      .split(":")
+      .map(Number);
     return (h || 0) + (m || 0) / 60;
   };
 
@@ -79,15 +81,21 @@ export default function SectionShiftConfig({ config, setConfig }) {
     <div className="flex justify-between bg-white dark:bg-gray-900 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 items-center">
       <span>{label}:</span>
       <div className="flex items-center gap-2">
-        {[a, b].map((key, i) => (
-          <span
-            key={i}
-            onClick={() => handleOpenPopup(key, current[key])}
-            className="font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer flex items-center gap-1"
-          >
-            {current[key] || "--:--"} <Edit3 size={14} />
-          </span>
-        ))}
+        <span
+          onClick={() => handleOpenPopup(a, current[a])}
+          className="font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer flex items-center gap-1"
+        >
+          {current[a] || "--:--"}
+        </span>
+
+        <span className="text-gray-400">–</span>
+
+        <span
+          onClick={() => handleOpenPopup(b, current[b])}
+          className="font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer flex items-center gap-1"
+        >
+          {current[b] || "--:--"}
+        </span>
       </div>
     </div>
   );
@@ -135,8 +143,16 @@ export default function SectionShiftConfig({ config, setConfig }) {
           >
             <div className="font-medium text-amber-500 mb-2">{title}</div>
             <div className="space-y-2 text-sm">
-              {renderRow("Lên ca", i ? "lenCaMuonBatDau" : "lenCaSomBatDau", i ? "lenCaMuonKetThuc" : "lenCaSomKetThuc")}
-              {renderRow("Xuống ca", i ? "tanCaMuonBatDau" : "tanCaSomBatDau", i ? "tanCaMuonKetThuc" : "tanCaSomKetThuc")}
+              {renderRow(
+                "Lên ca",
+                i ? "lenCaMuonBatDau" : "lenCaSomBatDau",
+                i ? "lenCaMuonKetThuc" : "lenCaSomKetThuc"
+              )}
+              {renderRow(
+                "Xuống ca",
+                i ? "tanCaMuonBatDau" : "tanCaSomBatDau",
+                i ? "tanCaMuonKetThuc" : "tanCaSomKetThuc"
+              )}
             </div>
           </div>
         ))}

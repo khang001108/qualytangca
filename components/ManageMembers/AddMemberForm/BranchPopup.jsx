@@ -93,7 +93,7 @@ export default function BranchPopup({
               >
                 <button
                   onClick={() => toggleGroup(limitKey)}
-                  className="w-full flex justify-between items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors border border-gray-300 dark:border-gray-600 rounded-md"
+                  className="w-full flex justify-between items-center px-3 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-800 rounded-md"
                 >
                   <div className="flex items-center gap-2">
                     {isOpen ? (
@@ -105,12 +105,12 @@ export default function BranchPopup({
                       <div className="font-medium text-amber-500">
                         Giới hạn {limitKey}h
                       </div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-gray-400">
                         {members.length} người
                       </div>
                     </div>
                   </div>
-                  <Users className="w-4 h-4 text-gray-600" />
+                  <Users className="w-4 h-4 text-gray-400" />
                 </button>
 
                 {isOpen && (
