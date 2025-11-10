@@ -1,8 +1,7 @@
 // components/ManageMembers/MembersTable.jsx
-// Bảng hiển thị danh sách nhân viên và thông tin tăng ca
+// bảng thành viên trong quản lý thành viên
 
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import {
   List,
@@ -16,9 +15,18 @@ import {
   Timer,
   Moon,
   SunMedium,
+  CalendarDays,
+  BedDouble,
 } from "lucide-react";
 import { db } from "../../lib/firebase";
-import { doc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  setDoc,
+  serverTimestamp,
+  getDocs,
+  collection,
+} from "firebase/firestore";
 
 export default function MembersTable({
   members = [],
@@ -27,7 +35,27 @@ export default function MembersTable({
   selectedDate,
   shiftSchedules = {},
 }) {
+  const [overtimeDates, setOvertimeDates] = useState({});
   const fmt = (n) => `${Number(n || 0).toLocaleString()}h`;
+
+  // === Lấy dữ liệu ngày tăng ca từ overtimeLimits ===
+  useEffect(() => {
+    const fetchOvertimeLimits = async () => {
+      try {
+        const snap = await getDocs(collection(db, "overtimeLimits"));
+        const data = {};
+        snap.forEach((docSnap) => {
+          const d = docSnap.data();
+          if (d.memberId && d.lastOvertimeDate)
+            data[d.memberId] = d.lastOvertimeDate;
+        });
+        setOvertimeDates(data);
+      } catch (err) {
+        console.error("❌ Lỗi tải overtimeLimits:", err);
+      }
+    };
+    fetchOvertimeLimits();
+  }, []);
 
   const handleEarlyShiftToggle = async (m, checked) => {
     try {
@@ -37,15 +65,14 @@ export default function MembersTable({
           ? "19:00"
           : "07:00"
         : isNight
-          ? "20:00"
-          : "08:00";
+        ? "20:00"
+        : "08:00";
 
       const today = dayjs().format("YYYY-MM-DD");
       const dateStr = selectedDate
         ? dayjs(selectedDate).format("YYYY-MM-DD")
         : today;
 
-      // ✅ Tìm ca thực tế trong shiftSchedules (ưu tiên memberId)
       let shiftName = m.shift;
       if (shiftSchedules?.[dateStr]) {
         const dateData = shiftSchedules[dateStr];
@@ -56,22 +83,20 @@ export default function MembersTable({
         else if (dateData[m.realName]) shiftName = dateData[m.realName].shift;
       }
 
-      // ✅ Cập nhật UI
       setMembers((prev) =>
         prev.map((mem) =>
           mem.id === m.id
             ? {
-              ...mem,
-              earlyShift: checked,
-              shiftStart: newShiftStart,
-              shift: shiftName,
-              updatedDate: today,
-            }
+                ...mem,
+                earlyShift: checked,
+                shiftStart: newShiftStart,
+                shift: shiftName,
+                updatedDate: today,
+              }
             : mem
         )
       );
 
-      // ✅ Cập nhật Firestore: members
       const memberRef = doc(db, "members", m.id);
       await updateDoc(memberRef, {
         earlyShift: checked,
@@ -81,7 +106,6 @@ export default function MembersTable({
         updatedAt: serverTimestamp(),
       });
 
-      // ✅ Cập nhật Firestore: shiftSchedules
       const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
       const docId = `${user.uid}_${safeName}_${dateStr}`;
       const shiftDoc = doc(db, "shiftSchedules", docId);
@@ -109,7 +133,6 @@ export default function MembersTable({
       className="relative border border-gray-300 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden flex flex-col"
       style={{ maxHeight: "50vh", minHeight: "200px" }}
     >
-      {/* Wrapper cuộn */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold z-10">
@@ -138,6 +161,12 @@ export default function MembersTable({
                   <span>Ca</span>
                 </div>
               </th>
+              <th className="p-2 text-center w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <BedDouble className="w-4 h-4 text-pink-500" />
+                  <span>Nghỉ luân phiên</span>
+                </div>
+              </th>
               <th className="p-2 text-center w-20">
                 <div className="flex items-center justify-center gap-1">
                   <ClockArrowUp className="w-4 h-4 text-blue-500" />
@@ -164,6 +193,12 @@ export default function MembersTable({
               </th>
               <th className="p-2 text-center w-24">
                 <div className="flex items-center justify-center gap-1">
+                  <CalendarDays className="w-4 h-4 text-teal-500" />
+                  <span>Ngày</span>
+                </div>
+              </th>
+              <th className="p-2 text-center w-24">
+                <div className="flex items-center justify-center gap-1">
                   <Timer className="w-4 h-4 text-purple-500" />
                   <span>Lên ca sớm</span>
                 </div>
@@ -175,7 +210,7 @@ export default function MembersTable({
             {members.length === 0 ? (
               <tr>
                 <td
-                  colSpan="9"
+                  colSpan="11"
                   className="text-center py-4 text-gray-400 dark:text-gray-500 border-t border-gray-300 dark:border-gray-700"
                 >
                   Không có nhân viên.
@@ -186,14 +221,22 @@ export default function MembersTable({
                 const limit = m.overtimeLimit?.monthlyLimit || 0;
                 const worked = m.overtimeLimit?.workedHours || 0;
                 const total = limit + worked;
+                const dateDisplay =
+                  overtimeDates[m.id] ||
+                  m.overtimeLimit?.lastOvertimeDate ||
+                  "-";
+
                 const currentDate = selectedDate
                   ? dayjs(selectedDate).format("YYYY-MM-DD")
                   : dayjs().format("YYYY-MM-DD");
 
+                const weekday = dayjs(currentDate).day();
+                const restDay =
+                  weekday === 0 ? "Chủ nhật" : `-`;
+
                 let shiftName = m.shift;
                 let shiftStart = m.shiftStart;
 
-                // ✅ Lấy ca từ shiftSchedules (ưu tiên memberId)
                 if (shiftSchedules[currentDate]) {
                   const dateData = shiftSchedules[currentDate];
                   const todayShift = Object.values(dateData).find(
@@ -231,6 +274,9 @@ export default function MembersTable({
                         </div>
                       )}
                     </td>
+                    <td className="p-2 text-pink-600 dark:text-pink-400 font-semibold">
+                      {restDay}
+                    </td>
                     <td className="p-2">{shiftStart}</td>
                     <td className="p-2 text-green-600 dark:text-green-400 font-semibold">
                       {fmt(limit)}
@@ -240,6 +286,9 @@ export default function MembersTable({
                     </td>
                     <td className="p-2 text-indigo-700 dark:text-indigo-400 font-semibold">
                       {fmt(total)}
+                    </td>
+                    <td className="p-2 text-teal-600 dark:text-teal-400 font-semibold">
+                      {dateDisplay}
                     </td>
                     <td className="p-2">
                       <input
@@ -258,7 +307,6 @@ export default function MembersTable({
         </table>
       </div>
 
-      {/* ✅ Viền dưới luôn hiển thị trong vùng cuộn */}
       <div className="border-t border-gray-300 dark:border-gray-700 mt-auto" />
     </div>
   );

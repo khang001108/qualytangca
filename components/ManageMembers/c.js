@@ -8,14 +8,7 @@ import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
 import dayjs from "dayjs";
 import Toast from "../Toast";
-import {
-  Clock,
-  UserPlus,
-  Trash2,
-  CalendarArrowUp,
-  Search,
-  Settings,
-} from "lucide-react";
+import { Clock, UserPlus, Trash2, CalendarArrowUp, Search } from "lucide-react";
 import {
   doc,
   updateDoc,
@@ -44,7 +37,7 @@ export default function ManageMembers({
   const [showLimit, setShowLimit] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [showFormula, setShowFormula] = useState(false); // cấu hình tăng ca
+  const [showFormula, setShowFormula] = useState(false);
 
   const [limitInput, setLimitInput] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -88,7 +81,8 @@ export default function ManageMembers({
     );
   };
 
-  // === Lọc + tìm kiếm + sắp xếp ===
+  // === Lọc + tìm kiếm + sắp xếp (chuẩn Firestore: nickname, realName, earlyShift) ===
+  // === Lọc + tìm kiếm + sắp xếp (chuẩn Firestore: nickname, realName, earlyShift) ===
   const processedMembers = useMemo(() => {
     const term = (searchTerm || "").trim().toLowerCase();
 
@@ -103,6 +97,7 @@ export default function ManageMembers({
 
     switch (sortMode) {
       case "lowLimit":
+        // Giới hạn tổng thấp nhất
         list.sort(
           (a, b) =>
             (a.overtimeLimit?.monthlyLimit || 0) -
@@ -111,6 +106,7 @@ export default function ManageMembers({
         break;
 
       case "highLimit":
+        // Giới hạn tổng cao nhất
         list.sort(
           (a, b) =>
             (b.overtimeLimit?.monthlyLimit || 0) -
@@ -119,6 +115,7 @@ export default function ManageMembers({
         break;
 
       case "workedHigh":
+        // Đã tăng ca cao nhất → thấp nhất
         list.sort(
           (a, b) =>
             (b.overtimeLimit?.workedHours || 0) -
@@ -127,6 +124,7 @@ export default function ManageMembers({
         break;
 
       case "workedLow":
+        // Đã tăng ca thấp nhất → cao nhất
         list.sort(
           (a, b) =>
             (a.overtimeLimit?.workedHours || 0) -
@@ -159,6 +157,7 @@ export default function ManageMembers({
     return list;
   }, [members, searchTerm, sortMode]);
 
+
   // === Đặt giới hạn ===
   const handleSetLimit = async () => {
     const val = Number(limitInput);
@@ -177,10 +176,7 @@ export default function ManageMembers({
       setMembers([...members]);
       setSelectedIds([]);
       setLimitInput("");
-      showToast(
-        `Đặt giới hạn ${val}h cho ${selectedIds.length} nhân viên.`,
-        "success"
-      );
+      showToast(`Đặt giới hạn ${val}h cho ${selectedIds.length} nhân viên.`, "success");
       setShowLimit(false);
     } catch (err) {
       console.error("Lỗi Giới hạn tăng ca:", err);
@@ -238,13 +234,6 @@ export default function ManageMembers({
           </button>
 
           <button
-            onClick={() => setShowFormula(true)}
-            className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm"
-          >
-            <Settings className="w-4 h-4" /> Cấu hình tăng ca
-          </button>
-
-          <button
             onClick={() => setShowDelete(true)}
             className="flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-lg text-sm"
           >
@@ -277,6 +266,7 @@ export default function ManageMembers({
             <option value="earlyShift">Nhân viên lên ca sớm</option>
             <option value="lateShift">Nhân viên lên ca muộn</option>
           </select>
+
         </div>
       </div>
 
@@ -366,7 +356,7 @@ export default function ManageMembers({
             ? [{ id: Date.now(), message: toast.message, type: toast.type }]
             : []
         }
-        onClose={() => {}}
+        onClose={() => { }}
       />
     </div>
   );
