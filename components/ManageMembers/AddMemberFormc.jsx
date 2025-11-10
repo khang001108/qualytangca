@@ -233,12 +233,6 @@ export default function AddMemberForm({
             <UserCircle2 className="w-6 h-6" />
             Thêm nhân viên mới
           </div>
-          <button
-            onClick={() => setShowAdd(false)}
-            className="bg-white/20 px-3 py-1 rounded-lg text-sm hover:bg-white/30 transition"
-          >
-            Đóng
-          </button>
         </div>
 
         {/* Body */}
