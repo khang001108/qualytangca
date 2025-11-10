@@ -1,3 +1,6 @@
+// components/ManageMembers/c.js
+// ManageMembers component
+
 import React, { useState, useEffect, useMemo } from "react";
 import AddMemberForm from "./AddMemberForm";
 import LimitSelector from "./LimitSelector";
