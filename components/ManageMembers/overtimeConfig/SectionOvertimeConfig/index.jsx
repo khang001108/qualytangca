@@ -1,10 +1,9 @@
 // components/ManageMembers/overtimeConfig/SectionOvertimeConfig/index.jsx
 // Hiển thị cấu hình giới hạn giờ tăng ca cho nhân viên
 
-
 import React, { useEffect, useState } from "react";
 import { db } from "../../../../lib/firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { useShiftFirestore } from "../SectionShiftConfig/useShiftFirestore";
 import { Clock } from "lucide-react";
 import LimitTreeView from "./LimitTreeView";
@@ -28,6 +27,31 @@ export default function SectionOvertimeLimit({ defaultDailyCap = 6 }) {
     fetchConfig();
   }, [fetchConfig]);
 
+  // === Đọc lại cấu hình đã lưu từ Firestore để tô vàng các lựa chọn ===
+  useEffect(() => {
+    const fetchSavedLimits = async () => {
+      try {
+        const snap = await getDocs(collection(db, "overtimeLimits"));
+        const savedOptions = {};
+        snap.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const limit = data.limit;
+          const perDay = data.perDay || data.hoursPerDay;
+          const days = data.days || data.totalDays;
+
+          if (limit && days && perDay) {
+            savedOptions[String(limit)] = { days, perDay };
+          }
+        });
+        setSelectedOption(savedOptions);
+      } catch (err) {
+        console.error("❌ Lỗi khi đọc overtimeLimits:", err);
+      }
+    };
+
+    fetchSavedLimits();
+  }, []);
+
   // === Lấy danh sách nhân viên từ Firestore (realtime) ===
   useEffect(() => {
     setLoading(true);
@@ -42,7 +66,6 @@ export default function SectionOvertimeLimit({ defaultDailyCap = 6 }) {
 
     return () => unsubscribe(); // cleanup listener khi component unmount
   }, []);
-
 
   // === Gom nhóm nhân viên theo giới hạn ===
   useEffect(() => {

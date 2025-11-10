@@ -3,8 +3,9 @@
 
 import React from "react";
 import { ChevronRight, ChevronDown, Users, Save } from "lucide-react";
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
+
 
 export default function LimitTreeView({
   tree,
@@ -27,7 +28,6 @@ export default function LimitTreeView({
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // === Lưu báo cáo tăng ca vào Firestore ===
   // === Lưu báo cáo tăng ca vào Firestore ===
   const handleSaveToFirestore = async () => {
     try {
@@ -80,15 +80,14 @@ export default function LimitTreeView({
       });
 
       await Promise.all(promises);
-      alert("✅ Đã tính lại ngày còn lại theo workedHours và lưu vào Firestore!");
+      alert(
+        "✅ Đã tính lại ngày còn lại theo workedHours và lưu vào Firestore!"
+      );
     } catch (err) {
       console.error("❌ Lỗi khi lưu:", err);
       alert("❌ Lưu thất bại, xem console.");
     }
   };
-
-
-
 
   const getMonthSplitOptions = (monthlyLimit) => {
     const opts = [];
@@ -199,37 +198,49 @@ export default function LimitTreeView({
                     {options.map((opt, i) => {
                       const current = selectedOption[limitKey];
                       const isActive =
-                        current?.perDay === opt.perDay && current?.days === opt.days;
+                        current?.perDay === opt.perDay &&
+                        current?.days === opt.days;
 
-                      const handleClick = () => {
-                        setSelectedOption((prev) => {
-                          // Nếu đang chọn rồi -> bỏ chọn
-                          if (isActive) {
-                            const copy = { ...prev };
-                            delete copy[limitKey];
-                            return copy;
+                      const handleClick = async () => {
+                        if (isActive) {
+                          // --- Nếu đang chọn (màu vàng) -> bỏ chọn và xóa Firestore ---
+                          const copy = { ...selectedOption };
+                          delete copy[limitKey];
+                          setSelectedOption(copy);
+
+                          const docId = `limit_${limitNum}_day_${opt.days}`;
+                          try {
+                            await deleteDoc(doc(db, "overtimeLimits", docId));
+                            console.log(
+                              `🗑️ Đã xóa cấu hình ${docId} khỏi Firestore.`
+                            );
+                          } catch (err) {
+                            console.error("❌ Lỗi khi xóa document:", err);
                           }
-                          // Nếu chưa chọn -> chọn
-                          return { ...prev, [limitKey]: opt };
-                        });
+                        } else {
+                          // --- Nếu chưa chọn -> chọn và tô vàng ---
+                          setSelectedOption((prev) => ({
+                            ...prev,
+                            [limitKey]: opt,
+                          }));
+                        }
                       };
 
                       return (
                         <button
                           key={i}
                           onClick={handleClick}
-                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${isActive
-                            ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
-                            : "bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700"
-                            }`}
+                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${
+                            isActive
+                              ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
+                              : "bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700"
+                          }`}
                         >
                           {opt.days} ngày × {opt.perDay}h
                         </button>
                       );
                     })}
                   </div>
-
-
                 </div>
 
                 {isOpen && (
