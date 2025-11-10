@@ -25,7 +25,8 @@ export default function BranchPopup({
     const opts = [];
     for (let h = 6; h >= 1; h--) {
       const d = monthlyLimit / h;
-      if (Number.isInteger(d) && d <= daysInMonth) opts.push({ perDay: h, days: d });
+      if (Number.isInteger(d) && d <= daysInMonth)
+        opts.push({ perDay: h, days: d });
     }
     if (!opts.length) {
       for (let h = 6; h >= 1; h--) {
@@ -43,21 +44,28 @@ export default function BranchPopup({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-      onMouseDown={() => setShowBranchPopup(false)}
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] branch-popup"
+      onClick={(e) => {
+        // chỉ đóng nếu click đúng overlay (không phải bên trong popup)
+        if (e.target === e.currentTarget) setShowBranchPopup(false);
+      }}
     >
       <div
         className="bg-white dark:bg-gray-900 rounded-xl p-4 w-[520px] max-w-[95%] max-h-[80vh] overflow-auto"
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="text-lg font-semibold text-indigo-600">Chọn nhánh tăng ca</div>
+            <div className="text-lg font-semibold text-indigo-600">
+              Chọn nhánh tăng ca
+            </div>
             <div className="text-xs text-gray-500">
               Nhóm theo giới hạn giờ/tháng. Chọn nhánh và phương án.
             </div>
           </div>
-          <div className="text-xs text-gray-400">Tháng {month}/{year}</div>
+          <div className="text-xs text-gray-400">
+            Tháng {month}/{year}
+          </div>
         </div>
 
         {loadingTree ? (
@@ -69,7 +77,6 @@ export default function BranchPopup({
             const members = tree[limitKey] || [];
             const isOpen = openGroups[limitKey] ?? false;
             const options = getMonthSplitOptions(Number(limitKey));
-            const isThisTempGroup = tempKey === limitKey;
 
             return (
               <div
@@ -87,8 +94,12 @@ export default function BranchPopup({
                       <ChevronRight className="w-4 h-4 text-amber-400" />
                     )}
                     <div>
-                      <div className="font-medium text-amber-300">Giới hạn {limitKey}h</div>
-                      <div className="text-xs text-gray-400">{members.length} người</div>
+                      <div className="font-medium text-amber-300">
+                        Giới hạn {limitKey}h
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {members.length} người
+                      </div>
                     </div>
                   </div>
                   <Users className="w-4 h-4 text-gray-400" />
@@ -102,7 +113,9 @@ export default function BranchPopup({
                           key={m.id}
                           className="flex justify-between border-b border-gray-700/40 pb-1"
                         >
-                          <span className="text-green-400">{m.nickname || m.realName}</span>
+                          <span className="text-green-400">
+                            {m.nickname || m.realName}
+                          </span>
                           <span className="text-xs text-gray-400">
                             {m.overtimeLimit?.workedHours || 0}h
                           </span>

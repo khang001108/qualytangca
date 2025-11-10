@@ -214,8 +214,8 @@ export default function ManageMembers({
   return (
     <div className="space-y-4 text-gray-800 dark:text-gray-200">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 justify-between flex-wrap">
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center gap-2 justify-between">
+        <div className="flex items-center gap-2 flex-nowrap">
           <button
             onClick={() => setShowLimit(true)}
             className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm"
@@ -337,8 +337,7 @@ export default function ManageMembers({
                 msg: `✅ Phân ca tháng ${month} hoàn tất.`,
                 type: "success",
               });
-            else
-              setToast({ type: "error", msg: "❌ Lỗi khi lưu phân ca!" });
+            else setToast({ type: "error", msg: "❌ Lỗi khi lưu phân ca!" });
           }}
         />
       )}

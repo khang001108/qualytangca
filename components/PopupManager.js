@@ -1,7 +1,6 @@
 // components/PopupManager.js
 // Quản lý popup hiển thị giao diện quản lý nhân viên và phân ca
 
-
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import ManageMembers from "./ManageMembers";
@@ -59,11 +58,10 @@ export default function PopupManager({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
-        onClick={(e) => e.stopPropagation()} // <-- chặn click trong popup khỏi lan ra ngoài
+        onClick={(e) => e.stopPropagation()}
         className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-           rounded-2xl w-[90vw] max-w-[1200px] shadow-2xl border border-gray-200
-           dark:border-gray-700 flex flex-col overflow-hidden"
-        style={{ height: "min(95vh, 1000px)" }}
+             rounded-2xl w-[95vw] max-w-[1600px] shadow-2xl border border-gray-200
+             dark:border-gray-700 flex flex-col overflow-visible"
       >
         {/* 🔹 Nút đóng góc phải */}
         <button
