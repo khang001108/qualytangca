@@ -9,7 +9,11 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { Save } from "lucide-react";
-import { LEAVE_MAP, LEAVE_CODES } from "../../../../hooks/useOvertimeParser/parseHelpers"; import LimitTree from "./LimitTree";
+import {
+  LEAVE_MAP,
+  LEAVE_CODES,
+} from "../../../../hooks/useOvertimeParser/parseHelpers";
+import LimitTree from "./LimitTree";
 import NoBonusCodes from "./NoBonusCodes";
 
 export default function SectionBonusConfig({ config, setConfig }) {
@@ -31,7 +35,6 @@ export default function SectionBonusConfig({ config, setConfig }) {
         const limitNum = Number(data.limit || data.monthlyLimit || 0);
         const key = String(limitNum);
         tree[key] = data.members || [];
-
       });
       setLimitTree(tree);
     });
@@ -63,8 +66,7 @@ export default function SectionBonusConfig({ config, setConfig }) {
   const merged = { ...defaultConfig, ...config };
 
   // === Mở/đóng nhóm
-  const toggleGroup = (key) =>
-    setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
+  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
   // === Chọn giới hạn (local only)
   const toggleLimit = (limitKey) => {
@@ -144,10 +146,11 @@ export default function SectionBonusConfig({ config, setConfig }) {
 
         <div className="flex items-center gap-3">
           <span
-            className={`text-sm font-medium ${bonusEnabled
-              ? "text-green-600 dark:text-green-400"
-              : "text-gray-500 dark:text-gray-400"
-              }`}
+            className={`text-sm font-medium ${
+              bonusEnabled
+                ? "text-green-600 dark:text-green-400"
+                : "text-gray-500 dark:text-gray-400"
+            }`}
           >
             {bonusEnabled ? "Đang dùng" : "Đang tắt"}
           </span>
@@ -182,7 +185,9 @@ export default function SectionBonusConfig({ config, setConfig }) {
                     return;
                   }
 
-                  const limits = await getDocs(collection(db, "overtimeLimits"));
+                  const limits = await getDocs(
+                    collection(db, "overtimeLimits")
+                  );
                   for (const docSnap of limits.docs) {
                     const data = docSnap.data();
                     const members = (data.members || []).map((m) => {
@@ -203,7 +208,9 @@ export default function SectionBonusConfig({ config, setConfig }) {
                     { merge: true }
                   );
 
-                  alert("✅ Đã tắt toàn bộ thưởng tăng ca và gỡ thưởng khỏi nhân viên!");
+                  alert(
+                    "✅ Đã tắt toàn bộ thưởng tăng ca và gỡ thưởng khỏi nhân viên!"
+                  );
                 } else {
                   await setDoc(
                     doc(db, "bonusConfig", "main"),
@@ -232,12 +239,10 @@ export default function SectionBonusConfig({ config, setConfig }) {
             animate={{ opacity: 1, height: "auto", y: 0 }}
             exit={{ opacity: 0, height: 0, y: -10 }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
-            onAnimationComplete={() => {
-              // Tự cuộn xuống trung tâm vùng “Thưởng tăng ca”
-              const el = document.getElementById("bonus-section");
-              if (el) {
-                el.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
+            style={{
+              transformOrigin: "top",
+              overflow: "hidden",
+              position: "relative",
             }}
           >
             <div id="bonus-section" className="mt-3 space-y-4">
@@ -295,7 +300,6 @@ export default function SectionBonusConfig({ config, setConfig }) {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

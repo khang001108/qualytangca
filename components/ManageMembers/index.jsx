@@ -29,6 +29,10 @@ import {
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
+
+//==============================================================================
+//                       ManageMembers Component
+//==============================================================================
 export default function ManageMembers({
   user,
   selectedMonth,
@@ -330,8 +334,6 @@ export default function ManageMembers({
             } catch (err) {
               console.error("❌ Lỗi đồng bộ overtimeLimits:", err);
               showToast("Không thể đồng bộ overtimeLimits.", "error");
-            } finally {
-              setShowLimit(false);
             }
           }}
         />

@@ -1,10 +1,6 @@
-// components/ManageMembers/overtimeConfig/OvertimeConfigPopup.js
-// Popup cấu hình tăng ca cho nhân viên
-
-import React, { useEffect, useState } from "react";
-import { Save, X } from "lucide-react";
-import { db } from "../../../lib/firebase";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import React, { useState } from "react";
+import { Save, X, Settings } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import SectionShiftConfig from "./SectionShiftConfig";
 import SectionOvertimeLimit from "./SectionOvertimeConfig";
 import SectionBonusConfig from "./SectionBonusConfig";
@@ -25,106 +21,114 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     remaining: 0,
   });
 
-  // --- Load dữ liệu Firestore ---
-  useEffect(() => {
-    if (!user?.uid) return;
-    const load = async () => {
-      const refConfig = doc(db, "overtimeConfigs", user.uid);
-      const snap = await getDoc(refConfig);
-      const cfg = snap.exists() ? snap.data() : {};
-      const refMember = doc(db, "members", user.uid);
-      const snapMember = await getDoc(refMember);
-      const ot = snapMember.exists()
-        ? snapMember.data().overtimeLimit || {}
-        : {};
-      setConfig((prev) => ({
-        ...prev,
-        ...cfg,
-        monthlyLimit: ot.monthlyLimit || 0,
-        workedHours: ot.workedHours || 0,
-        remaining: ot.remaining || 0,
-      }));
-    };
-    load();
-  }, [user?.uid]);
+  const [activeTab, setActiveTab] = useState("shift");
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "shift":
+        return <SectionShiftConfig config={config} setConfig={setConfig} />;
+      case "limit":
+        return <SectionOvertimeLimit config={config} setConfig={setConfig} />;
+      case "bonus":
+        return <SectionBonusConfig config={config} setConfig={setConfig} />;
+      default:
+        return null;
+    }
+  };
 
   const handleSave = async () => {
     try {
-      const baseData = { ...config, updatedAt: serverTimestamp() };
-
-      await Promise.all([
-        // Document cho ca ngày
-        setDoc(doc(db, "overtimeConfigs", `${user.uid}_day`), {
-          ...baseData,
-          shiftType: "day",
-        }),
-        // Document cho ca đêm
-        setDoc(doc(db, "overtimeConfigs", `${user.uid}_night`), {
-          ...baseData,
-          shiftType: "night",
-        }),
-      ]);
-
-      showToast("Đã lưu cấu hình cho ca ngày và ca đêm.", "success");
+      showToast("Đã lưu toàn bộ cấu hình tăng ca", "success");
     } catch (err) {
       console.error(err);
-      showToast("Lỗi khi lưu dữ liệu.", "error");
+      showToast("Lỗi khi lưu cấu hình", "error");
     }
   };
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-3"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[1200px] max-w-[98vw] border border-gray-200 dark:border-gray-700 animate-fadeIn flex flex-col overflow-hidden"
-        style={{ maxHeight: "90vh" }}
-      >
-
-        {/* Header */}
-        <div className="flex justify-between items-center border-b border-gray-300 dark:border-gray-700 px-8 py-4">
-          <h2 className="text-xl font-semibold text-indigo-600 dark:text-indigo-300">
-            ⚙️ Cấu hình tăng ca
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Nội dung */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <SectionShiftConfig config={config} setConfig={setConfig} />
-            <SectionOvertimeLimit config={config} setConfig={setConfig} />
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-gray-900 w-full max-w-5xl rounded-2xl shadow-2xl border border-gray-300 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]"
+        >
+          {/* Header */}
+          <div className="flex justify-between items-center px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+            <h2 className="flex items-center gap-2 font-semibold text-lg">
+              <Settings size={18} /> Cấu hình tăng ca
+            </h2>
+            <button onClick={onClose} className="hover:text-gray-200">
+              <X size={20} />
+            </button>
           </div>
 
-          <SectionBonusConfig config={config} setConfig={setConfig} />
-          <FormulaPreview config={config} />
-        </div>
+          {/* Tabs */}
+          <div className="flex justify-center gap-3 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
+            {[
+              { id: "shift", label: "Ca làm việc" },
+              { id: "limit", label: "Giới hạn tăng ca" },
+              { id: "bonus", label: "Thưởng tăng ca" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-md font-medium transition-all duration-300 ${
+                  activeTab === tab.id
+                    ? "bg-indigo-600 text-white shadow-md scale-105"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-3 px-8 py-4 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow"
-          >
-            <Save className="w-4 h-4" />
-            Lưu
-          </button>
-        </div>
-      </div>
+          {/* Nội dung */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-gray-50 dark:bg-gray-900">
+            <div className="relative overflow-hidden">
+              <AnimatePresence mode="sync">
+                <motion.div
+                  key={activeTab}
+                  layout
+                  initial={{ opacity: 0, x: 30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -30 }}
+                  transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
+                  style={{ transformOrigin: "top" }}
+                >
+                  {renderTabContent()}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <FormulaPreview config={config} />
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-4 px-6 py-3 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white shadow transition-all duration-300"
+            >
+              <Save className="w-4 h-4" />
+              Lưu toàn bộ
+            </button>
+          </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

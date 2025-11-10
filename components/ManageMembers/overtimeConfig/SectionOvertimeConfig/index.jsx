@@ -2,7 +2,15 @@
 // Hiển thị cấu hình giới hạn giờ tăng ca cho nhân viên
 
 import React, { useEffect, useState } from "react";
-import { collection,onSnapshot, getDocs, deleteDoc, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  getDocs,
+  deleteDoc,
+  setDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
 import { useShiftFirestore } from "../SectionShiftConfig/useShiftFirestore";
 import { Clock } from "lucide-react";
@@ -11,70 +19,61 @@ import NoLimitView from "./NoLimitView";
 // import { updateOvertimeLimits } from "./overtimeConfig/SectionOvertimeConfig";
 
 
-export async function updateOvertimeLimits(tree, selectedOption, shiftConfig) {
+//==============================================================================
+//          Cập nhật lại collection overtimeLimits từ members
+//==============================================================================
+export async function updateOvertimeLimits() {
   try {
     const overtimeRef = collection(db, "overtimeLimits");
-    const snapshot = await getDocs(overtimeRef);
-    await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
+
+    // nếu cần xóa trước khi cập nhật lại toàn bộ
+    // const snapshot = await getDocs(overtimeRef);
+    // await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
+
+    const membersSnap = await getDocs(collection(db, "members"));
+    const members = membersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Gom nhóm nhân viên theo giới hạn
+    const grouped = {};
+    for (const m of members) {
+      const limit = m.overtimeLimit?.monthlyLimit || 0;
+      if (!grouped[limit]) grouped[limit] = [];
+      grouped[limit].push(m);
+    }
 
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    const promises = Object.keys(selectedOption).map(async (limitKey) => {
-      const members = tree[limitKey] || [];
-      const limitNum = Number(limitKey);
-      const chosen = selectedOption[limitKey];
-      if (!chosen) return;
-
-      const days = Math.floor(chosen.days);
-      const perDay = Math.floor(chosen.perDay);
-      const totalLimit = days * perDay;
-
-      const membersWithRemaining = members.map((m) => {
-        const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
-        const remainingHours = Math.max(totalLimit - worked, 0);
-        const remainingDays = Math.floor(remainingHours / perDay);
-        const remainderHours = remainingHours % perDay;
-
-        return {
+    // Ghi lại các document theo nhóm
+    const promises = Object.keys(grouped).map(async (limitKey) => {
+      const membersList = grouped[limitKey];
+      await setDoc(doc(db, "overtimeLimits", `limit_${limitKey}`), {
+        createdAt: serverTimestamp(),
+        month: month + 1,
+        year,
+        limit: Number(limitKey),
+        memberCount: membersList.length,
+        members: membersList.map((m) => ({
           id: m.id,
           name: m.nickname || m.realName || "Không tên",
-          monthlyLimit: totalLimit,
-          workedHours: worked,
-          remainingDays,
-          remainingHours: remainderHours,
-        };
+          workedHours: m.overtimeLimit?.workedHours || 0,
+          remaining: m.overtimeLimit?.remaining || 0,
+        })),
       });
-
-      await setDoc(
-        doc(db, "overtimeLimits", `limit_${limitNum}_day_${days}`),
-        {
-          createdAt: serverTimestamp(),
-          month: month + 1,
-          year,
-          limit: totalLimit,
-          days,
-          perDay,
-          rule: "1h sau tan ca hành chính = 1h tăng ca",
-          shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
-          shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
-          shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
-          shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
-          memberCount: members.length,
-          members: membersWithRemaining,
-        },
-        { merge: true }
-      );
     });
 
     await Promise.all(promises);
-    console.log("✅ overtimeLimits updated from LimitSelector");
+    console.log("✅ overtimeLimits rebuilt from members");
   } catch (err) {
     console.error("❌ Error updating overtimeLimits:", err);
   }
 }
 
+
+//==============================================================================
+//                       SectionOvertimeLimit Component
+//==============================================================================
 export default function SectionOvertimeLimit() {
   const [defaultDailyCap, setDefaultDailyCap] = useState(6);
   const [members, setMembers] = useState([]);
@@ -171,7 +170,6 @@ export default function SectionOvertimeLimit() {
           <Clock className="w-4 h-4 text-indigo-500" />
           <div>
             <div className="font-medium text-gray-800 dark:text-gray-100">
-
               Chế độ
             </div>
             <div className="text-sm text-gray-700 dark:text-gray-400">
@@ -204,7 +202,6 @@ export default function SectionOvertimeLimit() {
             updateOvertimeLimits(tree, selectedOption, shiftConfig)
           }
         />
-
       ) : (
         <NoLimitView
           shiftConfig={shiftConfig}

@@ -5,6 +5,11 @@ import React, { useRef, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronUp, Trash2, Undo2, Loader2, CheckCircle2 } from "lucide-react";
 import { useOvertimeConfig } from "../../hooks/useOvertimeConfig";
+
+
+//==============================================================================
+//                       LimitSelector Component
+//==============================================================================
 export default function LimitSelector({
   title = "Giới hạn tăng ca",
   confirmText = "Lưu thay đổi",
