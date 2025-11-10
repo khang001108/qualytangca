@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronRight, ChevronDown, Users, Save } from "lucide-react";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
 
 export default function LimitTreeView({
@@ -25,41 +25,67 @@ export default function LimitTreeView({
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   // === Lưu báo cáo tăng ca vào Firestore ===
+  // === Lưu báo cáo tăng ca vào Firestore ===
   const handleSaveToFirestore = async () => {
     try {
       const promises = Object.keys(tree).map(async (limitKey) => {
         const members = tree[limitKey] || [];
+        const limitNum = Number(limitKey); // <-- THÊM DÒNG NÀY
+        const chosen = selectedOption[limitKey];
+        if (!chosen) return;
+
+        const days = Math.floor(chosen.days);
+        const perDay = Math.floor(chosen.perDay);
+        const totalLimit = days * perDay;
+
+        // === Tính toán lại remaining ===
+        const membersWithRemaining = members.map((m) => {
+          const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
+          const remainingHours = Math.max(totalLimit - worked, 0);
+          const remainingDays = Math.floor(remainingHours / perDay);
+          const remainderHours = remainingHours % perDay;
+
+          return {
+            id: m.id,
+            name: m.nickname || m.realName || "Không tên",
+            monthlyLimit: totalLimit,
+            workedHours: worked,
+            remainingDays,
+            remainingHours: remainderHours,
+          };
+        });
+
         const data = {
           createdAt: serverTimestamp(),
           month: month + 1,
           year,
-          limit: Number(limitKey),
+          limit: totalLimit,
+          days,
+          perDay,
           rule: "1h sau tan ca hành chính (ca sớm/muộn) = 1h tăng ca",
           shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
           shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
           shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
           shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
           memberCount: members.length,
-          members: members.map((m) => ({
-            id: m.id,
-            name: m.nickname || m.realName || "Không tên",
-            monthlyLimit: m.overtimeLimit?.monthlyLimit || 0,
-            workedHours: m.overtimeLimit?.workedHours || 0,
-          })),
+          members: membersWithRemaining,
         };
 
-        await addDoc(collection(db, "overtimeLimits"), data);
+        // === Lưu document theo định dạng: limit_40_day_20 ===
+        const docId = `limit_${limitNum}_day_${days}`;
+        await setDoc(doc(db, "overtimeLimits", docId), data, { merge: true });
       });
 
       await Promise.all(promises);
-      alert(
-        "✅ Đã lưu từng nhóm giới hạn thành các document riêng trong Firestore!"
-      );
+      alert("✅ Đã tính lại ngày còn lại theo workedHours và lưu vào Firestore!");
     } catch (err) {
       console.error("❌ Lỗi khi lưu:", err);
       alert("❌ Lưu thất bại, xem console.");
     }
   };
+
+
+
 
   const getMonthSplitOptions = (monthlyLimit) => {
     const opts = [];
@@ -168,29 +194,39 @@ export default function LimitTreeView({
                 <div className="px-4 py-2 border-t border-gray-700 bg-gray-900/40">
                   <div className="flex flex-wrap gap-2">
                     {options.map((opt, i) => {
-                      const active =
-                        chosen.perDay === opt.perDay &&
-                        chosen.days === opt.days;
+                      const current = selectedOption[limitKey];
+                      const isActive =
+                        current?.perDay === opt.perDay && current?.days === opt.days;
+
+                      const handleClick = () => {
+                        setSelectedOption((prev) => {
+                          // Nếu đang chọn rồi -> bỏ chọn
+                          if (isActive) {
+                            const copy = { ...prev };
+                            delete copy[limitKey];
+                            return copy;
+                          }
+                          // Nếu chưa chọn -> chọn
+                          return { ...prev, [limitKey]: opt };
+                        });
+                      };
+
                       return (
                         <button
                           key={i}
-                          onClick={() =>
-                            setSelectedOption((p) => ({
-                              ...p,
-                              [limitKey]: opt,
-                            }))
-                          }
-                          className={`px-2 py-1 rounded-lg text-xs border ${
-                            active
-                              ? "bg-amber-500 text-white border-amber-600"
-                              : "bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700"
-                          }`}
+                          onClick={handleClick}
+                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${isActive
+                            ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
+                            : "bg-gray-900 text-gray-300 border-gray-700 hover:bg-gray-700"
+                            }`}
                         >
                           {opt.days} ngày × {opt.perDay}h
                         </button>
                       );
                     })}
                   </div>
+
+
                 </div>
 
                 {isOpen && (

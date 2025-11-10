@@ -19,14 +19,14 @@ export default function NoLimitView({ shiftConfig, defaultDailyCap }) {
           <button className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 w-full sm:w-auto">
             <span className="text-sm">Tan ca sớm</span>
             <span className="ml-3 text-sm font-semibold text-indigo-400">
-              {formatTime(day.lenCaSomKetThuc)}
+              {formatTime(day.tanCaSomBatDau)}
             </span>
           </button>
 
           <button className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 w-full sm:w-auto">
             <span className="text-sm">Tan ca muộn</span>
             <span className="ml-3 text-sm font-semibold text-indigo-400">
-              {formatTime(day.lenCaMuonKetThuc)}
+              {formatTime(day.tanCaMuonBatDau)}
             </span>
           </button>
         </div>
@@ -39,14 +39,14 @@ export default function NoLimitView({ shiftConfig, defaultDailyCap }) {
           <button className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 w-full sm:w-auto">
             <span className="text-sm">Tan ca sớm (đêm)</span>
             <span className="ml-3 text-sm font-semibold text-indigo-400">
-              {formatTime(night.lenCaSomKetThuc)}
+              {formatTime(night.tanCaSomBatDau)}
             </span>
           </button>
 
           <button className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 w-full sm:w-auto">
             <span className="text-sm">Tan ca muộn (đêm)</span>
             <span className="ml-3 text-sm font-semibold text-indigo-400">
-              {formatTime(night.lenCaMuonKetThuc)}
+              {formatTime(night.tanCaMuonBatDau)}
             </span>
           </button>
         </div>

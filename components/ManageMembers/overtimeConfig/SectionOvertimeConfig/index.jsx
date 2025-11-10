@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../../../lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { useShiftFirestore } from "../SectionShiftConfig/useShiftFirestore";
 import { Clock } from "lucide-react";
 import LimitTreeView from "./LimitTreeView";
@@ -24,21 +24,21 @@ export default function SectionOvertimeLimit({ defaultDailyCap = 6 }) {
     fetchConfig();
   }, [fetchConfig]);
 
-  // === Lấy danh sách nhân viên từ Firestore ===
+  // === Lấy danh sách nhân viên từ Firestore (realtime) ===
   useEffect(() => {
-    const fetchMembers = async () => {
-      setLoading(true);
-      try {
-        const snap = await getDocs(collection(db, "members"));
-        setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) {
-        console.error("❌ Fetch members error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMembers();
+    setLoading(true);
+    const unsubscribe = onSnapshot(collection(db, "members"), (snap) => {
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+      setMembers(list);
+      setLoading(false);
+    });
+
+    return () => unsubscribe(); // cleanup listener khi component unmount
   }, []);
+
 
   // === Gom nhóm nhân viên theo giới hạn ===
   useEffect(() => {
