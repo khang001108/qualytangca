@@ -1,3 +1,7 @@
+// components/AccountPopup.js
+// Popup quản lý tài khoản người dùng: đổi tên, đổi mật khẩu, chọn biểu tượng, xóa tài khoản
+
+
 import {
   updateProfile,
   updatePassword,

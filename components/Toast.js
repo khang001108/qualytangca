@@ -1,3 +1,7 @@
+// components/Toast.js
+// Hiển thị các thông báo dạng toast
+
+
 import { useEffect } from "react";
 
 export default function Toast({ toasts = [], onClose }) {

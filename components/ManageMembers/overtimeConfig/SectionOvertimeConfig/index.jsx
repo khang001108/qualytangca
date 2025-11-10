@@ -1,3 +1,7 @@
+// components/ManageMembers/overtimeConfig/SectionOvertimeConfig/index.jsx
+// Hiển thị cấu hình giới hạn giờ tăng ca cho nhân viên
+
+
 import React, { useEffect, useState } from "react";
 import { db } from "../../../../lib/firebase";
 import { collection, onSnapshot } from "firebase/firestore";

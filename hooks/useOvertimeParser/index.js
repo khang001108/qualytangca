@@ -1,3 +1,6 @@
+// hooks/useOvertimeParser/index.js
+// Hook tùy chỉnh để phân tích và xử lý dữ liệu tăng ca từ văn bản nhập vào
+
 import { useState, useRef } from "react";
 import dayjs from "dayjs";
 import { showUniqueToastFactory } from "./utilsToast";

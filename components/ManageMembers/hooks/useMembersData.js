@@ -1,3 +1,7 @@
+// components/ManageMembers/hooks/useMembersData.js
+// Hook tải và quản lý dữ liệu nhân viên từ Firestore
+
+
 import { useState, useEffect } from "react";
 import { db } from "../../../lib/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";

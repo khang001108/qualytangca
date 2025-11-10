@@ -1,4 +1,7 @@
-// components/ExpenseChart.js
+// components/OvertimeChart.js
+// Biểu đồ tăng ca hàng tháng của nhân viên
+
+
 import {
   ComposedChart,
   Bar,

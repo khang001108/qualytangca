@@ -1,3 +1,7 @@
+// components/base/ModalContainer.js
+// Container modal chung với hiệu ứng mở/đóng
+
+
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 

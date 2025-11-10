@@ -1,3 +1,7 @@
+// components/ManageMembers/overtimeConfig/SectionShiftConfig/index.jsx
+// Cấu hình ca làm việc cho nhân viên (ca ngày/ca đêm)
+
+
 import React, { useState, useEffect } from "react";
 import { Sun, Moon, Save } from "lucide-react";
 import { useShiftFirestore } from "./useShiftFirestore";

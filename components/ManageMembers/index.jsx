@@ -1,4 +1,7 @@
-// src/components/ManageMembers/ManageMembers.jsx
+// components/ManageMembers/index.jsx
+// Quản lý nhân viên: thêm, xóa, phân ca, giới hạn tăng ca
+
+    
 import React, { useState, useEffect } from "react";
 import AddMemberForm from "./AddMemberForm";
 import LimitSelector from "./LimitSelector";

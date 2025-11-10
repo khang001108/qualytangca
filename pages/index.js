@@ -1,4 +1,7 @@
-// src/pages/index.js
+// pages/index.js
+// Trang chính của ứng dụng quản lý tăng ca
+
+
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import OverMember from "../components/OverMember";

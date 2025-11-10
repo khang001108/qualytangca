@@ -1,3 +1,7 @@
+// components/DarkToggle.js
+// Nút chuyển đổi giao diện sáng/tối
+
+import React from "react";
 import { useState, useEffect } from "react";
 import { Sun, Moon } from "lucide-react";
 

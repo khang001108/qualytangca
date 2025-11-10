@@ -1,3 +1,7 @@
+// components/ManageMembers/LimitSelector.jsx
+// Popup chọn giới hạn tăng ca cho nhân viên
+
+
 import React, { useRef } from "react";
 import { Loader2, CheckCircle2, Undo2 } from "lucide-react";
 

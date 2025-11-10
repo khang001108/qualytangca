@@ -1,3 +1,7 @@
+// components/ManageMembers/overtimeConfig/SectionShiftConfig/useShiftFirestore.jsx
+// Lấy và lưu cấu hình ca làm việc từ Firestore
+
+
 import { useCallback } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";

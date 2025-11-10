@@ -1,3 +1,6 @@
+// components/ManageMembers/overtimeConfig/OvertimeConfigPopup.js
+// Popup cấu hình tăng ca cho nhân viên
+
 import React, { useEffect, useState } from "react";
 import { Save, X } from "lucide-react";
 import { db } from "../../../lib/firebase";

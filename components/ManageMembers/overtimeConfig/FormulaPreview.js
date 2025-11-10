@@ -1,3 +1,6 @@
+// components/ManageMembers/overtimeConfig/FormulaPreview.js
+// Hiển thị sơ đồ công thức tính giờ hành chính và thưởng tăng ca
+
 import React from "react";
 import { ArrowRight } from "lucide-react";
 

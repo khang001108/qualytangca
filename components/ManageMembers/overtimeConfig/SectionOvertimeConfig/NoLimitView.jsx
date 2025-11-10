@@ -1,3 +1,7 @@
+// components/ManageMembers/overtimeConfig/SectionOvertimeConfig/NoLimitView.jsx
+// Hiển thị cấu hình tăng ca khi không giới hạn
+
+
 import React from "react";
 
 export default function NoLimitView({ shiftConfig, defaultDailyCap }) {

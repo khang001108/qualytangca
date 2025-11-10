@@ -1,3 +1,7 @@
+// pages/login.js
+// Trang đăng nhập cho ứng dụng quản lý chi tiêu
+
+
 import { useState, useEffect } from "react";
 import {
   signInWithEmailAndPassword,

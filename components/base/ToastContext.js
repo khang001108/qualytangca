@@ -1,3 +1,7 @@
+// components/base/ToastContext.js
+// Context hiển thị toast thông báo
+
+
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 

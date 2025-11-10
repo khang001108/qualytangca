@@ -1,4 +1,7 @@
-// src/components/PopupManager.jsx
+// components/PopupManager.js
+// Quản lý popup hiển thị giao diện quản lý nhân viên và phân ca
+
+
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import ManageMembers from "./ManageMembers";

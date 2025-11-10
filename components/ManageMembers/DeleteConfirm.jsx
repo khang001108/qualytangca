@@ -1,3 +1,6 @@
+// components/ManageMembers/DeleteConfirm.jsx
+// Popup xác nhận xóa nhân viên khỏi hệ thống
+
 import React from "react";
 import { Loader2, Trash2, Undo2 } from "lucide-react";
 

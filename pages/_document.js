@@ -1,3 +1,7 @@
+// pages/_document.js
+// Tùy chỉnh tài liệu HTML cơ bản cho ứng dụng Next.js
+
+
 import { Html, Head, Main, NextScript } from "next/document";
 
 export default function Document() {

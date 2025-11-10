@@ -1,3 +1,7 @@
+// components/ManageMembers/overtimeConfig/SectionBonusConfig.js
+// Cấu hình thưởng tăng ca cho nhân viên
+
+
 import React from "react";
 
 export default function SectionBonusConfig({ config, setConfig }) {

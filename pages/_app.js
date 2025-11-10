@@ -1,4 +1,8 @@
 // pages/_app.js
+// Cấu trúc chính của ứng dụng Next.js với các provider toàn cục
+
+
+
 import "../styles/globals.css";
 import "react-datepicker/dist/react-datepicker.css";
 import * as Tooltip from "@radix-ui/react-tooltip";

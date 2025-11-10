@@ -1,4 +1,7 @@
 // components/PopupSettings.js
+// Popup cài đặt thông tin nhân viên: nickname, avatar, màu sắc
+
+
 import { useState } from "react";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, getDoc } from "firebase/firestore";

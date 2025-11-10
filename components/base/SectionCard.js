@@ -1,3 +1,7 @@
+// components/base/SectionCard.js
+// Card hiển thị một phần cấu hình với tiêu đề và biểu tượng
+
+
 import React from "react";
 import { motion } from "framer-motion";
 

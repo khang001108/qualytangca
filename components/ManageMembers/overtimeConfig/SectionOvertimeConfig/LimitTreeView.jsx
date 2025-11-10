@@ -1,3 +1,6 @@
+// components/ManageMembers/overtimeConfig/SectionOvertimeConfig/LimitTreeView.jsx
+// Hiển thị cây nhóm nhân viên theo giới hạn tăng ca và tùy chọn phân bổ ngày/hàng ngày
+
 import React from "react";
 import { ChevronRight, ChevronDown, Users, Save } from "lucide-react";
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";

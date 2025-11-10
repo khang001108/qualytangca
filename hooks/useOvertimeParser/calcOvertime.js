@@ -1,3 +1,6 @@
+// hooks/useOvertimeParser/calcOvertime.js
+// Hàm tính toán giờ tăng ca dựa trên giờ kết thúc ca làm việc và giờ bắt đầu ca
+
 export function calcOvertimeHours(shiftStart = "07:00", checkOut) {
   if (!checkOut) return 0;
   const [sH, sM] = (shiftStart || "07:00").split(":").map(Number);

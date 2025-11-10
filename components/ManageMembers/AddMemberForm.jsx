@@ -1,3 +1,7 @@
+// components/ManageMembers/AddMemberForm.jsx
+// Form thêm nhân viên mới vào hệ thống
+
+
 import React, { useState, useRef } from "react";
 import { addDoc, collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";

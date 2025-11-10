@@ -1,3 +1,7 @@
+// components/ManageMembers/overtimeConfig/SectionOvertimeConfigc.js
+// Cấu hình giờ tăng ca cho nhân viên
+
+
 import React, { useEffect, useState } from "react";
 import { db } from "../../../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";

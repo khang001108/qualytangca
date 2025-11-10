@@ -1,3 +1,7 @@
+// pages/signup.js
+// Trang đăng ký tài khoản cho ứng dụng quản lý chi tiêu
+
+
 import { useState } from "react";
 import {
   createUserWithEmailAndPassword,

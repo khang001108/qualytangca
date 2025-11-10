@@ -1,4 +1,7 @@
 // utils/zodiacUtils.js
+// Tiện ích liên quan đến con giáp và biểu tượng tương ứng
+
+
 export const zodiacAnimals = [
   "🐀", // Tý
   "🐂", // Sửu
