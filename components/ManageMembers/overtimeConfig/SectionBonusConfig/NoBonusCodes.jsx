@@ -1,7 +1,6 @@
 import React from "react";
 // import { LEAVE_CODES } from "../../../../hooks/useOvertimeParser/parseHelpers";
-import { LEAVE_CODES } from "../../../../hooks/useOvertimeParser/parseHelpers";
-
+import { LEAVE_MAP, LEAVE_CODES } from "../../../../hooks/useOvertimeParser/parseHelpers";
 
 
 export default function NoBonusCodes({
@@ -33,21 +32,29 @@ export default function NoBonusCodes({
         ⚠️ Các trường hợp không được thưởng:
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-xs">
-        {[...LEAVE_CODES, ...merged.customNoBonus].map((code, i) => (
-          <div key={i} className="flex justify-between pr-2">
-            <span>
-              {i + 1}. {code}
-            </span>
-            {merged.customNoBonus.includes(code) && (
-              <button
-                onClick={() => removeCode(code)}
-                className="text-red-500 hover:underline text-[11px]"
-              >
-                xoá
-              </button>
-            )}
-          </div>
-        ))}
+        {[...LEAVE_CODES, ...merged.customNoBonus].map((code, i) => {
+          const meaning = LEAVE_MAP[code] || ""; // tra nghĩa nếu có
+          return (
+            <div key={i} className="flex justify-between pr-2">
+              <span className="flex items-center gap-1">
+                {i + 1}. <span className="font-medium">{code}</span>
+                {meaning && (
+                  <span className="text-gray-500 text-[11px]">
+                    - {meaning}
+                  </span>
+                )}
+              </span>
+              {merged.customNoBonus.includes(code) && (
+                <button
+                  onClick={() => removeCode(code)}
+                  className="text-red-500 hover:underline text-[11px]"
+                >
+                  xoá
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex items-center gap-2 mt-2">

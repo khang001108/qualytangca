@@ -196,8 +196,8 @@ export default function SectionShiftConfig({ config, setConfig }) {
           onClick={handleSave}
           className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-white shadow-md transition ${
             config.shiftType === "day"
-              ? "bg-gradient-to-r from-yellow-400 to-orange-500"
-              : "bg-gradient-to-r from-indigo-500 to-purple-600"
+              ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
+              : "bg-gradient-to-r from-indigo-500 to-indigo-600"
           } hover:opacity-90`}
         >
           <Save size={18} />

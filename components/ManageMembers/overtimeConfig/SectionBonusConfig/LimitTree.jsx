@@ -26,17 +26,23 @@ export default function LimitTree({
               key={limitKey}
               className="border border-gray-400/40 rounded-md bg-white/30 dark:bg-gray-800/40"
             >
-              <button
-                onClick={() => toggleGroup(limitKey)}
-                className="flex justify-between items-center w-full px-2 py-1"
-              >
+              <div className="flex justify-between items-center w-full px-2 py-1">
                 <div className="flex items-center gap-2">
-                  {isOpen ? (
-                    <ChevronDown className="w-4 h-4 text-indigo-400" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-indigo-400" />
-                  )}
-                  <label className="flex items-center gap-1 cursor-pointer">
+                  {/* Icon toggle chỉ mở/đóng, không ảnh hưởng checkbox */}
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(limitKey)}
+                    className="text-indigo-400"
+                  >
+                    {isOpen ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {/* Checkbox chỉ tick, không mở nhánh */}
+                  <label className="flex items-center gap-1 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={isChecked}
@@ -48,10 +54,11 @@ export default function LimitTree({
                     </span>
                   </label>
                 </div>
+
                 <span className="text-xs text-gray-400">
                   {members.length} nhân viên
                 </span>
-              </button>
+              </div>
 
               {isOpen && (
                 <ul className="pl-6 pb-2 text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
@@ -63,6 +70,7 @@ export default function LimitTree({
                 </ul>
               )}
             </div>
+
           );
         })}
       </div>
