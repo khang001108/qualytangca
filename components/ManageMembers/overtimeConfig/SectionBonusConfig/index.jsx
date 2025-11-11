@@ -9,7 +9,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { Save } from "lucide-react";
-import { LEAVE_MAP, LEAVE_CODES } from "../../../../hooks/useOvertimeParser/parseHelpers";import LimitTree from "./LimitTree";
+import { LEAVE_MAP, LEAVE_CODES } from "../../../../hooks/useOvertimeParser/parseHelpers"; import LimitTree from "./LimitTree";
 import NoBonusCodes from "./NoBonusCodes";
 
 export default function SectionBonusConfig({ config, setConfig }) {
@@ -26,8 +26,12 @@ export default function SectionBonusConfig({ config, setConfig }) {
       const tree = {};
       snap.forEach((docSnap) => {
         const data = docSnap.data();
-        const key = `${data.limit}h`;
+        // const key = `${data.limit}h`;
+        // tree[key] = data.members || [];
+        const limitNum = Number(data.limit || data.monthlyLimit || 0);
+        const key = String(limitNum);
         tree[key] = data.members || [];
+
       });
       setLimitTree(tree);
     });
@@ -90,7 +94,6 @@ export default function SectionBonusConfig({ config, setConfig }) {
       for (const docSnap of limitsSnap.docs) {
         const data = docSnap.data();
         const key = `${data.limit}h`;
-
         if (selectedLimits.includes(key)) {
           const members = (data.members || []).map((m) => ({
             ...m,
@@ -142,8 +145,8 @@ export default function SectionBonusConfig({ config, setConfig }) {
         <div className="flex items-center gap-3">
           <span
             className={`text-sm font-medium ${bonusEnabled
-                ? "text-green-600 dark:text-green-400"
-                : "text-gray-500 dark:text-gray-400"
+              ? "text-green-600 dark:text-green-400"
+              : "text-gray-500 dark:text-gray-400"
               }`}
           >
             {bonusEnabled ? "Đang dùng" : "Đang tắt"}
@@ -225,7 +228,7 @@ export default function SectionBonusConfig({ config, setConfig }) {
         {bonusEnabled && (
           <motion.div
             key="bonus-section"
-            initial={{ opacity: 0, height: 0, y: -10 }} 
+            initial={{ opacity: 0, height: 0, y: -10 }}
             animate={{ opacity: 1, height: "auto", y: 0 }}
             exit={{ opacity: 0, height: 0, y: -10 }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
