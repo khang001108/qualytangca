@@ -32,7 +32,7 @@ export default function LimitTree({
                   <button
                     type="button"
                     onClick={() => toggleGroup(limitKey)}
-                    className="text-orange-400"
+                    className="text-amber-300"
                   >
                     {isOpen ? (
                       <ChevronDown className="w-4 h-4" />
@@ -47,16 +47,17 @@ export default function LimitTree({
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleLimit(limitKey)}
-                      className="w-3 h-3 text-orange-500"
+                      className="w-3 h-3 text-amber-300"
                     />
-                    <span className="font-medium text-orange-500">
-                      Giới hạn {limitKey}
+                    <span className="font-medium text-amber-300">
+                      Giới hạn {limitKey}h
                     </span>
                   </label>
                 </div>
 
                 <span className="text-xs text-gray-200">
-                  {members.length} nhân viên
+                  {/* {members.length} nhân viên */}
+                  {(members || []).length} nhân viên
                 </span>
               </div>
 

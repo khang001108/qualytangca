@@ -1,3 +1,11 @@
 {
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "editor.cursorSmoothCaretAnimation": "on",
+    "editor.cursorBlinking": "smooth",
+    "editor.smoothScrolling": true,
+    "editor.minimap.enabled": true,
+    "workbench.tree.indent": 14,
+    "editor.fontLigatures": true,
+    "terminal.integrated.smoothScrolling": true
+    
 }
