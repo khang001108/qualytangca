@@ -159,36 +159,37 @@ export default function ManageMembers({
     return list;
   }, [members, searchTerm, sortMode]);
 
-  // === Đặt giới hạn ===
-  const handleSetLimit = async () => {
-    const val = Number(limitInput);
-    if (!val || val <= 0) return showToast("Nhập số giờ hợp lệ.", "error");
-    if (selectedIds.length === 0)
-      return showToast("Chọn ít nhất 1 nhân viên.", "error");
+  // === Lưu giới hạn tăng ca (bao gồm cả xóa giới hạn) ===
+  const handleSetLimit = async (updatedMembers) => {
     setLoading(true);
     try {
-      for (const id of selectedIds) {
-        const ref = doc(db, "members", id);
-        const m = members.find((mm) => mm.id === id);
-        const newLimit = { monthlyLimit: val, workedHours: 0, remaining: val };
+      for (const m of updatedMembers) {
+        const ref = doc(db, "members", m.id);
+
+        const worked = m.overtimeLimit?.workedHours || 0;
+        const limit = m.overtimeLimit?.monthlyLimit ?? 0;
+
+        const newLimit = {
+          ...m.overtimeLimit,
+          monthlyLimit: limit,
+          remaining: Math.max(limit - worked, 0),
+        };
+
         await updateDoc(ref, { overtimeLimit: newLimit });
-        if (m) m.overtimeLimit = newLimit;
       }
-      setMembers([...members]);
-      setSelectedIds([]);
-      setLimitInput("");
-      showToast(
-        `Đặt giới hạn ${val}h cho ${selectedIds.length} nhân viên.`,
-        "success"
-      );
-      setShowLimit(false);
+
+      setMembers(updatedMembers);
+      showToast("Đã lưu thay đổi giới hạn.", "success");
+      setShowLimit(true);
     } catch (err) {
-      console.error("Lỗi Giới hạn tăng ca:", err);
-      showToast("Không thể Giới hạn tăng ca.", "error");
+      console.error("❌ Lỗi khi lưu giới hạn tăng ca:", err);
+      showToast("Không thể lưu thay đổi.", "error");
     } finally {
       setLoading(false);
     }
   };
+
+
 
   // === Xóa nhân viên ===
   const handleDeleteMembers = async () => {
@@ -365,7 +366,7 @@ export default function ManageMembers({
             ? [{ id: Date.now(), message: toast.message, type: toast.type }]
             : []
         }
-        onClose={() => {}}
+        onClose={() => { }}
       />
     </div>
   );

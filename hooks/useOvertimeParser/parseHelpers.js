@@ -35,3 +35,9 @@ export function applyOvertimeBonus(overtimeHours, config, leaveCode = "") {
     ? overtimeHours + amount
     : overtimeHours;
 }
+
+export function calculateFullMonthLimit(defaultDailyCap = 4) {
+  const now = new Date();
+  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return days * defaultDailyCap;
+}
