@@ -3,10 +3,15 @@
 
 
 import React from "react";
+import { useOvertimeConfig } from "../../../../hooks/useOvertimeConfig";
 
-export default function NoLimitView({ shiftConfig, defaultDailyCap }) {
+export default function NoLimitView({ shiftConfig}) {
   const formatTime = (t) => t || "--:--";
 
+  const { defaultDailyCap, loading } = useOvertimeConfig();
+
+  if (loading) return <div>Đang tải cấu hình...</div>;
+  
   const now = new Date();
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const totalHours = days * defaultDailyCap;

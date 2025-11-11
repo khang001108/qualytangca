@@ -321,6 +321,7 @@ export default function ManageMembers({
           setInputValue={setLimitInput}
           loading={loading}
           color="indigo"
+          showToast={showToast}
         />
       )}
       {showAssign && (

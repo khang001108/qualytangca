@@ -2,34 +2,31 @@
 // Popup chọn giới hạn tăng ca cho nhân viên
 
 import React, { useRef, useState, useEffect } from "react";
-import { Loader2, CheckCircle2, Undo2, Trash2, ChevronUp, Info } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronUp, Trash2, Undo2, Loader2, CheckCircle2 } from "lucide-react";
+import { useOvertimeConfig } from "../../hooks/useOvertimeConfig";
 export default function LimitSelector({
   title = "Giới hạn tăng ca",
   confirmText = "Lưu thay đổi",
   onConfirm,
   onCancel,
   members = [],
-  defaultDailyCap = 3,
-  loading,
   color = "indigo",
+  showToast,
 }) {
   const modalRef = useRef();
 
+  // === Hook phải luôn ở đầu ===
   const [showGuide, setShowGuide] = useState(false);
   const [localMembers, setLocalMembers] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkLimit, setBulkLimit] = useState("");
   const [deleteMode, setDeleteMode] = useState(false);
   const [sortAsc, setSortAsc] = useState(true);
-  const [toast, setToast] = useState(null);
+  const { defaultDailyCap, loading } = useOvertimeConfig();
 
-  function showToast(message, type = "error", duration = 2000) {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), duration);
-  }
 
+  // === Hàm tính tổng giờ tháng ===
   const calcFullMonthLimit = () => {
     const now = new Date();
     const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -41,7 +38,6 @@ export default function LimitSelector({
     setSelectedIds([]);
     setDeleteMode(false);
   }, [members]);
-
   const toggleSelect = (id) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -115,6 +111,13 @@ export default function LimitSelector({
       return oldVal !== newVal;
     });
 
+    // 🧩 Kiểm tra nhập giá trị mà chưa chọn ai
+    if (bulkLimit.trim() !== "" && selectedIds.length === 0) {
+      showToast("Vui lòng chọn nhân viên để áp dụng giới hạn.", "error");
+      return;
+    }
+
+    // Nếu không có gì để lưu
     if (noSelection && !hasRealChange) {
       showToast("Không có thay đổi để lưu.", "error");
       return;
@@ -149,7 +152,7 @@ export default function LimitSelector({
     onConfirm(updated);
     setSelectedIds([]);
     setDeleteMode(false);
-    showToast("Đã lưu thay đổi.", "success");
+    // showToast("Đã lưu thay đổi.", "success");
   };
 
   const renderStatus = (m) => {
@@ -178,6 +181,29 @@ export default function LimitSelector({
     green: "bg-green-600 hover:bg-green-700",
     red: "bg-red-600 hover:bg-red-700",
   };
+
+  if (loading) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        onMouseDown={(e) =>
+          modalRef.current && !modalRef.current.contains(e.target) && onCancel?.()
+        }
+      >
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        <div
+          ref={modalRef}
+          className="relative bg-white dark:bg-gray-800 w-11/12 max-w-md p-6 rounded-xl shadow-2xl text-gray-800 dark:text-gray-200 z-10 text-center"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-3" />
+          <p className="text-gray-600 dark:text-gray-300 font-medium">
+            Đang tải cấu hình tăng ca...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -418,23 +444,6 @@ export default function LimitSelector({
           </div>
         </div>
       </div>
-      {/* Toast thông báo */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key="toast"
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            transition={{ duration: 0.25 }}
-            className={`fixed top-5 left-1/2 -translate-x-1/2 px-4 py-2 rounded-md text-white text-sm shadow-lg z-[9999]
-        ${toast.type === "error" ? "bg-red-500" : "bg-green-500"}`}
-          >
-            {toast.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
-
   );
 }

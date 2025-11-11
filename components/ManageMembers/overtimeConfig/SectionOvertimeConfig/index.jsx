@@ -9,7 +9,8 @@ import { Clock } from "lucide-react";
 import LimitTreeView from "./LimitTreeView";
 import NoLimitView from "./NoLimitView";
 
-export default function SectionOvertimeLimit({ defaultDailyCap = 6 }) {
+export default function SectionOvertimeLimit() {
+  const [defaultDailyCap, setDefaultDailyCap] = useState(6);
   const [members, setMembers] = useState([]);
   const [tree, setTree] = useState({});
   const [loading, setLoading] = useState(true);
