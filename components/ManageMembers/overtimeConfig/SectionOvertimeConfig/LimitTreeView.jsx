@@ -161,8 +161,10 @@ export default function LimitTreeView({
         ) : (
           sortedLimits.map((limitKey) => {
             const members = tree[limitKey] || [];
+            
             // const limitNum = Number(limitKey);
             const limitNum = Number(String(limitKey).replace(/h$/,'') || 0);
+            
             const options = getMonthSplitOptions(limitNum);
             const chosen = selectedOption[limitKey] || options[0];
             const isOpen = openGroups[limitKey] ?? false;
