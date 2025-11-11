@@ -9,7 +9,7 @@ export default function LimitTree({
   toggleLimit,
 }) {
   return (
-    <div className="border-t border-gray-300 dark:border-gray-700 pt-3">
+    <div className="border-t border-gray-500 dark:border-gray-700 pt-3">
       <p className="font-medium text-gray-800 dark:text-gray-100 mb-1">
         🌿 Chọn nhánh giới hạn áp dụng thưởng:
       </p>
@@ -32,7 +32,7 @@ export default function LimitTree({
                   <button
                     type="button"
                     onClick={() => toggleGroup(limitKey)}
-                    className="text-amber-300"
+                    className="text-amber-400"
                   >
                     {isOpen ? (
                       <ChevronDown className="w-4 h-4" />
@@ -47,15 +47,15 @@ export default function LimitTree({
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleLimit(limitKey)}
-                      className="w-3 h-3 text-amber-300"
+                      className="w-3 h-3 text-amber-400"
                     />
-                    <span className="font-medium text-amber-300">
+                    <span className="font-medium text-amber-400">
                       Giới hạn {limitKey}h
                     </span>
                   </label>
                 </div>
 
-                <span className="text-xs text-gray-200">
+                <span className="text-xs text-gray-500">
                   {/* {members.length} nhân viên */}
                   {(members || []).length} nhân viên
                 </span>
