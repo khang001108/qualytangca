@@ -15,7 +15,7 @@ export default function NoLimitView({ shiftConfig, defaultDailyCap }) {
   const night = shiftConfig?.night || {};
 
   return (
-    <div className="border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 p-4 space-y-5 shadow-sm">
+    <div className="border border-gray-500 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 p-4 space-y-5 shadow-sm">
       {/* === Ca ngày === */}
       <div>
         <div className="text-amber-500 font-semibold mb-2">Ca ngày</div>

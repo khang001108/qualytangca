@@ -103,10 +103,10 @@ export default function SectionShiftConfig({ config, setConfig }) {
   const office = calcOffice();
 
   return (
-    <div className="border border-gray-300 dark:border-gray-700 rounded-2xl p-6 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-xl space-y-6">
+    <div className="border border-gray-300 dark:border-gray-500 rounded-2xl p-6 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg text-indigo-600 dark:text-indigo-400">
+        <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
           🕒 Giờ hành chính
         </h3>
         <div

@@ -94,19 +94,20 @@ export default function SectionOvertimeLimit({ defaultDailyCap = 6 }) {
 
   // === Render ===
   return (
-    <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-800/50 space-y-4 shadow-sm">
-      <h3 className="font-semibold flex items-center gap-2 text-gray-800 dark:text-gray-100">
+    <div className="border border-gray-300 dark:border-gray-500 rounded-2xl p-6 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-xl space-y-6">
+      <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
         ⏱️ Giờ tăng ca
       </h3>
 
-      <div className="flex justify-between bg-gray-100 dark:bg-gray-900 border rounded-lg p-2">
+      <div className="flex justify-between bg-gray-100 dark:bg-gray-900 border border-gray-700 rounded-lg p-2">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-500" />
           <div>
-            <div className="text-sm text-gray-700 dark:text-gray-300">
+            <div className="font-medium text-gray-800 dark:text-gray-100">
+
               Chế độ
             </div>
-            <div className="font-medium text-gray-800 dark:text-gray-100">
+            <div className="text-sm text-gray-700 dark:text-gray-400">
               {useLimitMode ? "Giới hạn (monthlyLimit)" : "Không giới hạn"}
             </div>
           </div>

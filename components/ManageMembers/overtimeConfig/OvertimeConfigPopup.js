@@ -77,14 +77,16 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={onClose}
     >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
         onClick={(e) => e.stopPropagation()}
         className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[1200px] max-w-[98vw] border border-gray-200 dark:border-gray-700 animate-fadeIn flex flex-col overflow-hidden"
         style={{ maxHeight: "90vh" }}
       >
+
         {/* Header */}
         <div className="flex justify-between items-center border-b border-gray-300 dark:border-gray-700 px-8 py-4">
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+          <h2 className="text-xl font-semibold text-indigo-600 dark:text-indigo-300">
             ⚙️ Cấu hình tăng ca
           </h2>
           <button

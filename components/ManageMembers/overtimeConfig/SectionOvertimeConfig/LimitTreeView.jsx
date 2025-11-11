@@ -106,7 +106,7 @@ export default function LimitTreeView({
   };
 
   return (
-    <div className="border rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
+    <div className="border border-gray-700 rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
       {/* === Header === */}
       <div className="flex justify-between items-start border-b border-gray-700 pb-2">
         <div>
@@ -152,7 +152,7 @@ export default function LimitTreeView({
       {/* === Tree view === */}
       <div
         className="space-y-2 overflow-y-auto pr-1 mt-2"
-        style={{ maxHeight: "180px", scrollbarWidth: "thin" }}
+        style={{ maxHeight: "197px", scrollbarWidth: "thin" }}
       >
         {loading ? (
           <p className="text-gray-400 text-sm italic">Đang tải danh sách...</p>

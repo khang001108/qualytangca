@@ -132,7 +132,7 @@ export default function SectionBonusConfig({ config, setConfig }) {
     );
 
   return (
-    <div className="border border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-indigo-50 dark:bg-indigo-950/20 space-y-4">
+    <div className="border border-gray-300 dark:border-gray-500 rounded-xl p-4 bg-indigo-50 dark:bg-indigo-950/20 space-y-4">
       {/* Header gọn đẹp */}
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
