@@ -72,8 +72,8 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           {/* Tabs */}
           <div className="flex justify-center gap-3 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
             {[
-              { id: "shift", label: "Ca làm việc" },
-              { id: "limit", label: "Giới hạn tăng ca" },
+              { id: "shift", label: "Giờ hành chính" },
+              { id: "limit", label: "Giờ tăng ca" },
               { id: "bonus", label: "Thưởng tăng ca" },
             ].map((tab) => (
               <button
