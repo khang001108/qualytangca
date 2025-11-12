@@ -180,7 +180,7 @@ export default function ManageMembers({
 
       setMembers(updatedMembers);
       showToast("Đã lưu thay đổi giới hạn.", "success");
-      setShowLimit(true);
+      // setShowLimit(true);
     } catch (err) {
       console.error("❌ Lỗi khi lưu giới hạn tăng ca:", err);
       showToast("Không thể lưu thay đổi.", "error");
