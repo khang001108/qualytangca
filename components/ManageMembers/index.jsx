@@ -217,13 +217,7 @@ export default function ManageMembers({
       {/* Toolbar */}
       <div className="flex items-center gap-2 justify-between">
         <div className="flex items-center gap-2 flex-nowrap">
-          <button
-            onClick={() => setShowLimit(true)}
-            className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm"
-          >
-            <Clock className="w-4 h-4" /> Giới hạn tăng ca
-          </button>
-
+          
           <button
             onClick={() => setShowAssign(true)}
             className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-lg text-sm"
@@ -232,10 +226,10 @@ export default function ManageMembers({
           </button>
 
           <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm"
+            onClick={() => setShowLimit(true)}
+            className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm"
           >
-            <UserPlus className="w-4 h-4" /> Thêm nhân viên
+            <Clock className="w-4 h-4" /> Giới hạn tăng ca
           </button>
 
           <button
@@ -243,6 +237,13 @@ export default function ManageMembers({
             className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm"
           >
             <Settings className="w-4 h-4" /> Cấu hình tăng ca
+          </button>
+
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm"
+          >
+            <UserPlus className="w-4 h-4" /> Thêm nhân viên
           </button>
 
           <button
