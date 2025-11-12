@@ -20,6 +20,13 @@ export default function LimitTreeView({
   setOpenGroups,
   shiftConfig,
 }) {
+  // ==== Đọc thưởng từ shiftConfig ====
+  // (nhớ shiftConfig trong DB đã đổi sang tiếng Việt không dấu)
+  const bonusEnabled = shiftConfig?.batThuongTangCa;
+  const bonusEvery = Number(shiftConfig?.thuongSauBaoNhieuTieng || 0);
+  const bonusAmount = Number(shiftConfig?.congThemBaoNhieuGio || 0);
+  const selectedLimits = shiftConfig?.cacNhanhDuocThuong || [];
+
   const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
   const sortedLimits = Object.keys(tree)
@@ -202,6 +209,25 @@ export default function LimitTreeView({
                         → {chosen.days} ngày × {chosen.perDay}h/ngày
                       </span>
                     )}
+
+                    {/* ==== Công thức thưởng tăng ca ==== */}
+                    {bonusEnabled &&
+                      selectedLimits.includes(limitKey) &&
+                      chosen &&
+                      (() => {
+                        const perDay = chosen.perDay;
+                        const days = chosen.days;
+
+                        // Nếu số giờ/ngày chưa đạt mức thưởng → không thưởng
+                        const bonusPerDay =
+                          perDay >= bonusEvery ? bonusAmount : 0;
+
+                        return (
+                          <span className="text-sm text-blue-500 dark:text-blue-300 ml-2">
+                            • Thưởng: ({perDay}h + {bonusPerDay}h) × {days} ngày
+                          </span>
+                        );
+                      })()}
                   </div>
 
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">

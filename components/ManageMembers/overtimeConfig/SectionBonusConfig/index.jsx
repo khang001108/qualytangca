@@ -46,9 +46,15 @@ export default function SectionBonusConfig({ config, setConfig }) {
     const unsub = onSnapshot(doc(db, "bonusConfig", "main"), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        setSelectedLimits(data.selectedLimits || []);
-        setBonusEnabled(Boolean(data.bonusEnabled));
-        setConfig((prev) => ({ ...prev, ...data }));
+        setSelectedLimits(data.cacNhanhDuocThuong || []);
+        setBonusEnabled(Boolean(data.batThuongTangCa));
+
+        setConfig((prev) => ({
+          ...prev,
+          bonusEvery: Number(data.thuongSauBaoNhieuTieng ?? 2), // fallback 2
+          bonusAmount: Number(data.congThemBaoNhieuGio ?? 0.5), // fallback 0.5
+          customNoBonus: data.cacMaKhongThuong || [],
+        }));
       }
       setLoading(false);
     });
@@ -81,9 +87,11 @@ export default function SectionBonusConfig({ config, setConfig }) {
   const handleSave = async () => {
     try {
       await setDoc(doc(db, "bonusConfig", "main"), {
-        ...merged,
-        bonusEnabled,
-        selectedLimits,
+        thuongSauBaoNhieuTieng: Number(merged.bonusEvery ?? 0),
+        congThemBaoNhieuGio: Number(merged.bonusAmount ?? 0),
+        batThuongTangCa: bonusEnabled,
+        cacNhanhDuocThuong: selectedLimits,
+        cacMaKhongThuong: merged.customNoBonus || [],
       });
 
       if (!bonusEnabled) {
