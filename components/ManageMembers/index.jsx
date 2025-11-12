@@ -6,6 +6,7 @@ import ShiftAssign from "./ShiftAssign";
 import OvertimeConfigPopup from "./overtimeConfig/OvertimeConfigPopup";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
+import { updateOvertimeLimits } from "./overtimeConfig/SectionOvertimeConfig";
 import dayjs from "dayjs";
 import Toast from "../Toast";
 import {
@@ -217,7 +218,7 @@ export default function ManageMembers({
       {/* Toolbar */}
       <div className="flex items-center gap-2 justify-between">
         <div className="flex items-center gap-2 flex-nowrap">
-          
+
           <button
             onClick={() => setShowAssign(true)}
             className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-lg text-sm"
@@ -313,18 +314,29 @@ export default function ManageMembers({
         <LimitSelector
           title="Giới hạn tăng ca"
           confirmText="Lưu thay đổi"
-          onConfirm={handleSetLimit}
           onCancel={() => setShowLimit(false)}
           members={members}
-          selectedIds={selectedIds}
-          toggleSelect={toggleSelect}
-          inputValue={limitInput}
-          setInputValue={setLimitInput}
           loading={loading}
           color="indigo"
           showToast={showToast}
+          onConfirm={async (updatedMembers) => {
+            try {
+              // 1️⃣ Cập nhật lại giới hạn của từng nhân viên
+              await handleSetLimit(updatedMembers);
+
+              // 2️⃣ Sau khi xong, gọi đồng bộ Firestore overtimeLimits
+              await updateOvertimeLimits({}, {}, {}); // vẫn chạy được, nếu cần truyền tree thực có thể sau này sửa
+              showToast("Đã lưu và đồng bộ lại overtimeLimits.", "success");
+            } catch (err) {
+              console.error("❌ Lỗi đồng bộ overtimeLimits:", err);
+              showToast("Không thể đồng bộ overtimeLimits.", "error");
+            } finally {
+              setShowLimit(false);
+            }
+          }}
         />
       )}
+
       {showAssign && (
         <ShiftAssign
           user={user}

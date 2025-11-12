@@ -2,12 +2,78 @@
 // Hiển thị cấu hình giới hạn giờ tăng ca cho nhân viên
 
 import React, { useEffect, useState } from "react";
+import { collection,onSnapshot, getDocs, deleteDoc, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
-import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { useShiftFirestore } from "../SectionShiftConfig/useShiftFirestore";
 import { Clock } from "lucide-react";
 import LimitTreeView from "./LimitTreeView";
 import NoLimitView from "./NoLimitView";
+// import { updateOvertimeLimits } from "./overtimeConfig/SectionOvertimeConfig";
+
+
+export async function updateOvertimeLimits(tree, selectedOption, shiftConfig) {
+  try {
+    const overtimeRef = collection(db, "overtimeLimits");
+    const snapshot = await getDocs(overtimeRef);
+    await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    const promises = Object.keys(selectedOption).map(async (limitKey) => {
+      const members = tree[limitKey] || [];
+      const limitNum = Number(limitKey);
+      const chosen = selectedOption[limitKey];
+      if (!chosen) return;
+
+      const days = Math.floor(chosen.days);
+      const perDay = Math.floor(chosen.perDay);
+      const totalLimit = days * perDay;
+
+      const membersWithRemaining = members.map((m) => {
+        const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
+        const remainingHours = Math.max(totalLimit - worked, 0);
+        const remainingDays = Math.floor(remainingHours / perDay);
+        const remainderHours = remainingHours % perDay;
+
+        return {
+          id: m.id,
+          name: m.nickname || m.realName || "Không tên",
+          monthlyLimit: totalLimit,
+          workedHours: worked,
+          remainingDays,
+          remainingHours: remainderHours,
+        };
+      });
+
+      await setDoc(
+        doc(db, "overtimeLimits", `limit_${limitNum}_day_${days}`),
+        {
+          createdAt: serverTimestamp(),
+          month: month + 1,
+          year,
+          limit: totalLimit,
+          days,
+          perDay,
+          rule: "1h sau tan ca hành chính = 1h tăng ca",
+          shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
+          shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
+          shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
+          shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
+          memberCount: members.length,
+          members: membersWithRemaining,
+        },
+        { merge: true }
+      );
+    });
+
+    await Promise.all(promises);
+    console.log("✅ overtimeLimits updated from LimitSelector");
+  } catch (err) {
+    console.error("❌ Error updating overtimeLimits:", err);
+  }
+}
 
 export default function SectionOvertimeLimit() {
   const [defaultDailyCap, setDefaultDailyCap] = useState(6);
@@ -134,7 +200,11 @@ export default function SectionOvertimeLimit() {
           openGroups={openGroups}
           setOpenGroups={setOpenGroups}
           shiftConfig={shiftConfig}
+          onUpdateOvertimeLimits={() =>
+            updateOvertimeLimits(tree, selectedOption, shiftConfig)
+          }
         />
+
       ) : (
         <NoLimitView
           shiftConfig={shiftConfig}

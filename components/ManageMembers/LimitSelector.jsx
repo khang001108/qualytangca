@@ -13,6 +13,7 @@ export default function LimitSelector({
   members = [],
   color = "indigo",
   showToast,
+  onUpdateOvertimeLimits,
 }) {
   const modalRef = useRef();
 
@@ -150,6 +151,10 @@ export default function LimitSelector({
     });
 
     onConfirm(updated);
+    if (typeof onUpdateOvertimeLimits === "function") {
+      onUpdateOvertimeLimits();
+    }
+
     setSelectedIds([]);
     setDeleteMode(false);
     // showToast("Đã lưu thay đổi.", "success");
