@@ -90,25 +90,19 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
             ))}
           </div>
 
-          {/* Nội dung */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-gray-50 dark:bg-gray-900">
-            <div className="relative overflow-hidden">
-              <AnimatePresence mode="sync">
-                <motion.div
-                  key={activeTab}
-                  layout
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -30 }}
-                  transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
-                  style={{ transformOrigin: "top" }}
-                >
-                  {renderTabContent()}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            <FormulaPreview config={config} />
+          <div className="h-[520px] overflow-y-auto rounded-lg relative bg-gray-50 dark:bg-gray-900">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
+                className="min-h-full p-2"
+              >
+                {renderTabContent()}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Footer */}

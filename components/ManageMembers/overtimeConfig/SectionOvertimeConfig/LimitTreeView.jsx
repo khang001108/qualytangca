@@ -155,7 +155,8 @@ export default function LimitTreeView({
       {/* === Tree view === */}
       <div
         className="space-y-2 overflow-y-auto pr-1 mt-2"
-        style={{ maxHeight: "197px", scrollbarWidth: "thin" }}
+        style={{ maxHeight: "300px", scrollbarWidth: "thin" }}
+        // style={{ maxHeight: "197px", scrollbarWidth: "thin" }}
       >
         {loading ? (
           <p className="text-gray-400 text-sm italic">Đang tải danh sách...</p>
