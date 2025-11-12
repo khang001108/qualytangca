@@ -1,11 +1,8 @@
 // components/ManageMembers/overtimeConfig/SectionOvertimeConfig/LimitTreeView.jsx
-// Hiển thị cây nhóm nhân viên theo giới hạn tăng ca và tùy chọn phân bổ ngày/hàng ngày
-
 import React from "react";
 import { ChevronRight, ChevronDown, Users, Save } from "lucide-react";
-import { collection, doc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, serverTimestamp, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
-
 
 export default function LimitTreeView({
   tree,
@@ -28,12 +25,21 @@ export default function LimitTreeView({
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // === Lưu báo cáo tăng ca vào Firestore ===
+  // === Lưu toàn bộ vào Firestore khi ấn "Lưu" ===
   const handleSaveToFirestore = async () => {
     try {
-      const promises = Object.keys(tree).map(async (limitKey) => {
+      const overtimeRef = collection(db, "overtimeLimits");
+      const snapshot = await getDocs(overtimeRef);
+
+      // 1️⃣ Xóa toàn bộ tài liệu cũ trong collection "overtimeLimits"
+      const deletePromises = snapshot.docs.map((d) => deleteDoc(d.ref));
+      await Promise.all(deletePromises);
+      console.log("🗑️ Đã xóa toàn bộ cấu hình cũ trong Firestore.");
+
+      // 2️⃣ Tạo lại document mới theo lựa chọn hiện tại
+      const promises = Object.keys(selectedOption).map(async (limitKey) => {
         const members = tree[limitKey] || [];
-        const limitNum = Number(limitKey); // <-- THÊM DÒNG NÀY
+        const limitNum = Number(limitKey);
         const chosen = selectedOption[limitKey];
         if (!chosen) return;
 
@@ -41,7 +47,7 @@ export default function LimitTreeView({
         const perDay = Math.floor(chosen.perDay);
         const totalLimit = days * perDay;
 
-        // === Tính toán lại remaining ===
+        // === Tính toán remaining ===
         const membersWithRemaining = members.map((m) => {
           const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
           const remainingHours = Math.max(totalLimit - worked, 0);
@@ -74,15 +80,12 @@ export default function LimitTreeView({
           members: membersWithRemaining,
         };
 
-        // === Lưu document theo định dạng: limit_40_day_20 ===
         const docId = `limit_${limitNum}_day_${days}`;
         await setDoc(doc(db, "overtimeLimits", docId), data, { merge: true });
       });
 
       await Promise.all(promises);
-      alert(
-        "✅ Đã tính lại ngày còn lại theo workedHours và lưu vào Firestore!"
-      );
+      alert("✅ Đã xóa cũ và lưu cấu hình mới vào Firestore!");
     } catch (err) {
       console.error("❌ Lỗi khi lưu:", err);
       alert("❌ Lưu thất bại, xem console.");
@@ -161,12 +164,9 @@ export default function LimitTreeView({
         ) : (
           sortedLimits.map((limitKey) => {
             const members = tree[limitKey] || [];
-            
-            // const limitNum = Number(limitKey);
-            const limitNum = Number(String(limitKey).replace(/h$/,'') || 0);
-            
+            const limitNum = Number(String(limitKey).replace(/h$/, "") || 0);
             const options = getMonthSplitOptions(limitNum);
-            const chosen = selectedOption[limitKey] || options[0];
+            const chosen = selectedOption[limitKey];
             const isOpen = openGroups[limitKey] ?? false;
 
             return (
@@ -187,9 +187,11 @@ export default function LimitTreeView({
                     <span className="font-medium text-amber-300">
                       Giới hạn {limitNum}h
                     </span>
-                    <span className="text-sm text-gray-400 ml-2">
-                      → {chosen.days} ngày × {chosen.perDay}h/ngày
-                    </span>
+                    {chosen && (
+                      <span className="text-sm text-gray-400 ml-2">
+                        → {chosen.days} ngày × {chosen.perDay}h/ngày
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-gray-400 text-sm">
                     <Users className="w-4 h-4" /> {members.length}
@@ -204,29 +206,21 @@ export default function LimitTreeView({
                         current?.perDay === opt.perDay &&
                         current?.days === opt.days;
 
-                      const handleClick = async () => {
-                        if (isActive) {
-                          // --- Nếu đang chọn (màu vàng) -> bỏ chọn và xóa Firestore ---
-                          const copy = { ...selectedOption };
-                          delete copy[limitKey];
-                          setSelectedOption(copy);
-
-                          const docId = `limit_${limitNum}_day_${opt.days}`;
-                          try {
-                            await deleteDoc(doc(db, "overtimeLimits", docId));
-                            console.log(
-                              `🗑️ Đã xóa cấu hình ${docId} khỏi Firestore.`
-                            );
-                          } catch (err) {
-                            console.error("❌ Lỗi khi xóa document:", err);
+                      // Ấn lần 1 chọn, ấn lần 2 bỏ chọn
+                      const handleClick = () => {
+                        setSelectedOption((prev) => {
+                          const copy = { ...prev };
+                          if (
+                            copy[limitKey] &&
+                            copy[limitKey].perDay === opt.perDay &&
+                            copy[limitKey].days === opt.days
+                          ) {
+                            delete copy[limitKey]; // bỏ chọn
+                          } else {
+                            copy[limitKey] = opt; // chọn mới
                           }
-                        } else {
-                          // --- Nếu chưa chọn -> chọn và tô vàng ---
-                          setSelectedOption((prev) => ({
-                            ...prev,
-                            [limitKey]: opt,
-                          }));
-                        }
+                          return copy;
+                        });
                       };
 
                       return (
@@ -252,7 +246,9 @@ export default function LimitTreeView({
                       const name = m.nickname || m.realName || "Không tên";
                       const worked = m.overtimeLimit?.workedHours || 0;
                       const remaining = Math.max(limitNum - worked, 0);
-                      const remainDays = Math.ceil(remaining / chosen.perDay);
+                      const remainDays = chosen
+                        ? Math.ceil(remaining / chosen.perDay)
+                        : 0;
                       return (
                         <li
                           key={m.id}
