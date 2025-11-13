@@ -52,6 +52,11 @@ export default function ShiftAssign(props) {
     startY: 0,
   });
 
+  // khi mở lại poppup rst trạng thái
+  // useEffect(() => {
+  //   setLoading(false);
+  // }, [selectedMonth, selectedYear, onCancel]);
+
   // reset + load logic như file gốc…
   useEffect(() => {
     if (!user?.uid) return;
