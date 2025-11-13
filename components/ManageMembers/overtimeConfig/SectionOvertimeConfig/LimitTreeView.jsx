@@ -19,93 +19,35 @@ export default function LimitTreeView({
   openGroups,
   setOpenGroups,
   shiftConfig,
+  bonusConfig,
 }) {
-  // ==== Đọc thưởng từ shiftConfig ====
-  // (nhớ shiftConfig trong DB đã đổi sang tiếng Việt không dấu)
-  const bonusEnabled = shiftConfig?.batThuongTangCa;
-  const bonusEvery = Number(shiftConfig?.thuongSauBaoNhieuTieng || 0);
-  const bonusAmount = Number(shiftConfig?.congThemBaoNhieuGio || 0);
-  const selectedLimits = shiftConfig?.cacNhanhDuocThuong || [];
+  // ============================================================
+  // BONUS CONFIG (đọc từ bonusConfig / bonusConfig)
+  // ============================================================
+  const bonusEnabled = bonusConfig?.batThuongTangCa === true;
+  const bonusEvery = Number(bonusConfig?.thuongSauBaoNhieuTieng || 0);
+  const bonusAmount = Number(bonusConfig?.congThemBaoNhieuGio || 0);
+  const selectedLimits = bonusConfig?.cacNhanhDuocThuong || [];
 
-  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
-
+  // ============================================================
+  // SORT LIMITS theo số giờ
+  // ============================================================
   const sortedLimits = Object.keys(tree)
     .map(Number)
     .sort((a, b) => b - a)
     .map(String);
+
+  const toggleGroup = (key) =>
+    setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  // === Lưu toàn bộ vào Firestore khi ấn "Lưu" ===
-  const handleSaveToFirestore = async () => {
-    try {
-      const overtimeRef = collection(db, "overtimeLimits");
-      const snapshot = await getDocs(overtimeRef);
-
-      // 1️⃣ Xóa toàn bộ tài liệu cũ trong collection "overtimeLimits"
-      const deletePromises = snapshot.docs.map((d) => deleteDoc(d.ref));
-      await Promise.all(deletePromises);
-      console.log("🗑️ Đã xóa toàn bộ cấu hình cũ trong Firestore.");
-
-      // 2️⃣ Tạo lại document mới theo lựa chọn hiện tại
-      const promises = Object.keys(selectedOption).map(async (limitKey) => {
-        const members = tree[limitKey] || [];
-        const limitNum = Number(limitKey);
-        const chosen = selectedOption[limitKey];
-        if (!chosen) return;
-
-        const days = Math.floor(chosen.days);
-        const perDay = Math.floor(chosen.perDay);
-        const totalLimit = days * perDay;
-
-        // === Tính toán remaining ===
-        const membersWithRemaining = members.map((m) => {
-          const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
-          const remainingHours = Math.max(totalLimit - worked, 0);
-          const remainingDays = Math.floor(remainingHours / perDay);
-          const remainderHours = remainingHours % perDay;
-
-          return {
-            id: m.id,
-            name: m.nickname || m.realName || "Không tên",
-            monthlyLimit: totalLimit,
-            workedHours: worked,
-            remainingDays,
-            remainingHours: remainderHours,
-          };
-        });
-
-        const data = {
-          createdAt: serverTimestamp(),
-          month: month + 1,
-          year,
-          limit: totalLimit,
-          days,
-          perDay,
-          rule: "1h sau tan ca hành chính (ca sớm/muộn) = 1h tăng ca",
-          shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
-          shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
-          shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
-          shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
-          memberCount: members.length,
-          members: membersWithRemaining,
-        };
-
-        const docId = `limit_${limitNum}_day_${days}`;
-        await setDoc(doc(db, "overtimeLimits", docId), data, { merge: true });
-      });
-
-      await Promise.all(promises);
-      alert("✅ Đã xóa cũ và lưu cấu hình mới vào Firestore!");
-    } catch (err) {
-      console.error("❌ Lỗi khi lưu:", err);
-      alert("❌ Lưu thất bại, xem console.");
-    }
-  };
-
+  // ============================================================
+  // TÍNH CÁC OPTION CHIA THÁNG
+  // ============================================================
   const getMonthSplitOptions = (monthlyLimit) => {
     const opts = [];
     for (let h = 6; h >= 1; h--) {
@@ -122,16 +64,84 @@ export default function LimitTreeView({
     return opts.sort((a, b) => b.days - a.days);
   };
 
+  // ============================================================
+  // LƯU CẤU HÌNH GIỚI HẠN (OVERTIMELIMITS)
+  // ============================================================
+  const handleSaveToFirestore = async () => {
+    try {
+      const overtimeRef = collection(db, "overtimeLimits");
+      const snapshot = await getDocs(overtimeRef);
+
+      await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
+
+      const promises = Object.keys(selectedOption).map(async (limitKey) => {
+        const members = tree[limitKey] || [];
+        const limitNum = Number(limitKey);
+        const chosen = selectedOption[limitKey];
+        if (!chosen) return;
+
+        const days = Math.floor(chosen.days);
+        const perDay = Math.floor(chosen.perDay);
+        const totalLimit = days * perDay;
+
+        const membersWithRemaining = members.map((m) => {
+          const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
+          const remainingHours = Math.max(totalLimit - worked, 0);
+
+          return {
+            id: m.id,
+            name: m.nickname || m.realName || "Không tên",
+            monthlyLimit: totalLimit,
+            workedHours: worked,
+            remainingHours,
+          };
+        });
+
+        const data = {
+          createdAt: serverTimestamp(),
+          month: month + 1,
+          year,
+          limit: totalLimit,
+          days,
+          perDay,
+          bonusEnabled,
+          bonusEvery,
+          bonusAmount,
+          shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
+          shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
+          shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
+          shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
+          memberCount: members.length,
+          members: membersWithRemaining,
+        };
+
+        const docId = `limit_${limitNum}_day_${days}`;
+        await setDoc(doc(db, "overtimeLimits", docId), data, { merge: true });
+      });
+
+      await Promise.all(promises);
+      alert("Đã lưu cấu hình mới!");
+    } catch (err) {
+      console.error("Lỗi lưu:", err);
+      alert("Lưu thất bại, xem console!");
+    }
+  };
+
+  // ============================================================
+  // RENDER UI
+  // ============================================================
   return (
     <div className="border border-gray-700 rounded-lg bg-white dark:bg-gray-900 p-3 space-y-3">
-      {/* === Header === */}
+      {/* ------------------------------------- */}
+      {/* Header thông tin quy tắc */}
+      {/* ------------------------------------- */}
       <div className="flex justify-between items-start border-b border-gray-700 pb-2">
         <div>
           <div className="text-sm text-gray-700 dark:text-gray-300">
             Quy tắc tính giờ tăng ca
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            Sau tan ca hành chính (sớm hoặc muộn): mỗi 1h = 1h tăng ca
+            Sau tan ca hành chính (sớm/muộn): mỗi 1h = 1h tăng ca
           </div>
 
           <div className="mt-2 text-xs text-gray-400 space-y-1">
@@ -145,6 +155,7 @@ export default function LimitTreeView({
                 {shiftConfig?.day?.tanCaMuonBatDau || "--:--"}
               </span>
             </div>
+
             <div>
               <span className="font-semibold text-indigo-400">Đêm:</span> Sớm{" "}
               <span className="text-indigo-400 font-semibold">
@@ -166,20 +177,18 @@ export default function LimitTreeView({
         </button>
       </div>
 
-      {/* === Tree view === */}
-      <div
-        className="space-y-2 overflow-y-auto pr-1 mt-2"
-        // style={{ maxHeight: "300px", scrollbarWidth: "thin" }}
-        // style={{ maxHeight: "197px", scrollbarWidth: "thin" }}
-      >
+      {/* ------------------------------------- */}
+      {/* TREE VIEW */}
+      {/* ------------------------------------- */}
+      <div className="space-y-2 overflow-y-auto pr-1 mt-2">
         {loading ? (
-          <p className="text-gray-400 text-sm italic">Đang tải danh sách...</p>
+          <p className="text-gray-400 text-sm italic">Đang tải danh sách…</p>
         ) : sortedLimits.length === 0 ? (
           <div className="text-sm text-gray-500">Không có nhân viên.</div>
         ) : (
           sortedLimits.map((limitKey) => {
             const members = tree[limitKey] || [];
-            const limitNum = Number(String(limitKey).replace(/h$/, "") || 0);
+            const limitNum = Number(limitKey);
             const options = getMonthSplitOptions(limitNum);
             const chosen = selectedOption[limitKey];
             const isOpen = openGroups[limitKey] ?? false;
@@ -191,17 +200,18 @@ export default function LimitTreeView({
               >
                 <button
                   onClick={() => toggleGroup(limitKey)}
-                  className="flex justify-between items-center w-full px-3 py-2 text-left 
-               hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  className="flex justify-between items-center w-full px-3 py-2 text-left hover:bg-gray-200 dark:hover:bg-gray-700"
                 >
-                  <div className="flex items-center gap-2">
+                  {/* LEFT */}
+                  <div className="flex flex-col items-start gap-1">
                     {isOpen ? (
                       <ChevronDown className="w-4 h-4 text-amber-400" />
                     ) : (
                       <ChevronRight className="w-4 h-4 text-amber-400" />
                     )}
+
                     <span className="font-medium text-amber-500 dark:text-amber-300">
-                      Giới hạn {limitNum}h
+                      Giới hạn {limitNum} giờ
                     </span>
 
                     {chosen && (
@@ -210,15 +220,12 @@ export default function LimitTreeView({
                       </span>
                     )}
 
-                    {/* ==== Công thức thưởng tăng ca ==== */}
+                    {/* THƯỞNG */}
                     {bonusEnabled &&
                       selectedLimits.includes(limitKey) &&
-                      chosen &&
-                      (() => {
+                      chosen && (() => {
                         const perDay = chosen.perDay;
                         const days = chosen.days;
-
-                        // Nếu số giờ/ngày chưa đạt mức thưởng → không thưởng
                         const bonusPerDay =
                           perDay >= bonusEvery ? bonusAmount : 0;
 
@@ -230,11 +237,13 @@ export default function LimitTreeView({
                       })()}
                   </div>
 
+                  {/* RIGHT */}
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 text-sm">
                     <Users className="w-4 h-4" /> {members.length}
                   </div>
                 </button>
 
+                {/* BUTTON OPTIONS */}
                 <div className="px-4 py-2 border-t border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
                   <div className="flex flex-wrap gap-2">
                     {options.map((opt, i) => {
@@ -267,6 +276,7 @@ export default function LimitTreeView({
                   </div>
                 </div>
 
+                {/* MEMBERS LIST */}
                 {isOpen && (
                   <ul className="px-4 py-2 border-t border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm space-y-1">
                     {members.map((m) => {

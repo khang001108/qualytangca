@@ -16,38 +16,31 @@ import { useShiftFirestore } from "../SectionShiftConfig/useShiftFirestore";
 import { Clock } from "lucide-react";
 import LimitTreeView from "./LimitTreeView";
 import NoLimitView from "./NoLimitView";
-// import { updateOvertimeLimits } from "./overtimeConfig/SectionOvertimeConfig";
 
-
-//==============================================================================
-//          Cập nhật lại collection overtimeLimits từ members
-//==============================================================================
+// ============================================================================
+//    HÀM REBUILD overtimeLimits TỪ members (nếu cần tạo lại toàn bộ)
+// ============================================================================
 export async function updateOvertimeLimits() {
   try {
     const overtimeRef = collection(db, "overtimeLimits");
-
-    // nếu cần xóa trước khi cập nhật lại toàn bộ
-    // const snapshot = await getDocs(overtimeRef);
-    // await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
-
     const membersSnap = await getDocs(collection(db, "members"));
-    const members = membersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // Gom nhóm nhân viên theo giới hạn
+    // Gom nhóm
     const grouped = {};
-    for (const m of members) {
+    membersSnap.docs.forEach((d) => {
+      const m = { id: d.id, ...d.data() };
       const limit = m.overtimeLimit?.monthlyLimit || 0;
       if (!grouped[limit]) grouped[limit] = [];
       grouped[limit].push(m);
-    }
+    });
 
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    // Ghi lại các document theo nhóm
     const promises = Object.keys(grouped).map(async (limitKey) => {
       const membersList = grouped[limitKey];
+
       await setDoc(doc(db, "overtimeLimits", `limit_${limitKey}`), {
         createdAt: serverTimestamp(),
         month: month + 1,
@@ -64,28 +57,43 @@ export async function updateOvertimeLimits() {
     });
 
     await Promise.all(promises);
-    console.log("✅ overtimeLimits rebuilt from members");
+    console.log("✔ overtimeLimits rebuilt from members");
   } catch (err) {
-    console.error("❌ Error updating overtimeLimits:", err);
+    console.error("✘ Error updating overtimeLimits:", err);
   }
 }
 
-
-//==============================================================================
-//                       SectionOvertimeLimit Component
-//==============================================================================
+// ============================================================================
+//                      SectionOvertimeLimit Component
+// ============================================================================
 export default function SectionOvertimeLimit() {
   const [defaultDailyCap, setDefaultDailyCap] = useState(6);
   const [members, setMembers] = useState([]);
   const [tree, setTree] = useState({});
   const [loading, setLoading] = useState(true);
+  const [bonusConfig, setBonusConfig] = useState({});
+  const [bonusEnabled, setBonusEnabled] = useState(true);
+  
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "bonusConfig", "main"), snap => {
+      if (snap.exists()) setBonusConfig(snap.data());
+    });
+    return unsub;
+  }, []);
+
+  // Lấy cấu hình thưởng từ Firestore
+  // Selected "days × hours/day" options cho từng limitKey
   const [selectedOption, setSelectedOption] = useState({});
+
+  // Mở/đóng từng nhánh
   const [openGroups, setOpenGroups] = useState({});
+
+  // Bật/tắt chế độ "Giới hạn tăng ca"
   const [useLimitMode, setUseLimitMode] = useState(
     localStorage.getItem("useLimitMode") === "true"
   );
 
-  // === Lấy shiftConfig thực tế từ Firestore ===
+  // Lấy shiftConfig từ Firestore
   const [shiftConfig, setShiftConfig] = useState({});
   const { fetchConfig } = useShiftFirestore(setShiftConfig);
 
@@ -93,14 +101,18 @@ export default function SectionOvertimeLimit() {
     fetchConfig();
   }, [fetchConfig]);
 
-  // === Đọc lại cấu hình đã lưu từ Firestore để tô vàng các lựa chọn ===
+  // ============================================================================
+  //  Đọc lại các lựa chọn (days × perDay) từ Firestore → tô vàng các button
+  // ============================================================================
   useEffect(() => {
     const fetchSavedLimits = async () => {
       try {
         const snap = await getDocs(collection(db, "overtimeLimits"));
         const savedOptions = {};
+
         snap.docs.forEach((docSnap) => {
           const data = docSnap.data();
+
           const limit = data.limit;
           const perDay = data.perDay || data.hoursPerDay;
           const days = data.days || data.totalDays;
@@ -109,18 +121,22 @@ export default function SectionOvertimeLimit() {
             savedOptions[String(limit)] = { days, perDay };
           }
         });
+
         setSelectedOption(savedOptions);
       } catch (err) {
-        console.error("❌ Lỗi khi đọc overtimeLimits:", err);
+        console.error("Lỗi đọc overtimeLimits:", err);
       }
     };
 
     fetchSavedLimits();
   }, []);
 
-  // === Lấy danh sách nhân viên từ Firestore (realtime) ===
+  // ============================================================================
+  //  Lấy danh sách nhân viên (realtime)
+  // ============================================================================
   useEffect(() => {
     setLoading(true);
+
     const unsubscribe = onSnapshot(collection(db, "members"), (snap) => {
       const list = snap.docs.map((d) => ({
         id: d.id,
@@ -130,18 +146,24 @@ export default function SectionOvertimeLimit() {
       setLoading(false);
     });
 
-    return () => unsubscribe(); // cleanup listener khi component unmount
+    return () => unsubscribe();
   }, []);
 
-  // === Gom nhóm nhân viên theo giới hạn ===
+  // ============================================================================
+  //  Gom nhân viên theo giới hạn (monthlyLimit)
+  // ============================================================================
   useEffect(() => {
     const grouped = {};
+
     members.forEach((m) => {
       const limit = m.overtimeLimit?.monthlyLimit || 0;
       const key = String(limit);
+
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(m);
     });
+
+    // Sắp nhân viên theo tên
     Object.keys(grouped).forEach((k) => {
       grouped[k].sort((a, b) =>
         (a.nickname || a.realName || "").localeCompare(
@@ -149,16 +171,21 @@ export default function SectionOvertimeLimit() {
         )
       );
     });
+
     setTree(grouped);
   }, [members]);
 
-  // === Bật/tắt chế độ giới hạn ===
+  // ============================================================================
+  //  Toggle giới hạn / không giới hạn
+  // ============================================================================
   const handleToggleMode = (checked) => {
     setUseLimitMode(checked);
     localStorage.setItem("useLimitMode", checked);
   };
 
-  // === Render ===
+  // ============================================================================
+  //  RENDER
+  // ============================================================================
   return (
     <div className="border border-gray-300 dark:border-gray-500 rounded-2xl p-6 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-xl space-y-6">
       <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
@@ -198,15 +225,10 @@ export default function SectionOvertimeLimit() {
           openGroups={openGroups}
           setOpenGroups={setOpenGroups}
           shiftConfig={shiftConfig}
-          onUpdateOvertimeLimits={() =>
-            updateOvertimeLimits(tree, selectedOption, shiftConfig)
-          }
+          bonusConfig={bonusConfig}
         />
       ) : (
-        <NoLimitView
-          shiftConfig={shiftConfig}
-          defaultDailyCap={defaultDailyCap}
-        />
+        <NoLimitView shiftConfig={shiftConfig} defaultDailyCap={defaultDailyCap} />
       )}
     </div>
   );
