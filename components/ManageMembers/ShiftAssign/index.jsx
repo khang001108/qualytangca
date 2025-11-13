@@ -66,8 +66,14 @@ export default function ShiftAssign(props) {
         const col = collection(db, "shiftSchedules");
         const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
 
-        const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
-        const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+        const startDate = `${selectedYear}-${String(selectedMonth).padStart(
+          2,
+          "0"
+        )}-01`;
+        const endDate = `${selectedYear}-${String(selectedMonth).padStart(
+          2,
+          "0"
+        )}-${String(lastDay).padStart(2, "0")}`;
 
         const qShift = query(
           col,
@@ -143,11 +149,113 @@ export default function ShiftAssign(props) {
 
   // lưu + xóa logic cũng giữ nguyên như bản cũ…
   const handleApply = async () => {
-    // ... giữ nguyên code của bạn
+    if (!user?.uid) return;
+    const selectedDays = Object.keys(assignMap).filter((d) => assignMap[d]);
+    if (selectedDays.length === 0)
+      return showPopup("⚠️ Chưa chọn ngày nào để lưu!", "error");
+
+    setLoading(true);
+    onStatusChange?.({ loading: true }); // 👈 báo bắt đầu loading
+    try {
+      for (const dayStr of selectedDays) {
+        const type = assignMap[dayStr];
+        const shift = type === "day" ? "Ca ngày" : "Ca đêm";
+        const date = `${selectedYear}-${String(selectedMonth).padStart(
+          2,
+          "0"
+        )}-${String(dayStr).padStart(2, "0")}`;
+
+        for (const m of members) {
+          if (!m?.realName) continue;
+          const shiftStart =
+            type === "day"
+              ? m.earlyShift
+                ? "07:00"
+                : "08:00"
+              : m.earlyShift
+              ? "19:00"
+              : "20:00";
+          const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
+          const docId = `${user.uid}_${safeName}_${date}`;
+
+          await setDoc(doc(db, "shiftSchedules", docId), {
+            userId: user.uid,
+            realName: m.realName,
+            memberId: m.id,
+            date,
+            shift,
+            shiftStart,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+
+          const memberRef = doc(db, "members", m.id);
+          await updateDoc(memberRef, {
+            shift,
+            shiftStart,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+
+      showPopup("✅ Đã lưu phân ca và đồng bộ thành công!", "success");
+      onStatusChange?.({
+        loading: false,
+        success: true,
+        month: selectedMonth,
+      }); // 👈 báo thành công
+      onSuccess?.();
+    } catch (err) {
+      console.error("🔥 Lỗi lưu phân ca:", err);
+      showPopup("❌ Không thể lưu phân ca!", "error");
+      onStatusChange?.({ loading: false, success: false });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteAll = async () => {
-    // ... giữ nguyên code của bạn
+    if (!window.confirm("⚠️ Xóa toàn bộ phân ca tháng này?")) return;
+    setLoading(true);
+    try {
+      const col = collection(db, "shiftSchedules");
+      const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+      const startDate = `${selectedYear}-${String(selectedMonth).padStart(
+        2,
+        "0"
+      )}-01`;
+      const endDate = `${selectedYear}-${String(selectedMonth).padStart(
+        2,
+        "0"
+      )}-${String(lastDay).padStart(2, "0")}`;
+      const qShift = query(
+        col,
+        where("userId", "==", user.uid),
+        where("date", ">=", startDate),
+        where("date", "<=", endDate)
+      );
+      const snap = await getDocs(qShift);
+      for (const d of snap.docs)
+        await deleteDoc(doc(db, "shiftSchedules", d.id));
+
+      // ✅ Đặt lại ca mặc định cho tất cả members
+      for (const m of members) {
+        const memberRef = doc(db, "members", m.id);
+        await updateDoc(memberRef, {
+          shift: "Ca ngày",
+          shiftStart: "08:00",
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      setAssignMap({});
+      showPopup("🗑️ Đã xóa toàn bộ phân ca và reset ca mặc định!", "success");
+    } catch (err) {
+      console.error("🔥 Lỗi khi xóa phân ca:", err);
+      showPopup("❌ Không thể xóa phân ca!", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const showPopup = (msg, type) => {
