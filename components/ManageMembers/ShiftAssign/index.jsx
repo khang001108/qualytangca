@@ -265,6 +265,12 @@ export default function ShiftAssign(props) {
   };
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+  const totalDayShift = Object.values(assignMap).filter(
+    (v) => v === "day"
+  ).length;
+  const totalNightShift = Object.values(assignMap).filter(
+    (v) => v === "night"
+  ).length;
 
   // ===================== RETURN UI =========================
   return (
@@ -286,8 +292,7 @@ export default function ShiftAssign(props) {
         <ShiftAssignHeader
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
-          handleDeleteAll={handleDeleteAll}
-          loading={loading}
+          onClose={onCancel}
         />
 
         {popupMsg && (
@@ -308,6 +313,25 @@ export default function ShiftAssign(props) {
           loading={loading}
         />
 
+        {/* Tổng số ngày đã chọn */}
+        <div
+          className="
+  flex justify-center gap-6 mt-2 mb-4 
+  text-sm font-medium 
+  text-gray-700 dark:text-gray-300
+"
+        >
+          <span className="flex items-center gap-1">
+            ☀️ <span className="font-semibold">{totalDayShift}</span> ngày
+          </span>
+
+          <span className="opacity-50">•</span>
+
+          <span className="flex items-center gap-1">
+            🌙 <span className="font-semibold">{totalNightShift}</span> ngày
+          </span>
+        </div>
+
         <ShiftAssignCalendar
           daysInMonth={daysInMonth}
           assignMap={assignMap}
@@ -320,6 +344,7 @@ export default function ShiftAssign(props) {
           loading={loading}
           onCancel={onCancel}
           handleApply={handleApply}
+          handleDeleteAll={handleDeleteAll}
         />
       </div>
     </div>

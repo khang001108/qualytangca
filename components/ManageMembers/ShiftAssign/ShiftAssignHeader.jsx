@@ -1,25 +1,24 @@
-// components/ManageMembers/ShiftAssign/ShiftAssignHeader.jsx
+import React from "react";
+import { CalendarDays, X } from "lucide-react";
 
-import { Trash2 } from "lucide-react";
-
-export default function ShiftAssignHeader({
-  selectedMonth,
-  selectedYear,
-  handleDeleteAll,
-  loading,
-}) {
+export default function ShiftAssignHeader({ selectedMonth, selectedYear, onClose }) {
   return (
-    <h3 className="text-lg font-semibold mb-3 text-purple-600 dark:text-purple-400 flex justify-between items-center">
-      <span>🗓️ Phân ca tháng {selectedMonth}/{selectedYear}</span>
+    <div
+      className="
+        -mx-6 -mt-6 px-6 py-4 rounded-t-2xl
+        bg-gradient-to-r from-[#6C4DFF] to-[#A855F7]
+        flex items-center justify-between
+        text-white
+      "
+    >
+      <div className="flex items-center gap-3 text-lg font-semibold">
+        <CalendarDays className="w-5 h-5" />
+        Phân ca tháng {selectedMonth}/{selectedYear}
+      </div>
 
-      <button
-        onClick={handleDeleteAll}
-        disabled={loading}
-        className="flex items-center gap-1 text-sm px-2 py-1 bg-red-100 dark:bg-red-900/30 
-        hover:bg-red-200 dark:hover:bg-red-800/40 text-red-600 dark:text-red-400 rounded"
-      >
-        <Trash2 className="w-4 h-4" /> Xóa tháng
+      <button onClick={onClose} className="hover:scale-110 transition">
+        <X className="w-6 h-6" />
       </button>
-    </h3>
+    </div>
   );
 }
