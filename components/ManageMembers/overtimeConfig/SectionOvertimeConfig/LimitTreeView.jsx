@@ -71,34 +71,50 @@ export default function LimitTreeView({
   // ============================================================
   const handleSaveToFirestore = async () => {
     try {
-      const overtimeRef = collection(db, "overtimeLimits");
-      const snapshot = await getDocs(overtimeRef);
+      const limitKeys = Object.keys(tree);
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
 
-      await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
-
-      const promises = Object.keys(selectedOption).map(async (limitKey) => {
+      const promises = limitKeys.map(async (limitKey) => {
         const members = tree[limitKey] || [];
         const limitNum = Number(limitKey);
-        const chosen = selectedOption[limitKey];
-        if (!chosen) return;
 
-        const days = Math.floor(chosen.days);
-        const perDay = Math.floor(chosen.perDay);
-        const totalLimit = days * perDay;
+        // Lấy days × perDay nếu user đã chọn
+        const chosen = selectedOption[limitKey] || null;
 
-        const membersWithRemaining = members.map((m) => {
-          const worked = Math.floor(m.overtimeLimit?.workedHours || 0);
+        let days = null;
+        let perDay = null;
+        let totalLimit = limitNum;
 
-          // Tính thưởng
-          const bonusApplied = selectedLimits.includes(limitKey);
-          const bonusPerDay = perDay >= bonusEvery ? bonusAmount : 0;
-          const bonusHours = bonusApplied ? days * bonusPerDay : 0;
+        // Nếu user có chọn -> dùng lựa chọn đó
+        if (chosen) {
+          days = Number(chosen.days);
+          perDay = Number(chosen.perDay);
+          totalLimit = days * perDay;
+        }
 
-          const totalHoursWithBonus = worked + bonusHours;
+        // Kiểm tra thưởng
+        const isBonusBranch =
+          bonusEnabled && selectedLimits.includes(limitKey);
+
+        // Nếu nhánh không nằm trong selectedLimits -> KHÔNG có thưởng
+        const actualBonus = isBonusBranch ? bonusAmount : 0;
+
+        const membersProcessed = members.map((m) => {
+          const worked = Number(
+            m.overtimeLimit?.workedHours ?? m.workedHours ?? 0
+          );
+
+          let bonusHours = 0;
+          let totalHoursWithBonus = worked;
+
+          if (chosen && isBonusBranch && perDay >= bonusEvery) {
+            bonusHours = days * actualBonus;
+            totalHoursWithBonus += bonusHours;
+          }
 
           const remainingHours = Math.max(totalLimit - totalHoursWithBonus, 0);
-          const remainingDays = Math.floor(remainingHours / perDay);
-          const remainderHours = remainingHours % perDay;
 
           return {
             id: m.id,
@@ -107,41 +123,49 @@ export default function LimitTreeView({
             workedHours: worked,
             bonusHours,
             totalHoursWithBonus,
-            remainingDays,
-            remainingHours: remainderHours,
+            remainingHours,
           };
         });
 
+        // ID tài liệu cố định
+        const docId = `limit_${limitNum}`;
 
-        const data = {
-          createdAt: serverTimestamp(),
+        const payload = {
+          updatedAt: serverTimestamp(),
           month: month + 1,
           year,
           limit: totalLimit,
+
+          // Nếu không chọn ngày × giờ → lưu null để load không bị tô vàng
           days,
           perDay,
-          bonusEnabled,
+
+          bonusEnabled: isBonusBranch,
           bonusEvery,
           bonusAmount,
+
           shiftEndDayEarly: shiftConfig?.day?.tanCaSomBatDau || "--:--",
           shiftEndDayLate: shiftConfig?.day?.tanCaMuonBatDau || "--:--",
           shiftEndNightEarly: shiftConfig?.night?.tanCaSomBatDau || "--:--",
           shiftEndNightLate: shiftConfig?.night?.tanCaMuonBatDau || "--:--",
+
           memberCount: members.length,
-          members: membersWithRemaining,
+          members: membersProcessed,
         };
 
-        const docId = `limit_${limitNum}_day_${days}`;
-        await setDoc(doc(db, "overtimeLimits", docId), data, { merge: true });
+        await setDoc(doc(db, "overtimeLimits", docId), payload, { merge: true });
       });
 
       await Promise.all(promises);
-      alert("Đã lưu cấu hình mới!");
+      alert("Đã lưu cấu hình đầy đủ (không tự chia ngày, không tự tick vàng).");
     } catch (err) {
-      console.error("Lỗi lưu:", err);
-      alert("Lưu thất bại, xem console!");
+      console.error("Lưu thất bại:", err);
+      alert("Lỗi khi lưu. Xem console.");
     }
   };
+
+
+
 
   // ============================================================
   // RENDER UI

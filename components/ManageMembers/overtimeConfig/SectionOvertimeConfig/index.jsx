@@ -101,35 +101,6 @@ export default function SectionOvertimeLimit() {
     fetchConfig();
   }, [fetchConfig]);
 
-  // ============================================================================
-  //  Đọc lại các lựa chọn (days × perDay) từ Firestore → tô vàng các button
-  // ============================================================================
-  useEffect(() => {
-    const fetchSavedLimits = async () => {
-      try {
-        const snap = await getDocs(collection(db, "overtimeLimits"));
-        const savedOptions = {};
-
-        snap.docs.forEach((docSnap) => {
-          const data = docSnap.data();
-
-          const limit = data.limit;
-          const perDay = data.perDay || data.hoursPerDay;
-          const days = data.days || data.totalDays;
-
-          if (limit && days && perDay) {
-            savedOptions[String(limit)] = { days, perDay };
-          }
-        });
-
-        setSelectedOption(savedOptions);
-      } catch (err) {
-        console.error("Lỗi đọc overtimeLimits:", err);
-      }
-    };
-
-    fetchSavedLimits();
-  }, []);
 
   // ============================================================================
   //  Lấy danh sách nhân viên (realtime)
