@@ -120,8 +120,7 @@ export default function AddMemberForm({
         }
       }
 
-      const restDayToSave =
-        form.restDay === "Không" ? "Chủ nhật" : form.restDay;
+      const restDayToSave = form.restDay;
 
       const today = dayjs().format("YYYY-MM-DD");
 
@@ -218,9 +217,7 @@ export default function AddMemberForm({
               <label className="block font-medium mb-1">Tên chính</label>
               <input
                 value={form.realName}
-                onChange={(e) =>
-                  setForm({ ...form, realName: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, realName: e.target.value })}
                 className="w-full border rounded-xl p-2 bg-gray-50 dark:bg-gray-800"
                 placeholder="VD: Nguyễn Văn A"
               />
@@ -230,9 +227,7 @@ export default function AddMemberForm({
               <label className="block font-medium mb-1">Tên phụ</label>
               <input
                 value={form.nickname}
-                onChange={(e) =>
-                  setForm({ ...form, nickname: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, nickname: e.target.value })}
                 className="w-full border rounded-xl p-2 bg-gray-50 dark:bg-gray-800"
                 placeholder="VD: A"
               />
@@ -312,7 +307,6 @@ export default function AddMemberForm({
                       <span className="font-semibold text-green-600">
                         {selectedLimitKey}h
                       </span>
-
                       {selectedLimitOption ? (
                         <span className="ml-1 text-gray-400">
                           → {selectedLimitOption.days} ngày ×{" "}
