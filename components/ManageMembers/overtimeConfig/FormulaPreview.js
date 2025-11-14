@@ -67,13 +67,9 @@ export default function FormulaPreview({
 
   // Derived values
   const derived = useMemo(() => {
-    const officeHours = calcOfficeFromTimes(
-      cfg.shiftStart,
-      cfg.shiftEnd,
-      cfg.shiftHalf
-    );
+    const officeHours = calcOfficeFromTimes(cfg.start, cfg.end, cfg.rest);
     const effectiveShiftOffice =
-      Math.round((cfg.shiftOffice || officeHours) * 100) / 100;
+      Math.round((cfg.officeHours || officeHours) * 100) / 100;
 
     // Overtime rules: every minute after shift end => overtime 1:1
     // For examples we treat overtime window abstractly; actual workedHours comes from members/firestore.
@@ -215,9 +211,9 @@ Giờ hành chính lấy = giờ_sớm (nếu hợp lệ)
 
             <div className="text-sm text-right">
               <div className="font-medium">Ví dụ (theo config):</div>
-              <div className="mt-1">shiftStart: {cfg.shiftStart}h</div>
-              <div>shiftEnd: {cfg.shiftEnd}h</div>
-              <div>nghỉ giữa ca: {cfg.shiftHalf}h</div>
+              <div className="mt-1">shiftStart: {cfg.start}h</div>
+              <div>shiftEnd: {cfg.end}h</div>
+              <div>nghỉ giữa ca: {cfg.rest}h</div>
               <div className="mt-2 font-semibold">
                 Giờ hành chính = {derived.effectiveShiftOffice}h
               </div>
