@@ -27,10 +27,16 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     switch (activeTab) {
       case "shift":
         return <SectionShiftConfig config={config} setConfig={setConfig} />;
+
       case "limit":
         return <SectionOvertimeLimit config={config} setConfig={setConfig} />;
+
       case "bonus":
         return <SectionBonusConfig config={config} setConfig={setConfig} />;
+
+      case "formula":
+        return <FormulaPreview config={config} />; // ← thêm dòng này
+
       default:
         return null;
     }
@@ -72,6 +78,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           {/* Tabs */}
           <div className="flex justify-center gap-3 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
             {[
+              { id: "formula", label: "Công thức" },
               { id: "shift", label: "Giờ hành chính" },
               { id: "limit", label: "Giờ tăng ca" },
               { id: "bonus", label: "Thưởng tăng ca" },

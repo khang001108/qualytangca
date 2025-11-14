@@ -44,9 +44,13 @@ export default function LimitSelectorTable({
               <th className="p-2 w-10 text-center">
                 <input
                   type="checkbox"
-                  checked={selectedIds.length === sorted.length && sorted.length > 0}
+                  checked={
+                    selectedIds.length === sorted.length && sorted.length > 0
+                  }
                   onChange={toggleAll}
-                  className={deleteMode ? "accent-red-500" : "accent-indigo-500"}
+                  className={
+                    deleteMode ? "accent-red-500" : "accent-indigo-500"
+                  }
                 />
               </th>
 
@@ -61,7 +65,9 @@ export default function LimitSelectorTable({
                 <span className="flex items-center gap-1 justify-center">
                   Trạng thái
                   <ChevronUp
-                    className={`w-4 h-4 transition ${sortAsc ? "" : "rotate-180"}`}
+                    className={`w-4 h-4 transition ${
+                      sortAsc ? "" : "rotate-180"
+                    }`}
                   />
                 </span>
               </th>
@@ -77,27 +83,44 @@ export default function LimitSelectorTable({
               </tr>
             ) : (
               sorted.map((m) => {
-                const limit =
-                  m.overtimeLimit?.monthlyLimit ?? fullLimit;
+                const limit = m.overtimeLimit?.monthlyLimit ?? fullLimit;
                 const st = statusOf(m);
 
                 return (
                   <tr
                     key={m.id}
-                    className="border-t border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-gray-700"
+                    onClick={() => toggleSelect(m.id)}
+                    className={`
+    border-t border-gray-200 dark:border-gray-700 cursor-pointer
+
+    ${
+      selectedIds.includes(m.id)
+        ? deleteMode
+          ? "bg-red-100 dark:bg-red-600/40" /* Nền đỏ khi xóa */
+          : "bg-indigo-100 dark:bg-indigo-600/40" /* Nền xanh khi chọn */
+        : "hover:bg-indigo-50 dark:hover:bg-gray-700"
+    }
+  `}
                   >
-                    <td className="p-2 text-center">
+                    <td
+                      className="p-2 text-center"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(m.id)}
                         onChange={() => toggleSelect(m.id)}
-                        className={deleteMode ? "accent-red-500" : "accent-indigo-500"}
+                        className={
+                          deleteMode ? "accent-red-500" : "accent-indigo-500"
+                        }
                       />
                     </td>
 
                     <td className="p-2">{m.realName}</td>
                     <td className="p-2">{m.nickname}</td>
+
                     <td className="p-2 text-center">{limit}h</td>
+
                     <td className={`p-2 text-center ${st.color}`}>{st.text}</td>
                   </tr>
                 );
