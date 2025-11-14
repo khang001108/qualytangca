@@ -10,7 +10,8 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
-
+import { getDoc } from "firebase/firestore";
+import { useEffect } from "react";
 
 export default function LimitTreeView({
   tree,
@@ -22,7 +23,6 @@ export default function LimitTreeView({
   shiftConfig,
   bonusConfig,
 }) {
-
   // ============================================================
   // BONUS CONFIG (đọc từ bonusConfig / bonusConfig)
   // ============================================================
@@ -39,8 +39,7 @@ export default function LimitTreeView({
     .sort((a, b) => b - a)
     .map(String);
 
-  const toggleGroup = (key) =>
-    setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
+  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
   const now = new Date();
   const year = now.getFullYear();
@@ -95,35 +94,42 @@ export default function LimitTreeView({
         }
 
         // Kiểm tra thưởng
-        const isBonusBranch =
-          bonusEnabled && selectedLimits.includes(limitKey);
+        const isBonusBranch = bonusEnabled && selectedLimits.includes(limitKey);
 
         // Nếu nhánh không nằm trong selectedLimits -> KHÔNG có thưởng
         const actualBonus = isBonusBranch ? bonusAmount : 0;
 
         const membersProcessed = members.map((m) => {
+          const bonusPerDay = perDay >= bonusEvery ? bonusAmount : 0;
           const worked = Number(
             m.overtimeLimit?.workedHours ?? m.workedHours ?? 0
           );
 
           let bonusHours = 0;
-          let totalHoursWithBonus = worked;
 
-          if (chosen && isBonusBranch && perDay >= bonusEvery) {
-            bonusHours = days * actualBonus;
-            totalHoursWithBonus += bonusHours;
+          // Nếu nhánh có thưởng
+          if (bonusEnabled && selectedLimits.includes(limitKey)) {
+            if (perDay >= bonusEvery) {
+              bonusHours = days * bonusAmount;
+            }
           }
 
-          const remainingHours = Math.max(totalLimit - totalHoursWithBonus, 0);
+          const gioConLai = Math.max(totalLimit - worked, 0);
 
           return {
             id: m.id,
-            name: m.nickname || m.realName || "Không tên",
-            monthlyLimit: totalLimit,
-            workedHours: worked,
-            bonusHours,
-            totalHoursWithBonus,
-            remainingHours,
+            ten: m.nickname || m.realName || "Không tên",
+
+            tongGioKeHoach: totalLimit,
+            tongGioThuong: days * bonusPerDay,
+
+            gioDaLam: worked,
+            gioThuongDaNhan: isBonusBranch ? bonusHours : 0,
+            soNgayDaLam: Number(m.soNgayDaLam || 0),
+
+            gioConLai: Math.max(totalLimit - worked, 0),
+            gioThuongConLai: Math.max(days * bonusPerDay - bonusHours, 0),
+            ngayConLai: Math.max(days - Number(m.soNgayDaLam || 0), 0),
           };
         });
 
@@ -153,7 +159,9 @@ export default function LimitTreeView({
           members: membersProcessed,
         };
 
-        await setDoc(doc(db, "overtimeLimits", docId), payload, { merge: true });
+        await setDoc(doc(db, "overtimeLimits", docId), payload, {
+          merge: true,
+        });
       });
 
       await Promise.all(promises);
@@ -164,8 +172,26 @@ export default function LimitTreeView({
     }
   };
 
+  useEffect(() => {
+    async function loadSavedConfigs() {
+      const limitKeys = Object.keys(tree);
+      const loaded = {};
 
+      for (const key of limitKeys) {
+        const snap = await getDoc(doc(db, "overtimeLimits", `limit_${key}`));
+        if (!snap.exists()) continue;
 
+        const data = snap.data();
+        if (data.days && data.perDay) {
+          loaded[key] = { days: data.days, perDay: data.perDay };
+        }
+      }
+
+      setSelectedOption(loaded);
+    }
+
+    loadSavedConfigs();
+  }, [tree]);
 
   // ============================================================
   // RENDER UI
@@ -232,7 +258,8 @@ export default function LimitTreeView({
             const options = getMonthSplitOptions(limitNum);
             const chosen = selectedOption[limitKey];
             const isOpen = openGroups[limitKey] ?? false;
-            const isBonusBranch = bonusEnabled && selectedLimits.includes(limitKey);
+            const isBonusBranch =
+              bonusEnabled && selectedLimits.includes(limitKey);
 
             return (
               <div
@@ -264,12 +291,20 @@ export default function LimitTreeView({
                         const days = chosen?.days ?? null;
 
                         // nếu có chosen thì tính từ chosen, nếu không thì fallback về limitNum (tổng giờ hiện có của nhánh)
-                        const limitTotal = perDay !== null && days !== null ? perDay * days : limitNum;
+                        const limitTotal =
+                          perDay !== null && days !== null
+                            ? perDay * days
+                            : limitNum;
 
                         // bonusPerDay chỉ hợp lệ khi có chosen
-                        const bonusPerDay = perDay !== null && perDay >= bonusEvery ? bonusAmount : 0;
+                        const bonusPerDay =
+                          perDay !== null && perDay >= bonusEvery
+                            ? bonusAmount
+                            : 0;
                         const bonusTotal =
-                          perDay !== null && days !== null && selectedLimits.includes(limitKey)
+                          perDay !== null &&
+                          days !== null &&
+                          selectedLimits.includes(limitKey)
                             ? days * bonusPerDay
                             : 0;
 
@@ -291,7 +326,6 @@ export default function LimitTreeView({
                           </span>
                         );
                       })()}
-
                     </span>
                     {chosen && (
                       <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">
@@ -302,7 +336,8 @@ export default function LimitTreeView({
                     {/* THƯỞNG */}
                     {bonusEnabled &&
                       selectedLimits.includes(limitKey) &&
-                      chosen && (() => {
+                      chosen &&
+                      (() => {
                         const perDay = chosen.perDay;
                         const days = chosen.days;
                         const bonusPerDay =
@@ -342,10 +377,11 @@ export default function LimitTreeView({
                               return copy;
                             });
                           }}
-                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${isActive
-                            ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
-                            : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-700"
-                            }`}
+                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${
+                            isActive
+                              ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
+                              : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-700"
+                          }`}
                         >
                           {opt.days} ngày × {opt.perDay}h
                         </button>
@@ -360,16 +396,35 @@ export default function LimitTreeView({
                     {members.map((m) => {
                       const name = m.nickname || m.realName || "Không tên";
 
-                      // ===== TÍNH LẠI THƯỞNG =====
+                      // LẤY CONFIG USER CHỌN
                       const perDay = chosen?.perDay || 0;
                       const days = chosen?.days || 0;
-                      const bonusPerDay = perDay >= bonusEvery ? bonusAmount : 0;
 
-                      const worked = m.workedHours || 0;
-                      const bonus = m.bonusHours || (bonusPerDay * days);
-                      const totalWithBonus = worked + bonus;
+                      // THƯỞNG MỖI NGÀY
+                      const bonusPerDay =
+                        perDay >= bonusEvery ? bonusAmount : 0;
 
-                      const remaining = Math.max(limitNum - totalWithBonus, 0);
+                      // GIỜ VÀ NGÀY ĐÃ LÀM
+                      const gioDaLam = m.gioDaLam || m.workedHours || 0;
+                      const gioThuongDaNhan =
+                        m.gioThuongDaNhan || m.bonusHours || 0;
+                      const soNgayDaLam = m.soNgayDaLam || 0;
+
+                      // TỔNG KẾ HOẠCH
+                      const tongGioKeHoach = days * perDay;
+                      const tongGioThuong = days * bonusPerDay;
+
+                      // CÒN LẠI
+                      const gioConLai = Math.max(tongGioKeHoach - gioDaLam, 0);
+                      const gioThuongConLai = Math.max(
+                        tongGioThuong - gioThuongDaNhan,
+                        0
+                      );
+                      const ngayConLai = Math.max(days - soNgayDaLam, 0);
+
+                      // TÍNH TOOLTIP
+                      const soNgayDuocThuong = perDay >= bonusEvery ? days : 0;
+                      const bonus = tongGioThuong;
 
                       return (
                         <li
@@ -381,28 +436,32 @@ export default function LimitTreeView({
                               {name}
                             </span>
 
-                            {/* Tooltip */}
-                            <div className="absolute left-0 top-full mt-1 w-max text-xs 
-                            bg-black text-white rounded px-2 py-1 opacity-0 
-                            group-hover:opacity-100 transition-opacity 
-                            z-50 shadow-lg">
+                            <div
+                              className="absolute left-0 top-full mt-1 w-max text-xs 
+            bg-black text-white rounded px-2 py-1 opacity-0 
+            group-hover:opacity-100 transition-opacity 
+            z-50 shadow-lg"
+                            >
                               Thưởng mỗi ngày: {bonusPerDay}h
                               <br />
-                              Số ngày được thưởng: {days}
+                              Số ngày được thưởng: {soNgayDuocThuong}
                               <br />
                               Tổng thưởng: {bonus}h
                             </div>
                           </div>
 
-                          <div className="text-right text-xs text-gray-600 dark:text-gray-400">
-                            {remaining}h
+                          <div className="text-right text-xs text-gray-600 dark:text-gray-400 leading-tight">
+                            {ngayConLai}/{days} ngày
+                            <br />
+                            {gioConLai}h
+                            <br />
+                            {gioThuongConLai}h bonus
                           </div>
                         </li>
                       );
                     })}
                   </ul>
                 )}
-
               </div>
             );
           })
