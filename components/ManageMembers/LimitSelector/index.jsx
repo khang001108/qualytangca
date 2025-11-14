@@ -74,16 +74,27 @@ export default function LimitSelector({
   // ========================================================================
   const handleApplyBulkLimit = () => {
     const value = parseFloat(bulkLimit);
+    const fullLimit = calcFullMonthLimit(); // số giờ tối đa trong tháng
+
+    // 1) Kiểm tra nhập đúng
     if (isNaN(value) || value < 0) {
       showToast("Nhập số giờ hợp lệ.", "error");
       return;
     }
 
+    // 2) Chưa chọn nhân viên
     if (selectedIds.length === 0) {
       showToast("Hãy chọn nhân viên trước.", "error");
       return;
     }
 
+    // 3) Kiểm tra vượt full limit
+    if (value > fullLimit) {
+      showToast(`Giới hạn vượt mức tối đa ${fullLimit}h/tháng.`, "error");
+      return;
+    }
+
+    // 4) Áp dụng hợp lệ
     setLocalMembers((prev) =>
       prev.map((m) =>
         selectedIds.includes(m.id)
