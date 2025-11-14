@@ -173,12 +173,39 @@ export default function SectionOvertimeLimit({
   // -----------------------------------------
   useEffect(() => {
     if (typeof onDataChange === "function") {
+      const shift = shiftConfig[config.shiftType] || {};
+
+      // chọn giá trị ca sớm hoặc ca muộn
+      const start = shift.lenCaSomBatDau || shift.lenCaMuonBatDau;
+      const end = shift.tanCaSomBatDau || shift.tanCaMuonBatDau;
+
+      const limitData = (() => {
+        const key = Object.keys(selectedOption)[0] || "0";
+        const opt = selectedOption[key] || {};
+
+        const workedHours = tree[key]?.[0]?.overtimeLimit?.workedHours || 0;
+
+        return {
+          days: opt.days || 0,
+          perDay: opt.perDay || 0,
+          monthlyLimit: Number(key),
+          workedHours,
+        };
+      })();
+
       onDataChange({
-        tree,
-        selectedOption,
-        limitKeys: Object.keys(tree),
-        shiftConfig,
-        bonusConfig,
+        shiftData: {
+          start,
+          end,
+          rest: shift.nghiGiuaCa,
+          officeHours: shift.tongGioHanhChinh,
+        },
+        limitData,
+        bonusData: {
+          bonusEnabled: bonusConfig.batThuongTangCa || false,
+          bonusEvery: bonusConfig.thuongSauBaoNhieuTieng || 2,
+          bonusAmount: bonusConfig.congThemBaoNhieuGio || 0.5,
+        },
       });
     }
   }, [tree, selectedOption, shiftConfig, bonusConfig]);

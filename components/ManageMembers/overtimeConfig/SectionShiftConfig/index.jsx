@@ -1,6 +1,4 @@
 // components/ManageMembers/overtimeConfig/SectionShiftConfig/index.jsx
-// Cấu hình ca làm việc cho nhân viên (ca ngày/ca đêm)
-
 import React, { useState, useEffect } from "react";
 import { Sun, Moon, Save, Edit3, X } from "lucide-react";
 import { useShiftFirestore } from "./useShiftFirestore";
@@ -17,7 +15,7 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
 
   const parseTime = (t) => {
     if (!t) return 0;
-    const [h, m] = t
+    const [h, m] = String(t)
       .replace(/[^\d:]/g, "")
       .split(":")
       .map(Number);
@@ -102,21 +100,44 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
 
   const office = calcOffice();
 
+  // -------------------------
+  // helper convert "HH:MM" => float hours
+  // -------------------------
+  const toHours = (t) => {
+    if (t === undefined || t === null || t === "") return 0;
+    const s = String(t).trim();
+    if (!s.includes(":")) {
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+    const [hRaw, mRaw] = s.replace(/[^\d:]/g, "").split(":");
+    const h = Number(hRaw) || 0;
+    const m = Number(mRaw) || 0;
+    return h + m / 60;
+  };
+
   // Emit shift data to parent once when relevant inputs change
   useEffect(() => {
     if (typeof onDataChange === "function") {
+      const s_lenStart = toHours(current.lenCaSomBatDau);
+      const s_lenEnd = toHours(current.lenCaSomKetThuc);
+      const s_tanStart = toHours(current.tanCaSomBatDau);
+
+      const l_lenStart = toHours(current.lenCaMuonBatDau);
+      const l_lenEnd = toHours(current.lenCaMuonKetThuc);
+      const l_tanStart = toHours(current.tanCaMuonBatDau);
+
       onDataChange({
         shiftType: config.shiftType,
-        // provide both human-readable times (if available) and parsed hours
-        lenCaSomBatDau: current.lenCaSomBatDau,
-        lenCaSomKetThuc: current.lenCaSomKetThuc,
-        tanCaSomBatDau: current.tanCaSomBatDau,
-        tanCaSomKetThuc: current.tanCaSomKetThuc,
-        lenCaMuonBatDau: current.lenCaMuonBatDau,
-        lenCaMuonKetThuc: current.lenCaMuonKetThuc,
-        tanCaMuonBatDau: current.tanCaMuonBatDau,
-        tanCaMuonKetThuc: current.tanCaMuonKetThuc,
-        rest: current.nghiGiuaCa || 0,
+        // numeric hours for calculations
+        start: s_lenStart,
+        end: s_tanStart,
+        startLate: l_lenStart,
+        endLate: l_tanStart,
+        // raw strings for UI if needed
+        startRaw: current.lenCaSomBatDau || "",
+        endRaw: current.tanCaSomBatDau || "",
+        rest: Number(current.nghiGiuaCa || 0),
         officeHours: office.error ? 0 : Math.round(office.hours * 100) / 100,
       });
     }
@@ -257,7 +278,7 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
                 setPopup((p) => ({ ...p, value: e.target.value }))
               }
               onKeyDown={handleKey}
-              placeholder="VD: 1 hoặc 1.5"
+              placeholder="VD: 1 hoặc 1.5 hoặc 07:30"
               className="w-full border border-gray-300 dark:border-gray-700 rounded-lg p-2 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-indigo-500"
               autoFocus
             />

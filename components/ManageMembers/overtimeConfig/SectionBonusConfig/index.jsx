@@ -48,9 +48,13 @@ async function updateAllOvertimeLimitsWhenBonusChange(bonusConfig) {
     await setDoc(
       doc(db, "overtimeLimits", docSnap.id),
       {
-        bonusEnabled: isBonusBranch,
+        bonusEnabled: bonusEnabled,
         bonusEvery,
         bonusAmount,
+
+        tongGioThuong,
+        gioThuongConLai: tongGioThuong,
+
         members,
       },
       { merge: true }
@@ -64,7 +68,11 @@ import { Save } from "lucide-react";
 import LimitTree from "./LimitTree";
 import NoBonusCodes from "./NoBonusCodes";
 
-export default function SectionBonusConfig({ config, setConfig, onDataChange }) {
+export default function SectionBonusConfig({
+  config,
+  setConfig,
+  onDataChange,
+}) {
   const [limitTree, setLimitTree] = useState({});
   const [openGroups, setOpenGroups] = useState({});
   const [selectedLimits, setSelectedLimits] = useState([]);
@@ -141,11 +149,12 @@ export default function SectionBonusConfig({ config, setConfig, onDataChange }) 
   useEffect(() => {
     if (typeof onDataChange === "function") {
       onDataChange({
-        bonusEnabled,
-        bonusEvery: merged.bonusEvery,
-        bonusAmount: merged.bonusAmount,
-        selectedLimits,
-        noBonusCodes: merged.customNoBonus,
+        bonusData: {
+          bonusEnabled,
+          bonusEvery: merged.bonusEvery,
+          bonusAmount: merged.bonusAmount,
+          selectedLimits,
+        },
       });
     }
   }, [bonusEnabled, merged, selectedLimits]);
