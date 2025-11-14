@@ -100,35 +100,34 @@ export default function LimitTreeView({
         const actualBonus = isBonusBranch ? bonusAmount : 0;
 
         const membersProcessed = members.map((m) => {
-          const bonusPerDay = perDay >= bonusEvery ? bonusAmount : 0;
+          let bonusPerDay = 0;
+          let bonusHours = 0;
+
+          // Nếu là nhánh thưởng → tính thưởng
+          if (isBonusBranch) {
+            bonusPerDay = perDay >= bonusEvery ? bonusAmount : 0;
+            bonusHours = days * bonusPerDay;
+          }
+
           const worked = Number(
             m.overtimeLimit?.workedHours ?? m.workedHours ?? 0
           );
-
-          let bonusHours = 0;
-
-          // Nếu nhánh có thưởng
-          if (bonusEnabled && selectedLimits.includes(limitKey)) {
-            if (perDay >= bonusEvery) {
-              bonusHours = days * bonusAmount;
-            }
-          }
-
-          const gioConLai = Math.max(totalLimit - worked, 0);
 
           return {
             id: m.id,
             ten: m.nickname || m.realName || "Không tên",
 
             tongGioKeHoach: totalLimit,
-            tongGioThuong: days * bonusPerDay,
+            tongGioThuong: isBonusBranch ? days * bonusPerDay : 0,
 
             gioDaLam: worked,
             gioThuongDaNhan: isBonusBranch ? bonusHours : 0,
             soNgayDaLam: Number(m.soNgayDaLam || 0),
 
             gioConLai: Math.max(totalLimit - worked, 0),
-            gioThuongConLai: Math.max(days * bonusPerDay - bonusHours, 0),
+            gioThuongConLai: isBonusBranch
+              ? Math.max(days * bonusPerDay - bonusHours, 0)
+              : 0,
             ngayConLai: Math.max(days - Number(m.soNgayDaLam || 0), 0),
           };
         });

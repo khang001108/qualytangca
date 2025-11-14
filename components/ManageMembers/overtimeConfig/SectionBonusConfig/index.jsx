@@ -8,6 +8,56 @@ import {
   setDoc,
   onSnapshot,
 } from "firebase/firestore";
+
+async function updateAllOvertimeLimitsWhenBonusChange(bonusConfig) {
+  const snap = await getDocs(collection(db, "overtimeLimits"));
+
+  const bonusEnabled = bonusConfig.batThuongTangCa === true;
+  const bonusEvery = Number(bonusConfig.thuongSauBaoNhieuTieng || 0);
+  const bonusAmount = Number(bonusConfig.congThemBaoNhieuGio || 0);
+  const selectedLimits = bonusConfig.cacNhanhDuocThuong || [];
+
+  const updates = snap.docs.map(async (docSnap) => {
+    const data = docSnap.data();
+    const limitKey = String(data.limit);
+
+    const isBonusBranch = bonusEnabled && selectedLimits.includes(limitKey);
+
+    const days = data.days || 0;
+    const perDay = data.perDay || 0;
+
+    const bonusPerDay = isBonusBranch && perDay >= bonusEvery ? bonusAmount : 0;
+    const tongGioThuong = isBonusBranch ? days * bonusPerDay : 0;
+
+    const members = (data.members || []).map((m) => {
+      const gioThuongDaNhan = isBonusBranch ? tongGioThuong : 0;
+
+      return {
+        ...m,
+        tongGioThuong,
+        gioThuongDaNhan,
+        gioThuongConLai: isBonusBranch
+          ? Math.max(tongGioThuong - (m.gioThuongDaNhan || 0), 0)
+          : 0,
+      };
+    });
+
+    await setDoc(
+      doc(db, "overtimeLimits", docSnap.id),
+      {
+        bonusEnabled: isBonusBranch,
+        bonusEvery,
+        bonusAmount,
+        members,
+      },
+      { merge: true }
+    );
+  });
+
+  await Promise.all(updates);
+}
+
+
 import { Save } from "lucide-react";
 import LimitTree from "./LimitTree";
 import NoBonusCodes from "./NoBonusCodes";
@@ -76,8 +126,7 @@ export default function SectionBonusConfig({ config, setConfig }) {
 
   const merged = { ...defaultConfig, ...config };
 
-  const toggleGroup = (key) =>
-    setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
+  const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
   const toggleLimit = (limitKey) => {
     const exists = selectedLimits.includes(limitKey);
@@ -99,41 +148,13 @@ export default function SectionBonusConfig({ config, setConfig }) {
         cacNhanhDuocThuong: selectedLimits,
         cacMaKhongThuong: merged.customNoBonus || [],
       });
+      await updateAllOvertimeLimitsWhenBonusChange({
+        batThuongTangCa: bonusEnabled,
+        thuongSauBaoNhieuTieng: merged.bonusEvery,
+        congThemBaoNhieuGio: merged.bonusAmount,
+        cacNhanhDuocThuong: selectedLimits,
+      });
 
-      // TẮT THƯỞNG
-      if (!bonusEnabled) {
-        alert("Đã lưu (thưởng đang tắt)");
-        return;
-      }
-
-      // BẬT THƯỞNG → CẬP NHẬT TỪNG MEMBER TRONG overtimeLimits
-      const limitsSnap = await getDocs(collection(db, "overtimeLimits"));
-
-      for (const docSnap of limitsSnap.docs) {
-        const data = docSnap.data();
-        const limitKey = String(data.limit);
-
-        const newMembers = (data.members || []).map((m) => {
-          if (selectedLimits.includes(limitKey)) {
-            return {
-              ...m,
-              thuongTangCa: {
-                sauBaoNhieuTieng: merged.bonusEvery,
-                congThem: merged.bonusAmount,
-              },
-            };
-          } else {
-            const { thuongTangCa, ...rest } = m;
-            return rest;
-          }
-        });
-
-        await setDoc(
-          doc(db, "overtimeLimits", docSnap.id),
-          { ...data, members: newMembers },
-          { merge: true }
-        );
-      }
 
       alert("Đã lưu cấu hình thưởng và đồng bộ nhân viên!");
     } catch (err) {
@@ -156,8 +177,9 @@ export default function SectionBonusConfig({ config, setConfig }) {
 
         <div className="flex items-center gap-3">
           <span
-            className={`text-sm font-medium ${bonusEnabled ? "text-green-600" : "text-gray-500"
-              }`}
+            className={`text-sm font-medium ${
+              bonusEnabled ? "text-green-600" : "text-gray-500"
+            }`}
           >
             {bonusEnabled ? "Đang dùng" : "Đang tắt"}
           </span>
