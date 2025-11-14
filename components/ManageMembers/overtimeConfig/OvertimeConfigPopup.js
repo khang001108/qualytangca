@@ -21,21 +21,50 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     remaining: 0,
   });
 
+  // NEW — data gathered from each tab
+  const [shiftData, setShiftData] = useState({});
+  const [limitData, setLimitData] = useState({});
+  const [bonusData, setBonusData] = useState({});
+
   const [activeTab, setActiveTab] = useState("shift");
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "shift":
-        return <SectionShiftConfig config={config} setConfig={setConfig} />;
+        return (
+          <SectionShiftConfig
+            config={config}
+            setConfig={setConfig}
+            onDataChange={setShiftData}
+          />
+        );
 
       case "limit":
-        return <SectionOvertimeLimit config={config} setConfig={setConfig} />;
+        return (
+          <SectionOvertimeLimit
+            config={config}
+            setConfig={setConfig}
+            onDataChange={setLimitData}
+          />
+        );
 
       case "bonus":
-        return <SectionBonusConfig config={config} setConfig={setConfig} />;
+        return (
+          <SectionBonusConfig
+            config={config}
+            setConfig={setConfig}
+            onDataChange={setBonusData}
+          />
+        );
 
       case "formula":
-        return <FormulaPreview config={config} />; // ← thêm dòng này
+        return (
+          <FormulaPreview
+            shiftData={shiftData}
+            limitData={limitData}
+            bonusData={bonusData}
+          />
+        );
 
       default:
         return null;
@@ -65,7 +94,6 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           onClick={(e) => e.stopPropagation()}
           className="bg-white dark:bg-gray-900 w-full max-w-5xl rounded-2xl shadow-2xl border border-gray-300 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]"
         >
-          {/* Header */}
           <div className="flex justify-between items-center px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
             <h2 className="flex items-center gap-2 font-semibold text-lg">
               <Settings size={18} /> Cấu hình tăng ca
@@ -75,7 +103,6 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
             </button>
           </div>
 
-          {/* Tabs */}
           <div className="flex justify-center gap-3 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
             {[
               { id: "formula", label: "Công thức" },
@@ -112,7 +139,6 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
             </AnimatePresence>
           </div>
 
-          {/* Footer */}
           <div className="flex justify-end gap-4 px-6 py-3 border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
             <button
               onClick={onClose}

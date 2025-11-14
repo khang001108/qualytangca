@@ -5,13 +5,13 @@ import React, { useState, useEffect } from "react";
 import { Sun, Moon, Save, Edit3, X } from "lucide-react";
 import { useShiftFirestore } from "./useShiftFirestore";
 
-export default function SectionShiftConfig({ config, setConfig }) {
+export default function SectionShiftConfig({ config, setConfig, onDataChange }) {
   const { fetchConfig, saveConfig } = useShiftFirestore(setConfig);
   const [popup, setPopup] = useState({ open: false, field: "", value: "" });
 
   useEffect(() => {
     fetchConfig();
-  }, []);
+  }, [fetchConfig]);
 
   const current = config[config.shiftType] || {};
 
@@ -101,6 +101,27 @@ export default function SectionShiftConfig({ config, setConfig }) {
   );
 
   const office = calcOffice();
+
+  // Emit shift data to parent once when relevant inputs change
+  useEffect(() => {
+    if (typeof onDataChange === "function") {
+      onDataChange({
+        shiftType: config.shiftType,
+        // provide both human-readable times (if available) and parsed hours
+        lenCaSomBatDau: current.lenCaSomBatDau,
+        lenCaSomKetThuc: current.lenCaSomKetThuc,
+        tanCaSomBatDau: current.tanCaSomBatDau,
+        tanCaSomKetThuc: current.tanCaSomKetThuc,
+        lenCaMuonBatDau: current.lenCaMuonBatDau,
+        lenCaMuonKetThuc: current.lenCaMuonKetThuc,
+        tanCaMuonBatDau: current.tanCaMuonBatDau,
+        tanCaMuonKetThuc: current.tanCaMuonKetThuc,
+        rest: current.nghiGiuaCa || 0,
+        officeHours: office.error ? 0 : Math.round(office.hours * 100) / 100,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.shiftType, JSON.stringify(current), office.error, office.hours]);
 
   return (
     <div className="border border-gray-300 dark:border-gray-500 rounded-2xl p-6 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-xl space-y-6">

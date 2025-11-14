@@ -66,7 +66,11 @@ export async function updateOvertimeLimits() {
 // ============================================================================
 //                      SectionOvertimeLimit Component
 // ============================================================================
-export default function SectionOvertimeLimit() {
+export default function SectionOvertimeLimit({
+  config,
+  setConfig,
+  onDataChange,
+}) {
   const [defaultDailyCap, setDefaultDailyCap] = useState(6);
   const [members, setMembers] = useState([]);
   const [tree, setTree] = useState({});
@@ -74,26 +78,13 @@ export default function SectionOvertimeLimit() {
   const [bonusConfig, setBonusConfig] = useState({});
   const [bonusEnabled, setBonusEnabled] = useState(true);
 
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, "bonusConfig", "main"), (snap) => {
-      if (snap.exists()) setBonusConfig(snap.data());
-    });
-    return unsub;
-  }, []);
-
-  // Lấy cấu hình thưởng từ Firestore
-  // Selected "days × hours/day" options cho từng limitKey
   const [selectedOption, setSelectedOption] = useState({});
-
-  // Mở/đóng từng nhánh
   const [openGroups, setOpenGroups] = useState({});
 
-  // Bật/tắt chế độ "Giới hạn tăng ca"
   const [useLimitMode, setUseLimitMode] = useState(
     localStorage.getItem("useLimitMode") === "true"
   );
 
-  // Lấy shiftConfig từ Firestore
   const [shiftConfig, setShiftConfig] = useState({});
   const { fetchConfig } = useShiftFirestore(setShiftConfig);
 
@@ -101,12 +92,20 @@ export default function SectionOvertimeLimit() {
     fetchConfig();
   }, [fetchConfig]);
 
-  // ============================================================================
-  //  Lấy danh sách nhân viên (realtime)
-  // ============================================================================
+  // -----------------------------------------
+  // BONUS CONFIG
+  // -----------------------------------------
   useEffect(() => {
-    setLoading(true);
+    const unsub = onSnapshot(doc(db, "bonusConfig", "main"), (snap) => {
+      if (snap.exists()) setBonusConfig(snap.data());
+    });
+    return unsub;
+  }, []);
 
+  // -----------------------------------------
+  // MEMBERS (REALTIME)
+  // -----------------------------------------
+  useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "members"), (snap) => {
       const list = snap.docs.map((d) => ({
         id: d.id,
@@ -119,9 +118,9 @@ export default function SectionOvertimeLimit() {
     return () => unsubscribe();
   }, []);
 
-  // ============================================================================
-  //  Gom nhân viên theo giới hạn (monthlyLimit)
-  // ============================================================================
+  // -----------------------------------------
+  // GROUP MEMBERS BY monthlyLimit
+  // -----------------------------------------
   useEffect(() => {
     const grouped = {};
 
@@ -133,7 +132,6 @@ export default function SectionOvertimeLimit() {
       grouped[key].push(m);
     });
 
-    // Sắp nhân viên theo tên
     Object.keys(grouped).forEach((k) => {
       grouped[k].sort((a, b) =>
         (a.nickname || a.realName || "").localeCompare(
@@ -145,9 +143,9 @@ export default function SectionOvertimeLimit() {
     setTree(grouped);
   }, [members]);
 
-  // ============================================================
-  // Load lại lựa chọn days × perDay từ Firestore
-  // ============================================================
+  // -----------------------------------------
+  // LOAD days × perDay FROM Firestore
+  // -----------------------------------------
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "overtimeLimits"), (snap) => {
       const opts = {};
@@ -170,17 +168,29 @@ export default function SectionOvertimeLimit() {
     return unsub;
   }, []);
 
-  // ============================================================================
-  //  Toggle giới hạn / không giới hạn
-  // ============================================================================
+  // -----------------------------------------
+  // SEND DATA → FormulaPreview
+  // -----------------------------------------
+  useEffect(() => {
+    if (typeof onDataChange === "function") {
+      onDataChange({
+        tree,
+        selectedOption,
+        limitKeys: Object.keys(tree),
+        shiftConfig,
+        bonusConfig,
+      });
+    }
+  }, [tree, selectedOption, shiftConfig, bonusConfig]);
+
+  // -----------------------------------------
+  // RENDER UI
+  // -----------------------------------------
   const handleToggleMode = (checked) => {
     setUseLimitMode(checked);
     localStorage.setItem("useLimitMode", checked);
   };
 
-  // ============================================================================
-  //  RENDER
-  // ============================================================================
   return (
     <div className="border border-gray-300 dark:border-gray-500 rounded-2xl p-6 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-xl space-y-6">
       <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">

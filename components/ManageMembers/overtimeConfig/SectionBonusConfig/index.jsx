@@ -64,7 +64,7 @@ import { Save } from "lucide-react";
 import LimitTree from "./LimitTree";
 import NoBonusCodes from "./NoBonusCodes";
 
-export default function SectionBonusConfig({ config, setConfig }) {
+export default function SectionBonusConfig({ config, setConfig, onDataChange }) {
   const [limitTree, setLimitTree] = useState({});
   const [openGroups, setOpenGroups] = useState({});
   const [selectedLimits, setSelectedLimits] = useState([]);
@@ -137,6 +137,18 @@ export default function SectionBonusConfig({ config, setConfig }) {
       : [...selectedLimits, limitKey];
     setSelectedLimits(updated);
   };
+
+  useEffect(() => {
+    if (typeof onDataChange === "function") {
+      onDataChange({
+        bonusEnabled,
+        bonusEvery: merged.bonusEvery,
+        bonusAmount: merged.bonusAmount,
+        selectedLimits,
+        noBonusCodes: merged.customNoBonus,
+      });
+    }
+  }, [bonusEnabled, merged, selectedLimits]);
 
   // =========================================
   //               LƯU CẤU HÌNH
