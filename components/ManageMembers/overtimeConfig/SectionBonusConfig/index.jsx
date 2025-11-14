@@ -9,6 +9,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 
+// components/.../SectionBonusConfig/index.jsx
 async function updateAllOvertimeLimitsWhenBonusChange(bonusConfig) {
   const snap = await getDocs(collection(db, "overtimeLimits"));
 
@@ -21,24 +22,26 @@ async function updateAllOvertimeLimitsWhenBonusChange(bonusConfig) {
     const data = docSnap.data();
     const limitKey = String(data.limit);
 
+    // Nhánh này có thưởng hay không (theo config mới)
     const isBonusBranch = bonusEnabled && selectedLimits.includes(limitKey);
 
-    const days = data.days || 0;
-    const perDay = data.perDay || 0;
+    const days = Number(data.days || 0);
+    const perDay = Number(data.perDay || 0);
 
     const bonusPerDay = isBonusBranch && perDay >= bonusEvery ? bonusAmount : 0;
     const tongGioThuong = isBonusBranch ? days * bonusPerDay : 0;
 
+    // Khi cập nhật: KHÔNG dùng giá trị gioThuongDaNhan cũ.
+    // Nếu nhánh được thưởng -> set gioThuongDaNhan = 0 (chưa ai nhận), gioThuongConLai = tongGioThuong
+    // Nếu nhánh không thưởng -> set tất cả về 0
     const members = (data.members || []).map((m) => {
-      const gioThuongDaNhan = isBonusBranch ? tongGioThuong : 0;
-
       return {
         ...m,
         tongGioThuong,
-        gioThuongDaNhan,
-        gioThuongConLai: isBonusBranch
-          ? Math.max(tongGioThuong - (m.gioThuongDaNhan || 0), 0)
-          : 0,
+        // reset luôn về 0 khi re-sync (tránh dùng giá trị cũ)
+        gioThuongDaNhan: 0,
+        // nếu có thưởng -> còn lại là tổng thưởng (chưa ai nhận)
+        gioThuongConLai: isBonusBranch ? tongGioThuong : 0,
       };
     });
 
@@ -56,7 +59,6 @@ async function updateAllOvertimeLimitsWhenBonusChange(bonusConfig) {
 
   await Promise.all(updates);
 }
-
 
 import { Save } from "lucide-react";
 import LimitTree from "./LimitTree";
@@ -154,7 +156,6 @@ export default function SectionBonusConfig({ config, setConfig }) {
         congThemBaoNhieuGio: merged.bonusAmount,
         cacNhanhDuocThuong: selectedLimits,
       });
-
 
       alert("Đã lưu cấu hình thưởng và đồng bộ nhân viên!");
     } catch (err) {

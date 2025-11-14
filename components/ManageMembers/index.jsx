@@ -6,6 +6,8 @@ import ShiftAssign from "./ShiftAssign";
 import OvertimeConfigPopup from "./overtimeConfig/OvertimeConfigPopup";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
+import { useOvertimeConfig } from "../../hooks/useOvertimeConfig";
+
 import { updateOvertimeLimits } from "./overtimeConfig/SectionOvertimeConfig";
 import dayjs from "dayjs";
 import Toast from "../Toast";
@@ -19,6 +21,7 @@ import {
 } from "lucide-react";
 import {
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
   collection,
@@ -28,7 +31,6 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-
 
 //==============================================================================
 //                       ManageMembers Component
@@ -41,6 +43,7 @@ export default function ManageMembers({
   setToast,
 }) {
   const { members, setMembers, toast, showToast } = useMembersData(user);
+  const { defaultDailyCap } = useOvertimeConfig();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [sortMode, setSortMode] = useState("lowLimit");
@@ -194,8 +197,6 @@ export default function ManageMembers({
     }
   };
 
-
-
   // === Xóa nhân viên ===
   const handleDeleteMembers = async () => {
     if (selectedIds.length === 0)
@@ -222,7 +223,6 @@ export default function ManageMembers({
       {/* Toolbar */}
       <div className="flex items-center gap-2 justify-between">
         <div className="flex items-center gap-2 flex-nowrap">
-
           <button
             onClick={() => setShowAssign(true)}
             className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-lg text-sm"
@@ -329,7 +329,60 @@ export default function ManageMembers({
               await handleSetLimit(updatedMembers);
 
               // 2️⃣ Sau khi xong, gọi đồng bộ Firestore overtimeLimits
-              await updateOvertimeLimits({}, {}, {}); // vẫn chạy được, nếu cần truyền tree thực có thể sau này sửa
+              // 2️⃣ Build lại toàn bộ limit collection từ updatedMembers
+              const daysInMonth = dayjs().daysInMonth();
+              const fullLimit = daysInMonth * defaultDailyCap;
+
+              // Gom nhóm theo limit
+              const limitGroups = {};
+              for (const m of updatedMembers) {
+                const limit = m.overtimeLimit?.monthlyLimit;
+                const worked = m.overtimeLimit?.workedHours || 0;
+
+                // Chỉ tạo limit khi monthlyLimit < fullLimit
+                if (limit < fullLimit) {
+                  if (!limitGroups[limit]) limitGroups[limit] = [];
+
+                  limitGroups[limit].push({
+                    id: m.id,
+                    name: m.realName,
+                    workedHours: worked,
+                    remaining: Math.max(limit - worked, 0),
+                  });
+                }
+              }
+
+              // 3️⃣ Lấy danh sách limit_xx hiện có trong Firestore để xóa cái không còn ai
+              const snap = await getDocs(collection(db, "overtimeLimits"));
+              const existedLimits = snap.docs.map((doc) => doc.id); // ví dụ ["limit_40", "limit_99"]
+
+              // 4️⃣ Ghi lại tài liệu có nhân viên
+              for (const limitVal of Object.keys(limitGroups)) {
+                const list = limitGroups[limitVal];
+                const ref = doc(db, "overtimeLimits", `limit_${limitVal}`);
+
+                await setDoc(
+                  ref,
+                  {
+                    limit: Number(limitVal),
+                    memberCount: list.length,
+                    members: list,
+                    updatedAt: new Date(),
+                    month: Number(dayjs().month() + 1),
+                    year: Number(dayjs().year()),
+                  },
+                  { merge: true }
+                );
+              }
+
+              // 5️⃣ Xóa limit không còn nhân viên nào
+              for (const id of existedLimits) {
+                const limitNumber = Number(id.replace("limit_", ""));
+
+                if (!limitGroups[limitNumber]) {
+                  await deleteDoc(doc(db, "overtimeLimits", id));
+                }
+              }
               showToast("Đã lưu và đồng bộ lại overtimeLimits.", "success");
             } catch (err) {
               console.error("❌ Lỗi đồng bộ overtimeLimits:", err);
@@ -382,7 +435,7 @@ export default function ManageMembers({
             ? [{ id: Date.now(), message: toast.message, type: toast.type }]
             : []
         }
-        onClose={() => { }}
+        onClose={() => {}}
       />
     </div>
   );

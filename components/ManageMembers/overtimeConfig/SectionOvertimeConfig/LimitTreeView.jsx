@@ -8,9 +8,9 @@ import {
   serverTimestamp,
   deleteDoc,
   getDocs,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
-import { getDoc } from "firebase/firestore";
 import { useEffect } from "react";
 
 export default function LimitTreeView({
@@ -38,6 +38,11 @@ export default function LimitTreeView({
     .map(Number)
     .sort((a, b) => b - a)
     .map(String);
+
+  const resetStates = () => {
+    setSelectedOption({});
+    setOpenGroups({});
+  };
 
   const toggleGroup = (key) => setOpenGroups((p) => ({ ...p, [key]: !p[key] }));
 
@@ -94,40 +99,40 @@ export default function LimitTreeView({
         }
 
         // Kiểm tra thưởng
-        const isBonusBranch = bonusEnabled && selectedLimits.includes(limitKey);
+        const isBonusBranch =
+          bonusEnabled && selectedLimits.includes(limitKey) && chosen; // chosen = selectedOption[limitKey]
 
         // Nếu nhánh không nằm trong selectedLimits -> KHÔNG có thưởng
         const actualBonus = isBonusBranch ? bonusAmount : 0;
 
         const membersProcessed = members.map((m) => {
-          let bonusPerDay = 0;
-          let bonusHours = 0;
-
-          // Nếu là nhánh thưởng → tính thưởng
-          if (isBonusBranch) {
-            bonusPerDay = perDay >= bonusEvery ? bonusAmount : 0;
-            bonusHours = days * bonusPerDay;
-          }
-
           const worked = Number(
             m.overtimeLimit?.workedHours ?? m.workedHours ?? 0
           );
+
+          // THƯỞNG THEO CẤU HÌNH
+          const bonusPerDay =
+            isBonusBranch && perDay >= bonusEvery ? bonusAmount : 0;
+          const tongGioThuong = isBonusBranch ? days * bonusPerDay : 0;
+
+          // RESET BONUS: gioThuongDaNhan luôn = 0 khi LƯU lại cấu hình
+          // (chỉ ghi kế hoạch, không ghi kết quả)
+          const gioThuongDaNhan = 0;
+          const gioThuongConLai = tongGioThuong;
 
           return {
             id: m.id,
             ten: m.nickname || m.realName || "Không tên",
 
             tongGioKeHoach: totalLimit,
-            tongGioThuong: isBonusBranch ? days * bonusPerDay : 0,
+            tongGioThuong,
 
             gioDaLam: worked,
-            gioThuongDaNhan: isBonusBranch ? bonusHours : 0,
+            gioThuongDaNhan,
             soNgayDaLam: Number(m.soNgayDaLam || 0),
 
             gioConLai: Math.max(totalLimit - worked, 0),
-            gioThuongConLai: isBonusBranch
-              ? Math.max(days * bonusPerDay - bonusHours, 0)
-              : 0,
+            gioThuongConLai,
             ngayConLai: Math.max(days - Number(m.soNgayDaLam || 0), 0),
           };
         });
@@ -164,7 +169,11 @@ export default function LimitTreeView({
       });
 
       await Promise.all(promises);
-      alert("Đã lưu cấu hình đầy đủ (không tự chia ngày, không tự tick vàng).");
+
+      // RESET STATE HERE
+      resetStates();
+
+      alert("Đã lưu cấu hình đầy đủ.");
     } catch (err) {
       console.error("Lưu thất bại:", err);
       alert("Lỗi khi lưu. Xem console.");
@@ -172,6 +181,7 @@ export default function LimitTreeView({
   };
 
   useEffect(() => {
+    resetStates();
     async function loadSavedConfigs() {
       const limitKeys = Object.keys(tree);
       const loaded = {};
@@ -437,9 +447,9 @@ export default function LimitTreeView({
 
                             <div
                               className="absolute left-0 top-full mt-1 w-max text-xs 
-            bg-black text-white rounded px-2 py-1 opacity-0 
-            group-hover:opacity-100 transition-opacity 
-            z-50 shadow-lg"
+              bg-black text-white rounded px-2 py-1 opacity-0 
+              group-hover:opacity-100 transition-opacity 
+              z-50 shadow-lg"
                             >
                               Thưởng mỗi ngày: {bonusPerDay}h
                               <br />

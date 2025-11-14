@@ -112,7 +112,10 @@ export default function LimitSelector({
     setLocalMembers((prev) =>
       prev.map((m) =>
         selectedIds.includes(m.id)
-          ? { ...m, overtimeLimit: { ...m.overtimeLimit, monthlyLimit: fullLimit } }
+          ? {
+              ...m,
+              overtimeLimit: { ...m.overtimeLimit, monthlyLimit: fullLimit },
+            }
           : m
       )
     );
@@ -125,12 +128,29 @@ export default function LimitSelector({
   //   Lưu dữ liệu
   // ========================================================================
   const handleConfirm = () => {
-    const fullLimit = calcFullMonthLimit();
+    const fullLimit = calcFullMonthLimit(); // = số ngày × defaultDailyCap
+    const MAX_LIMIT = fullLimit;
 
+    // 1) Chặn nếu bất kỳ nhân viên nào vượt mức giới hạn tối đa
+    for (const m of localMembers) {
+      const limit = m?.overtimeLimit?.monthlyLimit ?? MAX_LIMIT;
+
+      if (limit > MAX_LIMIT) {
+        showToast(
+          `Giới hạn của ${
+            m.realName || m.nickname || m.ten || "nhân viên"
+          } vượt mức tối đa ${MAX_LIMIT}h/tháng.`,
+          "error"
+        );
+        return;
+      }
+    }
+
+    // 2) Không có chọn và không có thay đổi → báo lỗi
     const noSelection = selectedIds.length === 0 && bulkLimit.trim() === "";
     const hasRealChange = members.some((m, i) => {
-      const oldVal = m.overtimeLimit?.monthlyLimit ?? fullLimit;
-      const newVal = localMembers[i]?.overtimeLimit?.monthlyLimit ?? fullLimit;
+      const oldVal = m.overtimeLimit?.monthlyLimit ?? MAX_LIMIT;
+      const newVal = localMembers[i]?.overtimeLimit?.monthlyLimit ?? MAX_LIMIT;
       return oldVal !== newVal;
     });
 
@@ -139,6 +159,7 @@ export default function LimitSelector({
       return;
     }
 
+    // 3) Lưu hợp lệ
     const updated = localMembers;
     onConfirm(updated);
 
@@ -210,19 +231,13 @@ export default function LimitSelector({
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 flex justify-between items-center">
           <h3 className="text-lg font-semibold">{title}</h3>
 
-          <button
-            onClick={onCancel}
-            className="hover:text-gray-200 transition"
-          >
+          <button onClick={onCancel} className="hover:text-gray-200 transition">
             <X size={22} />
           </button>
         </div>
 
         {/* HƯỚNG DẪN */}
-        <LimitSelectorGuide
-          showGuide={showGuide}
-          setShowGuide={setShowGuide}
-        />
+        <LimitSelectorGuide showGuide={showGuide} setShowGuide={setShowGuide} />
 
         {/* Ô nhập giới hạn chung */}
         <div className="px-6 mt-2 flex items-center gap-2">
