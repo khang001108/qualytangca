@@ -73,9 +73,9 @@ export default function SectionOvertimeLimit() {
   const [loading, setLoading] = useState(true);
   const [bonusConfig, setBonusConfig] = useState({});
   const [bonusEnabled, setBonusEnabled] = useState(true);
-  
+
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "bonusConfig", "main"), snap => {
+    const unsub = onSnapshot(doc(db, "bonusConfig", "main"), (snap) => {
       if (snap.exists()) setBonusConfig(snap.data());
     });
     return unsub;
@@ -100,7 +100,6 @@ export default function SectionOvertimeLimit() {
   useEffect(() => {
     fetchConfig();
   }, [fetchConfig]);
-
 
   // ============================================================================
   //  Lấy danh sách nhân viên (realtime)
@@ -145,6 +144,31 @@ export default function SectionOvertimeLimit() {
 
     setTree(grouped);
   }, [members]);
+
+  // ============================================================
+  // Load lại lựa chọn days × perDay từ Firestore
+  // ============================================================
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "overtimeLimits"), (snap) => {
+      const opts = {};
+
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const limit = String(data.limit || 0);
+
+        if (data.days && data.perDay) {
+          opts[limit] = {
+            days: data.days,
+            perDay: data.perDay,
+          };
+        }
+      });
+
+      setSelectedOption(opts);
+    });
+
+    return unsub;
+  }, []);
 
   // ============================================================================
   //  Toggle giới hạn / không giới hạn
@@ -199,7 +223,10 @@ export default function SectionOvertimeLimit() {
           bonusConfig={bonusConfig}
         />
       ) : (
-        <NoLimitView shiftConfig={shiftConfig} defaultDailyCap={defaultDailyCap} />
+        <NoLimitView
+          shiftConfig={shiftConfig}
+          defaultDailyCap={defaultDailyCap}
+        />
       )}
     </div>
   );
