@@ -31,6 +31,12 @@ function FlowBox({ id, title, subtitle, gradient, onClick }) {
   );
 }
 
+function toHHMM(h) {
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return `${hh}:${mm.toString().padStart(2, "0")}`;
+}
+
 export default function FormulaPreview({
   shiftData = {},
   limitData = {},
@@ -40,8 +46,8 @@ export default function FormulaPreview({
   // GỘP DATA TỪ 3 TAB
   const cfg = {
     // SHIFT
-    start: Number(shiftData.start ?? 7),
-    end: Number(shiftData.end ?? 16),
+    start: Number(shiftData.shiftStart ?? 7),
+    end: Number(shiftData.shiftEnd ?? 16),
     rest: Number(shiftData.rest ?? 1),
     officeHours: Number(shiftData.officeHours ?? 8),
 
@@ -211,11 +217,11 @@ Giờ hành chính lấy = giờ_sớm (nếu hợp lệ)
 
             <div className="text-sm text-right">
               <div className="font-medium">Ví dụ (theo config):</div>
-              <div className="mt-1">shiftStart: {cfg.start}h</div>
-              <div>shiftEnd: {cfg.end}h</div>
+              <div className="mt-1">Giờ vào ca: {toHHMM(cfg.start)}</div>
+              <div>Giờ tan ca: {toHHMM(cfg.end)}</div>
               <div>nghỉ giữa ca: {cfg.rest}h</div>
               <div className="mt-2 font-semibold">
-                Giờ hành chính = {derived.effectiveShiftOffice}h
+                Giờ hành chính = {toHHMM(derived.effectiveShiftOffice)}
               </div>
             </div>
           </div>
@@ -391,7 +397,9 @@ Khi lưu cấu hình (đồng bộ):
       <div className="mt-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900/30 text-sm grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
           <div className="text-xs text-gray-500">Giờ hành chính</div>
-          <div className="font-medium">{derived.effectiveShiftOffice} h</div>
+          <div className="font-medium">
+            {toHHMM(derived.effectiveShiftOffice)}
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500">
