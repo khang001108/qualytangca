@@ -46,8 +46,8 @@ export default function FormulaPreview({
   // GỘP DATA TỪ 3 TAB
   const cfg = {
     // SHIFT
-    start: Number(shiftData.shiftStart ?? 7),
-    end: Number(shiftData.shiftEnd ?? 16),
+    start: Number(shiftData.start ?? 7),
+    end: Number(shiftData.end ?? 16),
     rest: Number(shiftData.rest ?? 1),
     officeHours: Number(shiftData.officeHours ?? 8),
 

@@ -5,6 +5,7 @@ import SectionShiftConfig from "./SectionShiftConfig";
 import SectionOvertimeLimit from "./SectionOvertimeConfig";
 import SectionBonusConfig from "./SectionBonusConfig";
 import FormulaPreview from "./FormulaPreview";
+import usePreviewData from "./usePreviewData";
 
 export default function OvertimeConfigPopup({ user, onClose, showToast }) {
   const [config, setConfig] = useState({
@@ -22,9 +23,14 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
   });
 
   // NEW — data gathered from each tab
-  const [shiftData, setShiftData] = useState({});
-  const [limitData, setLimitData] = useState({});
-  const [bonusData, setBonusData] = useState({});
+  const {
+    shiftData,
+    limitData,
+    bonusData,
+    updateShift,
+    updateLimit,
+    updateBonus,
+  } = usePreviewData();
 
   const [activeTab, setActiveTab] = useState("shift");
 
@@ -35,7 +41,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           <SectionShiftConfig
             config={config}
             setConfig={setConfig}
-            onDataChange={setShiftData}
+            onDataChange={updateShift}
           />
         );
 
@@ -44,7 +50,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           <SectionOvertimeLimit
             config={config}
             setConfig={setConfig}
-            onDataChange={setLimitData}
+            onDataChange={updateLimit}
           />
         );
 
@@ -53,7 +59,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           <SectionBonusConfig
             config={config}
             setConfig={setConfig}
-            onDataChange={setBonusData}
+            onDataChange={updateBonus}
           />
         );
 
