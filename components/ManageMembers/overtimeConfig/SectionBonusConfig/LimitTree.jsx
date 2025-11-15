@@ -74,8 +74,7 @@ export default function LimitTree({
                   {members.length > 0 ? (
                     members.map((m) => (
                       <li key={m.id} className="truncate">
-                        • {m.name}
-                      </li>
+                        • {m.ten || m.tenPhu || m.name || m.realName || m.nickname || "Không tên"}                      </li>
                     ))
                   ) : (
                     <li className="text-gray-500 italic">Không có nhân viên</li>
