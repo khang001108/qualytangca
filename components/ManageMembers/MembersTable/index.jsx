@@ -10,8 +10,14 @@ export default function MembersTable({
   user,
   selectedDate,
   shiftSchedules = {},
+  overtimeDates,    // props từ cha
+  shiftConfig,
 }) {
-  const overtimeDates = useOvertimeDates();
+  // đổi tên tránh trùng
+  const overDates = useOvertimeDates();
+
+  // ưu tiên dữ liệu props, nếu không có sẽ dùng hook
+  const finalOvertimeDates = overtimeDates || overDates;
 
   return (
     <div
@@ -36,7 +42,8 @@ export default function MembersTable({
                   user={user}
                   selectedDate={selectedDate}
                   shiftSchedules={shiftSchedules}
-                  overtimeDates={overtimeDates}
+                  overtimeDates={finalOvertimeDates}
+                  shiftConfig={shiftConfig}
                 />
               ))
             )}

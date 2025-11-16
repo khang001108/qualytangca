@@ -22,6 +22,7 @@ import {
 import {
   doc,
   setDoc,
+  getDoc,
   updateDoc,
   deleteDoc,
   collection,

@@ -12,6 +12,7 @@ export default function TableRow({
   selectedDate,
   shiftSchedules,
   overtimeDates,
+  shiftConfig,
 }) {
   const fmt = (n) => `${Number(n || 0).toLocaleString()}h`;
 
@@ -48,6 +49,16 @@ export default function TableRow({
   }
 
   shiftStart = shiftStart || m.shiftStart || "08:00";
+
+  // Xác định ca ngày / đêm
+  const isNight = (shiftName || "").toLowerCase().includes("đêm");
+  const cfg = isNight ? shiftConfig?.night : shiftConfig?.day;
+
+  // check lỗi in console
+  // console.log("shiftName:", shiftName);
+  // console.log("isNight:", isNight);
+  // console.log("shiftConfig:", shiftConfig);
+  // console.log("cfg:", cfg);
 
   // --------------------------
   // Overtime
@@ -201,7 +212,11 @@ export default function TableRow({
         </select>
       </td>
 
-      <td className="p-2">{shiftStart}</td>
+      <td className="p-2">
+        {m.earlyShift
+          ? cfg?.lenCaSomKetThuc || "--:--"
+          : cfg?.lenCaMuonKetThuc || "--:--"}
+      </td>
 
       <td className="p-2 text-green-600 dark:text-green-400 font-semibold">
         {fmt(limit)}
