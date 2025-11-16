@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@radix-ui/react-tooltip": "^1.2.8",
+    "chinese-conv": "^4.0.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.18",
     "firebase": "^12.4.0",

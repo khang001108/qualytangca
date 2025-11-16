@@ -1,16 +1,19 @@
 // hooks/useOvertimeParser/index.js
-// Hook tùy chỉnh để phân tích và xử lý dữ liệu tăng ca từ văn bản nhập vào
+// (Bản mới hoàn chỉnh: parser chỉ update shiftSchedules theo ngày)
 
 import { useState, useRef } from "react";
 import dayjs from "dayjs";
 import { showUniqueToastFactory } from "./utilsToast";
-import { calcOvertimeHours } from "./calcOvertime";
-import {
-  getShiftMap,
-  saveOvertimeRecord,
-  updateMemberOvertime,
-} from "./firestoreOps";
 import { parseLine, LEAVE_CODES } from "./parseHelpers";
+import { s2t } from "chinese-conv";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../../lib/firebase";
 
 export default function useOvertimeParser({
   user,
@@ -20,20 +23,20 @@ export default function useOvertimeParser({
 }) {
   const [toast, setToast] = useState(null);
   const isProcessing = useRef(false);
-  const showUniqueToast = showUniqueToastFactory(setToast);
+  const showToast = showUniqueToastFactory(setToast);
 
   const parseText = async (rawText, mode = "checkin") => {
     if (isProcessing.current) return;
     isProcessing.current = true;
 
     if (!user?.uid) {
-      showUniqueToast("error", "⚠️ Bạn chưa đăng nhập!");
+      showToast("error", "⚠️ Bạn chưa đăng nhập!");
       isProcessing.current = false;
       return;
     }
 
     if (!rawText?.trim()) {
-      showUniqueToast("error", "⚠️ Chưa nhập dữ liệu chấm công.");
+      showToast("error", "⚠️ Chưa nhập dữ liệu chấm công.");
       isProcessing.current = false;
       return;
     }
@@ -45,61 +48,99 @@ export default function useOvertimeParser({
         .filter((l) => l.length > 0 && !/上下班打卡记录/.test(l));
 
       const currentDate = dayjs(selectedDate || new Date()).format("YYYY-MM-DD");
-      const { shiftMap } = await getShiftMap(user.uid, currentDate);
 
       let added = 0,
         updated = 0,
         skipped = 0;
 
-      for (const rawLine of lines) {
-        const { realName, timePart } = parseLine(rawLine);
+      for (const raw of lines) {
+        const { realName, timePart } = parseLine(raw);
         if (!realName || !timePart) continue;
 
-        const member = members.find((m) => m.realName.trim() === realName);
+        // Chuyển giản thể → phồn thể
+        const normalizedName = s2t(realName.trim());
+
+        // Tìm nhân viên
+        const member = members.find(
+          (m) => m.realName.trim() === normalizedName
+        );
+
         if (!member) {
           skipped++;
-          showUniqueToast("error", `⚠️ Nhân viên "${realName}" chưa có trong danh sách.`);
+          showToast(
+            "error",
+            `⚠️ Nhân viên "${normalizedName}" chưa có trong danh sách.`
+          );
           continue;
         }
 
-        // nghỉ phép, nghỉ 4h
-        if (LEAVE_CODES.some((code) => rawLine.includes(code))) {
-          await saveOvertimeRecord(user, member, currentDate, { note: timePart });
+        // Là nghỉ phép → chỉ lưu note
+        if (LEAVE_CODES.some((code) => raw.includes(code))) {
+          const docId = `${currentDate}__${member.id}`;
+          await setDoc(
+            doc(db, "shiftSchedules", docId),
+            {
+              userId: user.uid,
+              date: currentDate,
+              memberId: member.id,
+              realName: member.realName,
+              nickname: member.nickname || "",
+              note: timePart,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+          updated++;
           continue;
         }
 
-        const shift = shiftMap[realName] || {
-          shift: member.shift,
-          shiftStart: member.shiftStart,
-        };
-
-        const checkTime = timePart.match(/^(\d{1,2}):(\d{2})$/)?.[0];
+        // Lấy giờ
+        const clean = timePart.trim();
+        const checkTime = clean.match(/^(\d{1,2}):(\d{2})$/)?.[0];
         if (!checkTime) continue;
 
-        const result = await saveOvertimeRecord(user, member, currentDate, {
-          shift,
-          checkTime,
-          mode,
-          calcOvertimeHours,
-        });
+        // Document cho ngày + memberId
+        const docId = `${currentDate}__${member.id}`;
+        const ref = doc(db, "shiftSchedules", docId);
 
-        added += result.added;
-        updated += result.updated;
-        skipped += result.skipped;
+        const snap = await getDoc(ref);
+        const old = snap.exists() ? snap.data() : {};
 
-        if (result.newHours > 0 && mode === "checkout") {
-          await updateMemberOvertime(member, result.newHours, setMembers);
-        }
+        // SHIFT — ưu tiên từ shiftSchedules nếu có
+        const shift = {
+          shift: old.shift || member.shift || "Ca ngày",
+          shiftStart: old.shiftStart || member.shiftStart || "08:00",
+        };
+
+        const newData = {
+          userId: user.uid,
+          date: currentDate,
+          memberId: member.id,
+          realName: member.realName,
+          nickname: member.nickname || "",
+          shift: shift.shift,
+          shiftStart: shift.shiftStart,
+          lenCa: old.lenCa || null,
+          xuongCa: old.xuongCa || null,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (mode === "checkin") newData.lenCa = checkTime;
+        if (mode === "checkout") newData.xuongCa = checkTime;
+
+        await setDoc(ref, newData, { merge: true });
+
+        snap.exists() ? updated++ : added++;
       }
 
-      showUniqueToast(
+      showToast(
         "success",
-        `✅ ${currentDate}: ${added} mới, ${updated} cập nhật, ${skipped} bỏ qua.`,
-        6000
+        `✅ Đã xử lý: ${added} mới, ${updated} cập nhật, ${skipped} bỏ qua.`,
+        5000
       );
     } catch (err) {
-      console.error("🔥 parseText error:", err);
-      showUniqueToast("error", "❌ Lỗi khi xử lý dữ liệu tăng ca!");
+      console.error("🔥 Lỗi parser:", err);
+      showToast("error", "❌ Lỗi xử lý dữ liệu!");
     } finally {
       isProcessing.current = false;
     }

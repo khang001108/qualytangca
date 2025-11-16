@@ -73,18 +73,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    const col = collection(db, "overtimes");
+    if (!user?.uid || !selectedDate) return;
+
+    const dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
+
     const q = query(
-      col,
+      collection(db, "overtimes"),
       where("userId", "==", user.uid),
-      where("year", "==", selectedYear)
+      where("currentDate", "==", dateStr)
     );
+
     const unsub = onSnapshot(q, (snap) => {
       setOvertimeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
+
     return () => unsub();
-  }, [user?.uid, selectedYear]);
+  }, [user?.uid, selectedDate]);
+
 
   useEffect(() => {
     if (!user) return;
@@ -349,13 +354,12 @@ export default function Home() {
       {/* ✅ Toast duy nhất */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
-            toast.type === "error"
+          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
               ? "bg-red-500"
               : toast.type === "loading"
-              ? "bg-blue-500"
-              : "bg-green-500"
-          }`}
+                ? "bg-blue-500"
+                : "bg-green-500"
+            }`}
         >
           {toast.type === "loading" && (
             <Hourglass className="w-4 h-4 animate-spin" />

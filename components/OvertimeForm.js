@@ -94,6 +94,14 @@ export default function OvertimeForm({
           >
             {/* Header */}
             <div className="flex justify-between items-center mb-5">
+              {/* Hiển thị ngày đang chọn */}
+              <div className="text-center mb-4 text-sm text-gray-600 dark:text-gray-400">
+                Ngày chấm công:
+                <span className="font-semibold text-orange-600 dark:text-orange-400 ml-1">
+                  {selectedDate ? new Date(selectedDate).toLocaleDateString("vi-VN") : "Chưa chọn"}
+                </span>
+              </div>
+
               <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400">
                 Thêm tăng ca
               </h3>
@@ -116,26 +124,22 @@ export default function OvertimeForm({
                 }
               >
                 <div
-                  className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${
-                    mode === "checkin"
+                  className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${mode === "checkin"
                       ? "from-yellow-500 to-yellow-600"
                       : "from-green-500 to-green-600"
-                  } shadow-md transform transition-all duration-300 ${
-                    mode === "checkout" ? "translate-x-full" : "translate-x-0"
-                  }`}
+                    } shadow-md transform transition-all duration-300 ${mode === "checkout" ? "translate-x-full" : "translate-x-0"
+                    }`}
                 />
                 <div className="flex justify-between items-center w-full px-4 z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <div
-                    className={`flex items-center gap-1 transition ${
-                      mode === "checkin" ? "text-white" : ""
-                    }`}
+                    className={`flex items-center gap-1 transition ${mode === "checkin" ? "text-white" : ""
+                      }`}
                   >
                     <LogIn className="w-4 h-4" /> In
                   </div>
                   <div
-                    className={`flex items-center gap-1 transition ${
-                      mode === "checkout" ? "text-white" : ""
-                    }`}
+                    className={`flex items-center gap-1 transition ${mode === "checkout" ? "text-white" : ""
+                      }`}
                   >
                     <LogOut className="w-4 h-4" /> Out
                   </div>
@@ -169,11 +173,10 @@ export default function OvertimeForm({
               </button>
               <button
                 onClick={handleParse}
-                className={`px-5 py-2 rounded-lg text-white shadow-md transition ${
-                  mode === "checkin"
+                className={`px-5 py-2 rounded-lg text-white shadow-md transition ${mode === "checkin"
                     ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800"
                     : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
-                }`}
+                  }`}
               >
                 {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
               </button>
