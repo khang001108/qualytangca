@@ -156,6 +156,23 @@ export default function TableRow({
     }
   };
 
+  // =========================
+  // TÍNH SỐ NGÀY CÒN LẠI
+  // =========================
+  const getRemainingDays = () => {
+    const limitDoc = m.limitInfo;
+  
+    if (limitDoc?.days) return limitDoc.days;
+  
+    const memberLimit = m.overtimeLimit?.monthlyLimit || 0;
+    const worked = m.overtimeLimit?.workedHours || 0;
+    const remaining = Math.max(memberLimit - worked, 0);
+  
+    const perDay = shiftConfig?.day?.perDay || 2;
+    return Math.floor(remaining / perDay);
+  };
+  
+
   // --------------------------
   // Render
   // --------------------------
@@ -230,8 +247,8 @@ export default function TableRow({
         {fmt(total)}
       </td>
 
-      <td className="p-2 text-teal-600 dark:text-teal-400 font-semibold">
-        {dateDisplay}
+      <td className="p-2 text-orange-500 font-semibold">
+        {getRemainingDays()}
       </td>
 
       {/* Checkbox lên ca sớm */}

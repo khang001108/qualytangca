@@ -54,12 +54,24 @@ export default function ManageMembers({
   const [showAssign, setShowAssign] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [showFormula, setShowFormula] = useState(false); // cấu hình tăng ca
+  const [overtimeLimitDocs, setOvertimeLimitDocs] = useState({});
 
   const [limitInput, setLimitInput] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [shiftSchedules, setShiftSchedules] = useState({});
   const [shiftConfig, setShiftConfig] = useState({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "overtimeLimits"), (snap) => {
+      const obj = {};
+      snap.forEach((d) => {
+        obj[d.id] = d.data(); // ví dụ d.id = limit_40
+      });
+      setOvertimeLimitDocs(obj);
+    });
+    return unsub;
+  }, []);
 
   // === Load shiftConfig once ===
   useEffect(() => {
@@ -185,8 +197,18 @@ export default function ManageMembers({
         break;
     }
 
+    list = list.map((m) => {
+      const limit = m.overtimeLimit?.monthlyLimit || 0;
+      const limitInfo = overtimeLimitDocs[`limit_${limit}`] || null;
+
+      return {
+        ...m,
+        limitInfo,
+      };
+    });
+
     return list;
-  }, [members, searchTerm, sortMode]);
+  }, [members, searchTerm, sortMode, overtimeLimitDocs]);
 
   // === Lưu giới hạn tăng ca (bao gồm cả xóa giới hạn) ===
   const handleSetLimit = async (updatedMembers) => {
