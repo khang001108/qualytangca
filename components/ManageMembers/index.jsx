@@ -58,6 +58,26 @@ export default function ManageMembers({
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [shiftSchedules, setShiftSchedules] = useState({});
+  const [shiftConfig, setShiftConfig] = useState({});
+
+  // === Load shiftConfig once ===
+  useEffect(() => {
+    const fetchShiftConfig = async () => {
+      try {
+        const dayDoc = await getDoc(doc(db, "shiftConfig", "day"));
+        const nightDoc = await getDoc(doc(db, "shiftConfig", "night"));
+
+        setShiftConfig({
+          day: dayDoc.exists() ? dayDoc.data() : {},
+          night: nightDoc.exists() ? nightDoc.data() : {},
+        });
+      } catch (err) {
+        console.error("Lỗi load shiftConfig:", err);
+      }
+    };
+
+    fetchShiftConfig();
+  }, []);
 
   // === Load shiftSchedules realtime ===
   useEffect(() => {
@@ -300,6 +320,7 @@ export default function ManageMembers({
             user={user}
             selectedDate={selectedDate}
             shiftSchedules={shiftSchedules}
+            shiftConfig={shiftConfig}
           />
         )}
       </div>
