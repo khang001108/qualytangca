@@ -75,22 +75,26 @@ export default function ManageMembers({
 
   // === Load shiftConfig once ===
   useEffect(() => {
-    const fetchShiftConfig = async () => {
-      try {
-        const dayDoc = await getDoc(doc(db, "shiftConfig", "day"));
-        const nightDoc = await getDoc(doc(db, "shiftConfig", "night"));
-
-        setShiftConfig({
-          day: dayDoc.exists() ? dayDoc.data() : {},
-          night: nightDoc.exists() ? nightDoc.data() : {},
-        });
-      } catch (err) {
-        console.error("Lỗi load shiftConfig:", err);
-      }
+    const unsubDay = onSnapshot(doc(db, "shiftConfig", "day"), (snap) => {
+      setShiftConfig((prev) => ({
+        ...prev,
+        day: snap.exists() ? snap.data() : {}
+      }));
+    });
+  
+    const unsubNight = onSnapshot(doc(db, "shiftConfig", "night"), (snap) => {
+      setShiftConfig((prev) => ({
+        ...prev,
+        night: snap.exists() ? snap.data() : {}
+      }));
+    });
+  
+    return () => {
+      unsubDay();
+      unsubNight();
     };
-
-    fetchShiftConfig();
   }, []);
+    
 
   // === Load shiftSchedules realtime ===
   useEffect(() => {
@@ -111,10 +115,10 @@ export default function ManageMembers({
       snap.docs.forEach((d) => {
         const item = d.data();
         if (!data[item.date]) data[item.date] = {};
-        data[item.date][item.realName] = {
+        data[item.date][item.memberId] = {
           shift: item.shift,
           shiftStart: item.shiftStart,
-          memberId: item.memberId || null,
+          realName: item.realName,
         };
       });
       setShiftSchedules(data);

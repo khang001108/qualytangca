@@ -37,14 +37,11 @@ export default function TableRow({
 
   if (shiftSchedules[currentDate]) {
     const dateData = shiftSchedules[currentDate];
-    const todayShift = Object.values(dateData).find((s) => s.memberId === m.id);
+    const item = dateData[m.id]; // CHỈ DÙNG memberId LÀM KEY
 
-    if (todayShift) {
-      shiftName = todayShift.shift;
-      shiftStart = todayShift.shiftStart;
-    } else if (dateData[m.realName]) {
-      shiftName = dateData[m.realName].shift;
-      shiftStart = dateData[m.realName].shiftStart;
+    if (item) {
+      shiftName = item.shift;
+      shiftStart = item.shiftStart;
     }
   }
 
@@ -113,8 +110,8 @@ export default function TableRow({
       });
 
       // update Firestore: shiftSchedules
-      const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
-      const docId = `${user.uid}_${safeName}_${dateStr}`;
+      // const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
+      const docId = `${user.uid}_${m.id}_${dateStr}`;
       const shiftDoc = doc(db, "shiftSchedules", docId);
 
       await setDoc(shiftDoc, {
@@ -161,17 +158,16 @@ export default function TableRow({
   // =========================
   const getRemainingDays = () => {
     const limitDoc = m.limitInfo;
-  
+
     if (limitDoc?.days) return limitDoc.days;
-  
+
     const memberLimit = m.overtimeLimit?.monthlyLimit || 0;
     const worked = m.overtimeLimit?.workedHours || 0;
     const remaining = Math.max(memberLimit - worked, 0);
-  
+
     const perDay = shiftConfig?.day?.perDay || 2;
     return Math.floor(remaining / perDay);
   };
-  
 
   // --------------------------
   // Render
