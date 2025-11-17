@@ -175,11 +175,11 @@ export default function ShiftAssign(props) {
           const shiftStart =
             type === "day"
               ? m.earlyShift
-                ? "07:00"
-                : "08:00"
+                ? "lên_ca_ngày_sớm"
+                : "lên_ca_ngày_muộn"
               : m.earlyShift
-                ? "19:00"
-                : "20:00";
+                ? "lên_ca_đêm_sớm"
+                : "lên_ca_đêm_muộn";
           const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
           const docId = `${date}__${m.id}`;
 

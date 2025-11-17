@@ -115,8 +115,39 @@ shiftStart "07:00" (string)
 updatedAt November 17, 2025 at 12:48:04 AM UTC+7 (timestamp)
 userId "3ApO3NKNLJQiV8bUP0hInpJCw653" (string)
 xuongCa null( null)
-========================================================
 
+
+
+===================================================================
+                        ÁP DỤNG HỆ THỐNG NGÀY ĐỂ CHECK
+===================================================================
+nếu trong shiftSchedules -> 2025-11-03__dFR36hRzSgPemNYFt3Je -> 
+date "2025-11-03"
+shift "Ca ngày" (string)
+ngày hôm đó chấm công là ca ngày thì phải lọc như sau
+
+shiftConfig -> day(ca ngày)
+bắt đầu tính khung giờ hợp lệ như trên
+
+nếu đăng đúng giờ chấm công của ca ngày = ĐÚNG
+
+đăng sai giờ ca đêm, đăng nhầm khung giờ xuống ca(checkout) vào lên ca(checkin) = error
+
+createdAt November 17, 2025 at 10:46:44 PM UTC+7 (timestamp)
+date "2025-11-03" (string)
+lenCa null (null)
+memberId "dFR36hRzSgPemNYFt3Je" (string)
+nickname "TRẦN MINH TRANG" (string)
+realName "陈明壯" (string)
+shift "Ca ngày" (string)
+shiftStart "08:00" (string)
+updatedAt November 17, 2025 at 10:46:44 PM UTC+7 (timestamp)
+userId "3ApO3NKNLJQiV8bUP0hInpJCw653" (string)
+xuongCa null
+
+========================================================
+                        KHI CHECKIN
+========================================================
 khi checkin trong overtimeform
 1.陈明壯/18:52
 
@@ -140,8 +171,12 @@ shiftStart "07:00" (string)
 updatedAt November 17, 2025 at 12:48:04 AM UTC+7 (timestamp)
 userId "3ApO3NKNLJQiV8bUP0hInpJCw653" (string)
 xuongCa null( null)
-=========================================================================
 
+
+
+=========================================================================
+                            KHI CHECKOUT
+=========================================================================
 khi checkout trong overtimeform
 1.陈明壯/4:01
 
@@ -167,10 +202,13 @@ userId "3ApO3NKNLJQiV8bUP0hInpJCw653" (string)
 xuongCa 04:01( null)
 
 ======================================================================
+CÓ ĐỦ CHECKIN VÀ CHECKOUT - GIỜ HÀNH CHÍNH 8 TIEENSEG LÀ OK
+======================================================================
 
-có đủ checkin và checkout = giờ hành chính 8 tiếng là ok
 
 
+=========================================================================
+                    SAU CHECKOUT -> TÍNH TĂNG CA
 =========================================================================
 
 khi checkout trong overtimeform
@@ -198,7 +236,8 @@ tongGioKeHoach 40 (number)
 tongGioThuong 0 (number)
 
 =========================================================================
-
+                            TÍNH THƯỞNG
+=========================================================================
 tính thưởng cho nhân viên
 
 lọc các tên có trong parseHelpers sẽ ko dc thưởng
@@ -235,6 +274,7 @@ tongGioThuong 10 (number)
 
 
 ======================================================================
+                SỬA LỖI LÊN CA MUỘN TĂNG CA 3 TIẾNG
 ======================================================================
 
 ý là
@@ -264,26 +304,35 @@ xuống ca
 5.陈文雄/7:01
 tanCaMuonBatDau(05:00) > 04:01 > tanCaMuonKetThuc(5:15) = ok chấm công thành công
 khi tính thưởng và tăng ca vẫn là 2.5 vì từ 05:00 - 07:00 = 2.5 ( đủ giờ hành chính)
-===========================================================================================
-va mik nhầm ví dụ ở trên
-khi checkout trong overtimeform
-1.陈明壯/4:01
-
-lọc dữ liệu
-realName "陈明壯"
-tanCaSomBatDa, tanCaSomKetThuc
-
-được tích là xuống ca sớm (db có members - shiftStart: 19:00), 
-khoảng thời gian chấm công là: shiftConfig - night - 
-tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) = ok chấm công thành công
-khi đó nhập là: xuongCa 04:01
 
 
-LÊN CA SỚM:      18:45 – 19:00
-LÊN CA MUỘN:     19:45 – 20:00
-XUỐNG CA SỚM:    04:00 – 04:15
-XUỐNG CA MUỘN:   05:00 – 05:15
-MỐC TĂNG CA:     sau 04:00 với ca sớm && sau 05:00 với ca muộn
-HÀNH CHÍNH:      8 giờ
-Làm tròn OT:     FLOOR (bỏ phút)
-Bonus:           +0.5 nếu OT ≥ 2, chia theo cấu hình
+
+
+Tạo Flow sơ đồ tính toán để hiển thị trong FormulaPreview.
+
+
+input
+checkin
+1.陈明壯/18:52
+5.陈文雄/19:46
+shiftSchedules (xác định nv ngày hôm đó ca ngày hay đêm) 
+-> shiftConfig 
+shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> lenCaSomBatDau(18:45) < 18:52 < lenCaSomKetThuc(19:00) -> lenCa = lên ca sớm ok
+shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> lenCaMuonBatDau(19:45) < 19:46 < lenCaMuonKetThuc(20:00) -> lenCa = lên ca muộn ok
+
+
+input
+checkout
+1.陈明壯/6:01
+5.陈文雄/7:01
+shiftSchedules (xác định nv ngày hôm đó ca ngày hay đêm) 
+-> shiftConfig 
+shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) -> xuongCa = tan ca sớm ok
+shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> tanCaMuonBatDau(05:00) > 04:01 > tanCaMuonKetThuc(5:15) -> xuongCa = tan ca muộn ok
+
+giờ hành chính
+
+
+
+->
+
