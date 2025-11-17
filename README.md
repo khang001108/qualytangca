@@ -74,6 +74,8 @@ CA ĐÊM
 4.裴泰南/6:01
 5.陈文雄/7:01
 6.吴维康/休
+
+
 khang khang
 
 
@@ -149,7 +151,7 @@ realName "陈明壯"
 
 được tích là xuống ca sớm (db có members - shiftStart: 19:00), 
 khoảng thời gian chấm công là: shiftConfig - night - 
-tanCaMuonBatDau(04:00) > 04:01 > tanCaMuonKetThuc(4:15) = ok chấm công thành công
+tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) = ok chấm công thành công
 khi đó nhập là: xuongCa 04:01
 
 createdAt November 17, 2025 at 12:48:04 AM UTC+7 (timestamp)
@@ -232,7 +234,8 @@ tongGioKeHoach 40 (number)
 tongGioThuong 10 (number)
 
 
-
+======================================================================
+======================================================================
 
 ý là
 11/04上下班打卡记录：
