@@ -227,14 +227,14 @@ export default function OverMember({
             }
 
             const shift = shiftData?.shift || m.shift || "Chưa có ca";
-            const shiftStart = shiftData?.shiftStart || m.shiftStart || "08:00";
+            const shiftStart = shiftData?.shiftStart || m.shiftStart || "lên_ca_ngày_muộn";
 
             const shiftStartLabel =
               {
-                "07:00": "Sáng sớm",
-                "08:00": "Sáng muộn",
-                "19:00": "Tối sớm",
-                "20:00": "Tối muộn",
+                "lên_ca_ngày_sớm": "Sáng sớm",
+                "lên_ca_ngày_muộn": "Sáng muộn",
+                "lên_ca_đêm_sớm": "Tối sớm",
+                "lên_ca_đêm_muộn": "Tối muộn",
               }[shiftStart] || shiftStart;
 
             return (

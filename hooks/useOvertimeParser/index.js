@@ -32,12 +32,15 @@ const normalizeName = (s) => {
   return String(s).trim();
 };
 
+// Chuyển "hh:mm" thành tổng phút
 function timeToMinutes(t) {
   if (!t) return null;
   const s = String(t).trim();
   const [hh, mm] = s.split(":").map((n) => Number(n || 0));
   return hh * 60 + mm;
 }
+
+// Chuyển phút thành "HH:MM"
 function minutesToHHMM(min) {
   const hh = Math.floor((min % (24 * 60)) / 60);
   const mm = Math.floor(min % 60);
@@ -461,6 +464,7 @@ export default function useOvertimeParser({
               totalBonusAdded += bonusGiven;
 
               // ====== Update overtimeLimits doc member entry to reflect new values ======
+              // ====== cập nhật overtimelimits ======
               try {
                 if (memberLimit && memberLimit > 0) {
                   // compute patches for overtimeLimits members[] schema

@@ -75,11 +75,11 @@ export default function TableRow({
       const isNight = (shiftName || "").toLowerCase().includes("đêm");
       const newShiftStart = checked
         ? isNight
-          ? "19:00"
-          : "07:00"
+          ? "lên_ca_đêm_sớm"
+          : "lên_ca_ngày_sớm"
         : isNight
-        ? "20:00"
-        : "08:00";
+        ? "lên_ca_đêm_muộn"
+        : "lên_ca_ngày_muộn";
 
       const today = dayjs().format("YYYY-MM-DD");
       const dateStr = currentDate;
