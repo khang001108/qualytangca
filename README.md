@@ -56,6 +56,9 @@ CA NGÀY
 6.吴维康/ 7:01
 7.吴秀英/7:01
 
+vậy h 
+
+t nhầm dữ liệu checkin vào checkout hay là nhầm ca ngày sang ca đêm đều báo lỗi r đúng k
 =========================================
 CA ĐÊM
 =========================================

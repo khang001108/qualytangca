@@ -9,7 +9,7 @@ import OvertimeList from "../components/OvertimeList";
 import OvertimeSummary from "../components/OvertimeSummary";
 import OvertimeChart from "../components/OvertimeChart";
 import OvertimeMonth from "../components/OvertimeMonth";
-import OvertimeForm from "../components/OvertimeForm";
+import OvertimeForm from "../components/OvertimeForm/OvertimeForm";
 import PopupManager from "../components/PopupManager";
 import { auth, db } from "../lib/firebase";
 import { Loader2, CheckCircle2, XCircle, Hourglass } from "lucide-react";
