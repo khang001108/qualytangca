@@ -1,6 +1,6 @@
 // components/ManageMembers/overtimeConfig/SectionShiftConfig/index.jsx
 import React, { useState, useEffect } from "react";
-import { Sun, Moon, Save, Edit3, X } from "lucide-react";
+import { Sun, Moon, Save, Edit3, X, RotateCcw } from "lucide-react";
 import { useShiftFirestore } from "./useShiftFirestore";
 
 export default function SectionShiftConfig({ config, setConfig, onDataChange }) {
@@ -158,14 +158,12 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
               shiftType: p.shiftType === "day" ? "night" : "day",
             }))
           }
-          className={`relative flex items-center w-20 h-9 rounded-full cursor-pointer transition-all duration-300 ${
-            config.shiftType === "day" ? "bg-yellow-400" : "bg-indigo-600"
-          }`}
+          className={`relative flex items-center w-20 h-9 rounded-full cursor-pointer transition-all duration-300 ${config.shiftType === "day" ? "bg-yellow-400" : "bg-indigo-600"
+            }`}
         >
           <div
-            className={`absolute left-1 top-1 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center transform transition-transform duration-300 ${
-              config.shiftType === "day" ? "translate-x-0" : "translate-x-11"
-            }`}
+            className={`absolute left-1 top-1 w-7 h-7 rounded-full bg-white shadow-md flex items-center justify-center transform transition-transform duration-300 ${config.shiftType === "day" ? "translate-x-0" : "translate-x-11"
+              }`}
           >
             {config.shiftType === "day" ? (
               <Sun size={18} className="text-yellow-400" />
@@ -214,18 +212,16 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
         </div>
 
         <div
-          className={`border rounded-lg p-4 text-center ${
-            office.error
-              ? "border-red-500 bg-red-50 dark:bg-red-900/30"
-              : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
-          }`}
+          className={`border rounded-lg p-4 text-center ${office.error
+            ? "border-red-500 bg-red-50 dark:bg-red-900/30"
+            : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+            }`}
         >
           <div
-            className={`font-semibold ${
-              office.error
-                ? "text-red-600 dark:text-red-400"
-                : "text-blue-600 dark:text-blue-400"
-            }`}
+            className={`font-semibold ${office.error
+              ? "text-red-600 dark:text-red-400"
+              : "text-blue-600 dark:text-blue-400"
+              }`}
           >
             Giờ hành chính: {office.value}
           </div>
@@ -236,14 +232,62 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
       <div className="flex justify-end mt-5">
         <button
           onClick={handleSave}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-white shadow-md transition ${
-            config.shiftType === "day"
-              ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
-              : "bg-gradient-to-r from-indigo-500 to-indigo-600"
-          } hover:opacity-90`}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold text-white shadow-md transition ${config.shiftType === "day"
+            ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
+            : "bg-gradient-to-r from-indigo-500 to-indigo-600"
+            } hover:opacity-90`}
         >
           <Save size={18} />
           {config.shiftType === "day" ? "Lưu ca ngày" : "Lưu ca đêm"}
+        </button>
+      </div>
+
+      <div className="flex justify-start mt-4">
+        <button
+          onClick={() =>
+            setConfig((prev) => {
+              const t = prev.shiftType;
+              const defaultShift =
+                t === "day"
+                  ? {
+                    lenCaSomBatDau: "06:45",
+                    lenCaSomKetThuc: "07:00",
+                    tanCaSomBatDau: "16:00",
+                    tanCaSomKetThuc: "16:15",
+                    lenCaMuonBatDau: "07:45",
+                    lenCaMuonKetThuc: "08:00",
+                    tanCaMuonBatDau: "17:00",
+                    tanCaMuonKetThuc: "17:15",
+                    gioLenCa: "7H",
+                    gioXuongCa: "16H",
+                    nghiGiuaCa: "1H",
+                    tongGioHanhChinh: 8,
+                  }
+                  : {
+                    lenCaSomBatDau: "18:45",
+                    lenCaSomKetThuc: "19:00",
+                    tanCaSomBatDau: "04:00",
+                    tanCaSomKetThuc: "04:15",
+                    lenCaMuonBatDau: "19:45",
+                    lenCaMuonKetThuc: "20:00",
+                    tanCaMuonBatDau: "05:00",
+                    tanCaMuonKetThuc: "05:15",
+                    gioLenCa: "19H",
+                    gioXuongCa: "4H",
+                    nghiGiuaCa: "1H",
+                    tongGioHanhChinh: 8,
+                  };
+
+              return {
+                ...prev,
+                [t]: defaultShift,
+              };
+            })
+          }
+          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium border border-orange-400 dark:border-orange-600 text-gray-700 dark:text-orange-200 bg-orange-100 dark:bg-orange-800 hover:bg-orange-200 dark:hover:bg-orange-700 transition"
+        >
+          <RotateCcw size={18} />
+          Đặt lại mặc định
         </button>
       </div>
 
