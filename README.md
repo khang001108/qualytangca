@@ -310,29 +310,90 @@ khi tính thưởng và tăng ca vẫn là 2.5 vì từ 05:00 - 07:00 = 2.5 ( đ
 
 Tạo Flow sơ đồ tính toán để hiển thị trong FormulaPreview.
 
+=============== CHẤM CÔNG =======================
 
 input
 checkin
 1.陈明壯/18:52
 5.陈文雄/19:46
 shiftSchedules (xác định nv ngày hôm đó ca ngày hay đêm) 
+shift: Ca đêm = shiftStart: lên_ca_đêm_sớm 
 -> shiftConfig 
-shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> lenCaSomBatDau(18:45) < 18:52 < lenCaSomKetThuc(19:00) -> lenCa = lên ca sớm ok
-shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> lenCaMuonBatDau(19:45) < 19:46 < lenCaMuonKetThuc(20:00) -> lenCa = lên ca muộn ok
+shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> lenCaSomBatDau(18:45) < 18:52 < lenCaSomKetThuc(19:00) -> lenCa = 18:52 = lên ca sớm ok
+shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> lenCaMuonBatDau(19:45) < 19:46 < lenCaMuonKetThuc(20:00) -> lenCa = 19:46 = lên ca muộn ok
 
+
+input
+checkout
+1.陈明壯/4:01
+5.陈文雄/5:01
+shiftSchedules (xác định nv ngày hôm đó ca ngày hay đêm) 
+shift: Ca đêm = shiftStart: lên_ca_đêm_sớm 
+-> shiftConfig 
+shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) -> xuongCa = 04:01 = tan ca sớm ok
+shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> tanCaMuonBatDau(05:00) > 05:01 > tanCaMuonKetThuc(5:15) -> xuongCa = 05:01 = tan ca muộn ok
+
+=============== HÀNH CHÍNH =======================
+đủ dữ liệu lên ca và xuống ca ok tính giờ hành 
+giờ hành chính
+shiftConfig -> night -> tongGioHanhChinh: 8
+lenCaSomBatDau(18:45) < 18:52 < lenCaSomKetThuc(19:00) -> lenCa ok = 18:52
+lenCaMuonBatDau(19:45) < 19:46 < lenCaMuonKetThuc(20:00) -> lenCa ok = 19:46
+
+tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) -> xuongCa ok = 04:01
+tanCaMuonBatDau(05:00) > 05:01 > tanCaMuonKetThuc(5:15) -> xuongCa ok = 05:01
+
+-> 19:00 đến 04:00 = 9 tiếng - 1 nghiGiuaCa(1) = 8 tiếng hành chính = tongGioHanhChinh(8)
+-> 20:00 đến 05:00 = 9 tiếng - 1 nghiGiuaCa(1) = 8 tiếng hành chính = tongGioHanhChinh(8)
+
+
+=============== THƯỞNG =======================
+tính thưởng
+tiếng hành chính > tongGioHanhChinh(8) >= 2 tiếng
+-> bonusConfig -> main -> thuongSauBaoNhieuTieng(2) -> congThemBaoNhieuGio(0.5)
 
 input
 checkout
 1.陈明壯/6:01
 5.陈文雄/7:01
 shiftSchedules (xác định nv ngày hôm đó ca ngày hay đêm) 
--> shiftConfig 
-shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) -> xuongCa = tan ca sớm ok
-shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> tanCaMuonBatDau(05:00) > 04:01 > tanCaMuonKetThuc(5:15) -> xuongCa = tan ca muộn ok
+shift: Ca đêm = shiftStart: lên_ca_đêm_sớm 
+shiftStart: lên_ca_đêm_sớm -> shiftConfig -> night -> tanCaSomBatDau(04:00) > tanCaSomKetThuc(4:15) > 06:01 -> tăng ca ok = 2 tiếng
 
-giờ hành chính
+lenCaSomBatDau(18:45) < 18:52 < lenCaSomKetThuc(19:00) -> lenCa ok = 19:00
+tanCaSomBatDau(04:00) > 04:01 > tanCaSomKetThuc(4:15) -> xuongCa ok = 04:00
+tanCaSomBatDau(04:00) > tanCaSomKetThuc(4:15) > 06:01 -> tăng ca ok = 2 tiếng
+2 + 0.5 = 2.5
+
+shiftStart: lên_ca_đêm_muộn -> shiftConfig -> ngiht -> tanCaMuonBatDau(05:00) > tanCaMuonKetThuc(5:15) > 06:01 -> xuongCa = 1 tiếng
+lenCaMuonBatDau(19:45) < 19:46 < lenCaMuonKetThuc(20:00) -> lenCa ok = 20:00
+tanCaMuonBatDau(05:00) > 05:01 > tanCaMuonKetThuc(5:15) -> xuongCa ok = 05:00
+tanCaMuonBatDau(05:00) > tanCaMuonKetThuc(5:15) > 06:01 -> tăng ca ok = 1 tiếng
+ko đủ >= 2 ko thưởng
 
 
+=============== KẾT QUẢ =======================
+kết quả
 
-->
+gioConLai 38 (number)
+gioDaLam 2 (number)
+gioThuongConLai 9.5 (number)
+gioThuongDaNhan 0.5 (number)
+id "2YUgXrNVlH6ynB9OSsIB" (string)
+ngayConLai 19 (number)
+soNgayDaLam 1 (number)
+ten "TRẦN MINH TRANG" (string)
+tongGioKeHoach 40 (number)
+tongGioThuong 10 (number)
 
+
+gioConLai 39 (number)
+gioDaLam 1 (number)
+gioThuongConLai 10 (number)
+gioThuongDaNhan 0 (number)
+id "WhuoLekGh2FrFMHomgFX" (string)
+ngayConLai 19.5 (number) // vì tăng ca 1 tiếng trong khi perDay: 2, days: 20
+soNgayDaLam 0.5 (number)
+ten "TRẦN VĂN HÙNG" (string)
+tongGioKeHoach 40 (number)
+tongGioThuong 10 (number)
