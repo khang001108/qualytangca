@@ -48,6 +48,60 @@ export default function OvertimeForm({
     }
 
     try {
+      // ================= KIỂM TRA TRƯỚC KHI XỬ LÝ =================
+      const lines = textInput
+        .split("\n")
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+
+      for (let line of lines) {
+        const parts = line.split("/");
+        if (parts.length < 2) {
+          showToast("error", `❌ Sai định dạng: ${line}`);
+          return;
+        }
+
+        const timePart = parts[1].trim();
+
+        // Trường hợp nghỉ thì bỏ qua
+        if (timePart === "休") continue;
+
+        const timeRegex = /^\d{1,2}:\d{2}$/;
+
+        if (!timeRegex.test(timePart)) {
+          showToast("error", `❌ Sai giờ: ${timePart} (dòng: ${line})`);
+          return;
+        }
+
+        const [hh, mm] = timePart.split(":").map(Number);
+
+        // 🚨 Kiểm tra sai mode
+        if (mode === "checkin") {
+          // Lên ca không thể là 01h – 09h
+          if (hh < 12) {
+            showToast(
+              "error",
+              `⚠️ Bạn đang ở chế độ Check-in nhưng phát hiện giờ xuống ca: ${timePart}.\n` +
+              `→ Hãy chuyển sang chế độ Check-out.`
+            );
+            return;
+          }
+        }
+
+        if (mode === "checkout") {
+          // Xuống ca không thể là 16h – 23h
+          if (hh >= 12) {
+            showToast(
+              "error",
+              `⚠️ Bạn đang ở chế độ Check-out nhưng phát hiện giờ lên ca: ${timePart}.\n` +
+              `→ Hãy chuyển sang chế độ Check-in.`
+            );
+            return;
+          }
+        }
+      }
+      // ===================================================================
+
       await parseText(textInput, mode);
       showToast("success", "✅ Dữ liệu chấm công đã được xử lý thành công!");
     } catch (err) {
@@ -125,8 +179,8 @@ export default function OvertimeForm({
               >
                 <div
                   className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${mode === "checkin"
-                      ? "from-yellow-500 to-yellow-600"
-                      : "from-green-500 to-green-600"
+                    ? "from-yellow-500 to-yellow-600"
+                    : "from-green-500 to-green-600"
                     } shadow-md transform transition-all duration-300 ${mode === "checkout" ? "translate-x-full" : "translate-x-0"
                     }`}
                 />
@@ -174,8 +228,8 @@ export default function OvertimeForm({
               <button
                 onClick={handleParse}
                 className={`px-5 py-2 rounded-lg text-white shadow-md transition ${mode === "checkin"
-                    ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800"
-                    : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+                  ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800"
+                  : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
                   }`}
               >
                 {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
