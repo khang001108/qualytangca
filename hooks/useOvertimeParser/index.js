@@ -8,21 +8,15 @@ import {
   setDoc,
   serverTimestamp,
   getDocs,
-  query,
-  where,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase"; // sửa đường dẫn nếu cần
 
-// Nếu bạn có parseHelpers xuất sẵn - dùng nó. Nếu không, file này có fallback nhỏ.
 import {
   LEAVE_CODES,
   LEAVE_MAP,
   normalizeName as normalizeFromHelpers,
 } from "./parseHelpers"; // chỉnh path nếu khác
-
-// Bonus / limit helpers (bạn đã có file tương tự; nếu không, dùng logic bên dưới)
-import { calcOvertimeHoursFloor } from "./calcOvertime"; // nếu có - nếu không comment import và dùng hàm calcMinutesToHours ở dưới
 
 // ==================== Helpers nội bộ (fallback nếu helper file khác) ====================
 const normalizeName = (s) => {
@@ -32,39 +26,40 @@ const normalizeName = (s) => {
   return String(s).trim();
 };
 
-// Chuyển "hh:mm" thành tổng phút
 function timeToMinutes(t) {
   if (!t) return null;
   const s = String(t).trim();
   const [hh, mm] = s.split(":").map((n) => Number(n || 0));
-  return hh * 60 + mm;
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return (hh % 24) * 60 + (mm % 60);
 }
 
-// Chuyển phút thành "HH:MM"
 function minutesToHHMM(min) {
-  const hh = Math.floor((min % (24 * 60)) / 60);
-  const mm = Math.floor(min % 60);
+  min = ((min % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hh = Math.floor(min / 60);
+  const mm = min % 60;
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
-// làm tròn: bỏ phút -> floor hours
+
 function minutesToFlooredHours(min) {
   if (min <= 0) return 0;
   return Math.floor(min / 60);
 }
 
-// ==================== Hàm chính của hook ====================
+const safeStr = (v, def = null) => (v == null ? def : v);
+
+// ==================== Hook ====================
 export default function useOvertimeParser({
   user,
   members = [],
-  setMembers = () => {},
-  setItems = () => {},
+  setMembers = () => { },
+  setItems = () => { },
   selectedMonth,
   selectedYear,
   selectedDate,
 }) {
   const isProcessing = useRef(false);
 
-  // Tải cấu hình ca (day/night)
   async function loadShiftConfig() {
     try {
       const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
@@ -78,7 +73,6 @@ export default function useOvertimeParser({
     }
   }
 
-  // Tải bonus config + overtimeLimits doc map
   async function loadBonusAndLimits() {
     const bonusSnap = await getDoc(doc(db, "bonusConfig", "main"));
     const bonus = bonusSnap.exists() ? bonusSnap.data() : {};
@@ -94,7 +88,6 @@ export default function useOvertimeParser({
     return { bonus, limits };
   }
 
-  // Lưu hoặc merge shiftSchedules doc (id: `${date}__${member.id}`)
   async function upsertShiftSchedule(dateStr, member, patch) {
     const docId = `${dateStr}__${member.id}`;
     const ref = doc(db, "shiftSchedules", docId);
@@ -116,7 +109,18 @@ export default function useOvertimeParser({
     );
   }
 
-  // Cập nhật members.overtimeLimit (atomic-ish)
+  async function getShiftSchedule(dateStr, memberId) {
+    try {
+      const docId = `${dateStr}__${memberId}`;
+      const ref = doc(db, "shiftSchedules", docId);
+      const snap = await getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    } catch (e) {
+      console.warn("getShiftSchedule error", e);
+      return null;
+    }
+  }
+
   async function updateMemberOvertimeWorked(memberId, addHours) {
     if (!memberId || !addHours) return null;
     const ref = doc(db, "members", memberId);
@@ -133,28 +137,25 @@ export default function useOvertimeParser({
       updatedAt: serverTimestamp(),
     });
 
-    // update local state (so UI phản hồi nhanh)
     setMembers((prev) =>
       prev.map((x) =>
         x.id === memberId
           ? {
-              ...x,
-              overtimeLimit: {
-                ...(x.overtimeLimit || {}),
-                workedHours: newWorked,
-                remaining: newRemaining,
-                monthlyLimit,
-              },
-            }
+            ...x,
+            overtimeLimit: {
+              ...(x.overtimeLimit || {}),
+              workedHours: newWorked,
+              remaining: newRemaining,
+              monthlyLimit,
+            },
+          }
           : x
       )
     );
     return { newWorked, newRemaining, monthlyLimit };
   }
 
-  // Cập nhật overtimeLimits doc: update member entry inside members[] với cùng logic
   async function updateOvertimeLimitsMember(limitKey, memberId, patch) {
-    // limitKey là string/number tương ứng "40"
     const docId = `limit_${limitKey}`;
     const ref = doc(db, "overtimeLimits", docId);
     const snap = await getDoc(ref);
@@ -162,11 +163,8 @@ export default function useOvertimeParser({
     const data = snap.data();
     const membersArr = Array.isArray(data.members) ? data.members : [];
 
-    const idx = membersArr.findIndex(
-      (mm) => String(mm.id) === String(memberId)
-    );
+    const idx = membersArr.findIndex((mm) => String(mm.id) === String(memberId));
     if (idx === -1) {
-      // nếu không tìm thấy, thêm mới 1 record cơ bản (không phá cấu trúc)
       membersArr.push({
         id: memberId,
         ten: patch.ten || "",
@@ -188,7 +186,6 @@ export default function useOvertimeParser({
     await setDoc(ref, { members: membersArr }, { merge: true });
   }
 
-  // TÌM member theo tên (thích ứng realName / nickname / includes)
   function findMemberByName(inputName) {
     const norm = normalizeName(inputName);
     return members.find((m) => {
@@ -198,18 +195,13 @@ export default function useOvertimeParser({
       if (!r && !n) return false;
       if (r === norm) return true;
       if (n === norm) return true;
-      // fallback contains (nhiều trường hợp tên rút gọn)
       if (r && r.includes(norm)) return true;
       if (n && n.includes(norm)) return true;
       return false;
     });
   }
 
-  // ===================================================================
-  // parseText: main entry
-  // - rawText: text pasted
-  // - mode: "checkin" | "checkout"
-  // ===================================================================
+  // ================= main parser =================
   async function parseText(rawText, mode = "checkin") {
     if (isProcessing.current) {
       console.warn("Parser busy");
@@ -219,19 +211,14 @@ export default function useOvertimeParser({
 
     try {
       if (!user?.uid) throw new Error("Chưa đăng nhập");
-
-      if (!rawText || !rawText.trim()) {
-        throw new Error("Dữ liệu rỗng");
-      }
+      if (!rawText || !rawText.trim()) throw new Error("Dữ liệu rỗng");
 
       const { day: shiftDay, night: shiftNight } = await loadShiftConfig();
       const { bonus, limits } = await loadBonusAndLimits();
 
-      // prepare date string
       const safeDate = selectedDate ? dayjs(selectedDate) : dayjs();
       const dateStr = safeDate.format("YYYY-MM-DD");
 
-      // normalize input lines
       const lines = rawText
         .split("\n")
         .map((l) => l.trim())
@@ -244,7 +231,6 @@ export default function useOvertimeParser({
         totalBonusAdded = 0;
 
       for (let raw of lines) {
-        // expected format like "1.陈明壯/18:52" or "陈明壯/18:52"
         const parts = raw.split("/");
         if (parts.length < 2) {
           skipped++;
@@ -258,15 +244,12 @@ export default function useOvertimeParser({
           continue;
         }
 
-        // skip leave codes (no OT / no bonus)
         if (LEAVE_CODES.includes(timePart) || LEAVE_CODES.includes(namePart)) {
-          // save note into shiftSchedules (so UI shows leave)
           await upsertShiftSchedule(dateStr, member, { note: timePart });
           skipped++;
           continue;
         }
 
-        // validate time format hh:mm (allow single-digit hour like 4:01 or 04:01)
         const timeMatch = timePart.match(/^(\d{1,2}):(\d{2})$/);
         if (!timeMatch) {
           skipped++;
@@ -276,297 +259,280 @@ export default function useOvertimeParser({
         const mm = Number(timeMatch[2]);
         const minutesOfDay = (hh % 24) * 60 + (mm % 60);
 
-        // determine which shift (day/night) this member is expected to work
-        // use member.shiftStart (e.g., "07:00" or "19:00") to decide
-        const shiftStart = member.shiftStart || member.shift || ""; // e.g., "19:00" for night
-        const startMin = timeToMinutes(shiftStart);
-        const isNight = startMin !== null && (startMin >= 18 || startMin < 6);
+        const shiftStart = member.shiftStart || member.shift || "";
+        let isNight = false;
 
-        // choose shift config
+        if (member.shift === "Ca đêm") {
+          isNight = true;
+        } else if (member.shift === "Ca ngày") {
+          isNight = false;
+        } else {
+          const startMin = timeToMinutes(member.shiftStart);
+          if (startMin !== null) {
+            isNight = (startMin >= 18 || startMin < 6);
+          }
+        }
         const cfg = isNight ? shiftNight || {} : shiftDay || {};
 
-        // get windows: lenCaSomBatDau, lenCaSomKetThuc, tanCaSomBatDau, tanCaSomKetThuc (may be in cfg)
-        // different names used across code; try common names
-        const lenStart =
-          cfg.lenCaSomBatDau ||
-          cfg.lenCaMuonBatDau ||
-          cfg.gioLenCa ||
-          cfg.lenCaSomBatDau;
-        const lenEnd =
-          cfg.lenCaSomKetThuc ||
-          cfg.lenCaMuonKetThuc ||
-          cfg.gioLenCa ||
-          cfg.lenCaSomKetThuc;
-        const tanStart =
-          cfg.tanCaSomBatDau ||
-          cfg.tanCaMuonBatDau ||
-          cfg.gioXuongCa ||
-          cfg.tanCaSomBatDau;
-        const tanEnd =
-          cfg.tanCaSomKetThuc ||
-          cfg.tanCaMuonKetThuc ||
-          cfg.tanCaSomKetThuc ||
-          cfg.tanCaMuonKetThuc;
+        const lenSomStartStr = safeStr(cfg.lenCaSomBatDau, null);
+        const lenSomEndStr = safeStr(cfg.lenCaSomKetThuc, null);
+        const lenMuonStartStr = safeStr(cfg.lenCaMuonBatDau, null);
+        const lenMuonEndStr = safeStr(cfg.lenCaMuonKetThuc, null);
+        const tanSomStartStr = safeStr(cfg.tanCaSomBatDau, null);
+        const tanMuonStartStr = safeStr(cfg.tanCaMuonBatDau, null);
 
-        // parse minutes for windows (safely)
-        const lenStartMin = timeToMinutes(lenStart) ?? startMin - 30; // fallback
-        const lenEndMin = timeToMinutes(lenEnd) ?? startMin + 15;
-        const tanStartMin = timeToMinutes(tanStart);
-        const tanEndMin = timeToMinutes(tanEnd);
+        const lenSomStart = timeToMinutes(lenSomStartStr);
+        const lenSomEnd = timeToMinutes(lenSomEndStr);
+        const lenMuonStart = timeToMinutes(lenMuonStartStr);
+        const lenMuonEnd = timeToMinutes(lenMuonEndStr);
+        const tanSomStart = timeToMinutes(tanSomStartStr);
+        const tanMuonStart = timeToMinutes(tanMuonStartStr);
 
-        // -----------------------
-        // handle checkin (lenCa) or checkout (xuongCa)
-        // -----------------------
+        // ---------- CHECKIN ----------
         if (mode === "checkin") {
-          // Accept if time between lenStartMin and lenEndMin (inclusive)
-          // For night shifts, times can wrap midnight; but checkin for night should be near startMin
-          let ok = false;
-          if (lenStartMin <= lenEndMin) {
-            ok = minutesOfDay >= lenStartMin && minutesOfDay <= lenEndMin;
-          } else {
-            // wrap midnight
-            ok =
-              minutesOfDay >= lenStartMin ||
-              minutesOfDay <= lenEndMin % (24 * 60);
-          }
+          let checkinType = "other";
 
-          if (!ok) {
-            // still write lenCa but mark as outside window? choose to still accept but show toast
-            await upsertShiftSchedule(dateStr, member, {
-              lenCa: minutesToHHMM(minutesOfDay),
-              note: "checkin-outside-window",
-            });
-          } else {
-            await upsertShiftSchedule(dateStr, member, {
-              lenCa: minutesToHHMM(minutesOfDay),
-            });
-          }
-          updated++;
-        } else {
-          // mode === "checkout"
-          // Accept if in tan window OR later (OT)
-          let ok = false;
-          if (
-            typeof tanStartMin === "number" &&
-            typeof tanEndMin === "number"
-          ) {
-            if (tanStartMin <= tanEndMin) {
-              ok = minutesOfDay >= tanStartMin && minutesOfDay <= tanEndMin;
+          if (typeof lenSomStart === "number" && typeof lenSomEnd === "number") {
+            if (lenSomStart <= lenSomEnd) {
+              if (minutesOfDay >= lenSomStart && minutesOfDay <= lenSomEnd) {
+                checkinType = "som";
+              }
             } else {
-              ok =
-                minutesOfDay >= tanStartMin ||
-                minutesOfDay <= tanEndMin % (24 * 60);
+              if (minutesOfDay >= lenSomStart || minutesOfDay <= lenSomEnd) {
+                checkinType = "som";
+              }
             }
-          } else {
-            ok = true; // no tan window -> accept
           }
 
-          // Save xuongCa first
+          if (checkinType === "other" && typeof lenMuonStart === "number" && typeof lenMuonEnd === "number") {
+            if (lenMuonStart <= lenMuonEnd) {
+              if (minutesOfDay >= lenMuonStart && minutesOfDay <= lenMuonEnd) {
+                checkinType = "muon";
+              }
+            } else {
+              if (minutesOfDay >= lenMuonStart || minutesOfDay <= lenMuonEnd) {
+                checkinType = "muon";
+              }
+            }
+          }
+
           await upsertShiftSchedule(dateStr, member, {
-            xuongCa: minutesToHHMM(minutesOfDay),
+            lenCa: minutesToHHMM(minutesOfDay),
+            checkinType,
           });
           updated++;
+          continue;
+        }
 
-          // If checkout is after tanStartMin (i.e., OT), compute OT minutes
-          // Need a reference tan boundary: use tanStartMin (end of official shift)
-          const refMin =
-            typeof tanStartMin === "number"
-              ? tanStartMin
-              : isNight
-              ? timeToMinutes(member.shiftStart) +
-                (cfg.tongGioHanhChinh || 8) * 60
-              : timeToMinutes(member.shiftStart) +
-                (cfg.tongGioHanhChinh || 8) * 60;
+        // ---------- CHECKOUT ----------
+        // Retrieve stored shift schedule first (to get checkinType or lenCa)
+        const shiftRec = await getShiftSchedule(dateStr, member.id);
 
-          let diffMin = minutesOfDay - refMin;
-          if (diffMin < 0) {
-            // if wrapped over midnight, add 24h
-            diffMin += 24 * 60;
+        // Save xuongCa (once)
+        await upsertShiftSchedule(dateStr, member, {
+          xuongCa: minutesToHHMM(minutesOfDay),
+        });
+        updated++;
+
+        // Determine checkinType: prefer stored checkinType; else infer from stored lenCa; else fallback to other
+        let storedCheckinType = (shiftRec && shiftRec.checkinType) || null;
+        if (!storedCheckinType && shiftRec && shiftRec.lenCa) {
+          const lenCaMin = timeToMinutes(shiftRec.lenCa);
+          if (typeof lenSomStart === "number" && typeof lenSomEnd === "number") {
+            if (lenSomStart <= lenSomEnd) {
+              if (lenCaMin >= lenSomStart && lenCaMin <= lenSomEnd) storedCheckinType = "som";
+            } else {
+              if (lenCaMin >= lenSomStart || lenCaMin <= lenSomEnd) storedCheckinType = "som";
+            }
+          }
+          if (!storedCheckinType && typeof lenMuonStart === "number" && typeof lenMuonEnd === "number") {
+            if (lenMuonStart <= lenMuonEnd) {
+              if (lenCaMin >= lenMuonStart && lenCaMin <= lenMuonEnd) storedCheckinType = "muon";
+            } else {
+              if (lenCaMin >= lenMuonStart || lenCaMin <= lenMuonEnd) storedCheckinType = "muon";
+            }
+          }
+        }
+
+        const checkinType = storedCheckinType || "other";
+
+        // official boundaries based on checkinType
+        let officialStart = null;
+        let officialEnd = null;
+
+        if (checkinType === "som") {
+          officialStart = timeToMinutes(lenSomEndStr);
+          officialEnd = timeToMinutes(tanSomStartStr);
+        } else if (checkinType === "muon") {
+          officialStart = timeToMinutes(lenMuonEndStr);
+          officialEnd = timeToMinutes(tanMuonStartStr);
+        } else {
+          officialStart = timeToMinutes(lenSomEndStr) || startMin || null;
+          officialEnd = timeToMinutes(tanSomStartStr) || (startMin != null ? (startMin + (cfg.tongGioHanhChinh || 8) * 60) % (24 * 60) : null);
+        }
+
+        if (officialStart == null || officialEnd == null) {
+          continue;
+        }
+
+        // compute working duration (hc) - handle wrap
+        let hcMin = officialEnd - officialStart;
+        if (hcMin < 0) hcMin += 24 * 60;
+
+        hcMin -= (Number(cfg.nghiGiuaCa || 1) * 60);
+        if (hcMin < 0) hcMin = 0;
+        const gioHanhChinh = hcMin / 60;
+
+        // OT = checkout - officialEnd (wrap)
+        let diffMin = minutesOfDay - officialEnd;
+        if (diffMin < 0) diffMin += 24 * 60;
+
+        if (diffMin < 60) {
+          continue;
+        }
+
+        const otHours = minutesToFlooredHours(diffMin);
+        if (otHours <= 0) continue;
+
+        const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
+        const memberWorked = Number(member.overtimeLimit?.workedHours || 0);
+        const memberRemaining = Math.max(memberLimit - memberWorked, 0);
+
+        const addHours = memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
+
+        if (addHours > 0) {
+          await updateMemberOvertimeWorked(member.id, addHours);
+          totalAddedHours += addHours;
+
+          // bonus calculation
+          let bonusGiven = 0;
+          try {
+            const limitKey = String(memberLimit || 0);
+            const limitDoc = limits[limitKey];
+            const bonusEnabled = Boolean(bonus?.batThuongTangCa);
+            const bonusEvery = Number(bonus?.thuongSauBaoNhieuTieng || 0);
+            const bonusAmount = Number(bonus?.congThemBaoNhieuGio || 0);
+            const selectedLimits = bonus?.cacNhanhDuocThuong || [];
+
+            const customNoBonus = (bonus?.cacMaKhongThuong || []).concat(LEAVE_CODES || []);
+            const nameNormalized = normalizeName(member.realName || "");
+
+            const isNoBonus =
+              customNoBonus.includes(nameNormalized) ||
+              customNoBonus.includes(member.realName) ||
+              customNoBonus.includes(member.nickname);
+
+            const isLimitBranchSelected =
+              selectedLimits && selectedLimits.includes(limitKey);
+
+            if (
+              bonusEnabled &&
+              !isNoBonus &&
+              isLimitBranchSelected &&
+              bonusEvery > 0 &&
+              bonusAmount > 0
+            ) {
+              const bonusUnits = Math.floor(addHours / bonusEvery);
+              bonusGiven = bonusUnits * bonusAmount;
+
+              if (limitDoc && Array.isArray(limitDoc.members)) {
+                const memberInLimit = (limitDoc.members || []).find(
+                  (mm) => String(mm.id) === String(member.id)
+                );
+                if (memberInLimit) {
+                  const remainBonus =
+                    (memberInLimit.gioThuongConLai ||
+                      memberInLimit.tongGioThuong ||
+                      0) - (memberInLimit.gioThuongDaNhan || 0);
+                  if (remainBonus <= 0) bonusGiven = 0;
+                  else bonusGiven = Math.min(bonusGiven, remainBonus);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Bonus calc failed", e);
+            bonusGiven = 0;
           }
 
-          if (diffMin >= 60) {
-            // floor hours (drop minutes)
-            const otHours = minutesToFlooredHours(diffMin);
+          totalBonusAdded += bonusGiven;
 
-            // ====== apply member limit (from members.overtimeLimit.monthlyLimit) ======
-            const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
-            const memberWorked = Number(member.overtimeLimit?.workedHours || 0);
-            const memberRemaining = Math.max(memberLimit - memberWorked, 0);
+          // update overtimeLimits member entry with otCounted logic
+          try {
+            if (memberLimit && memberLimit > 0) {
+              const limitDocRef = doc(db, "overtimeLimits", `limit_${memberLimit}`);
+              const limitSnap = await getDoc(limitDocRef);
+              if (limitSnap.exists()) {
+                const limitData = limitSnap.data();
+                const membersArr = Array.isArray(limitData.members) ? limitData.members : [];
+                const idx = membersArr.findIndex((mm) => String(mm.id) === String(member.id));
+                const existing = idx !== -1 ? membersArr[idx] : {};
 
-            // allowed hours to add (cannot exceed remaining)
-            const addHours = Math.min(otHours, memberRemaining);
+                const existedGioDaLam = Number(existing.gioDaLam || existing.worked || 0);
+                const existedSoNgay = Number(existing.soNgayDaLam || 0);
+                const existedGioThuongDaNhan = Number(existing.gioThuongDaNhan || 0);
+                const existedGioThuongConLai = Number(existing.gioThuongConLai || existing.tongGioThuong || 0);
 
-            if (addHours > 0) {
-              // update members.overtimeLimit
-              const memberUpdateRes = await updateMemberOvertimeWorked(
-                member.id,
-                addHours
-              );
-              totalAddedHours += addHours;
+                // determine if this day already counted for OT
+                const alreadyCounted = !!(shiftRec && shiftRec.otCounted);
 
-              // ====== BONUS calculation based on overtimeLimits doc & bonusConfig ======
-              let bonusGiven = 0;
-              try {
-                // Find overtimeLimits doc for this member's limit key
-                const limitKey = String(memberLimit || 0);
-                const limitDoc = limits[limitKey]; // from loadBonusAndLimits()
+                const newGioDaLam = existedGioDaLam + addHours;
+                const incrementDay = alreadyCounted ? 0 : 1;
+                const newSoNgay = existedSoNgay + incrementDay;
 
-                const bonusEnabled = Boolean(bonus?.batThuongTangCa);
-                const bonusEvery = Number(bonus?.thuongSauBaoNhieuTieng || 0);
-                const bonusAmount = Number(bonus?.congThemBaoNhieuGio || 0);
-                const selectedLimits = bonus?.cacNhanhDuocThuong || [];
+                const totalPlan = Number(existing.tongGioKeHoach || limitData.limit || 0);
+                const newGioConLai = Math.max(totalPlan - newGioDaLam, 0);
 
-                // check no-bonus codes (LEAVE_CODES + custom)
-                const customNoBonus = (bonus?.cacMaKhongThuong || []).concat(
-                  LEAVE_CODES || []
-                );
-                const nameNormalized = normalizeName(member.realName || "");
+                const newGioThuongDaNhan = existedGioThuongDaNhan + (bonusGiven || 0);
+                const newGioThuongConLai = Math.max(existedGioThuongConLai - (bonusGiven || 0), 0);
 
-                const isNoBonus =
-                  customNoBonus.includes(nameNormalized) ||
-                  customNoBonus.includes(member.realName) ||
-                  customNoBonus.includes(member.nickname);
+                const existedNgayConLai = Number(existing.ngayConLai ?? limitData.days ?? 0);
+                const newNgayConLai = Math.max(existedNgayConLai - incrementDay, 0);
 
-                const isLimitBranchSelected =
-                  selectedLimits && selectedLimits.includes(limitKey);
+                const patch = {
+                  id: member.id,
+                  ten: member.nickname || member.realName || "",
+                  gioDaLam: newGioDaLam,
+                  gioConLai: newGioConLai,
+                  soNgayDaLam: newSoNgay,
+                  ngayConLai: newNgayConLai,
+                  gioThuongDaNhan: newGioThuongDaNhan,
+                  gioThuongConLai: newGioThuongConLai,
+                };
 
-                if (
-                  bonusEnabled &&
-                  !isNoBonus &&
-                  isLimitBranchSelected &&
-                  bonusEvery > 0 &&
-                  bonusAmount > 0
-                ) {
-                  // strategy: give floor(diffMin/60 / bonusEvery) * bonusAmount
-                  const bonusUnits = Math.floor(otHours / bonusEvery);
-                  bonusGiven = bonusUnits * bonusAmount;
+                await updateOvertimeLimitsMember(memberLimit, member.id, patch);
 
-                  // cap bonusGiven to remaining bonus bucket from overtimeLimits if present
-                  if (limitDoc && Array.isArray(limitDoc.members)) {
-                    const memberInLimit = (limitDoc.members || []).find(
-                      (mm) => String(mm.id) === String(member.id)
-                    );
-                    if (memberInLimit) {
-                      const remainBonus =
-                        (memberInLimit.gioThuongConLai ||
-                          memberInLimit.tongGioThuong ||
-                          0) - (memberInLimit.gioThuongDaNhan || 0);
-                      if (remainBonus <= 0) bonusGiven = 0;
-                      else bonusGiven = Math.min(bonusGiven, remainBonus);
-                    }
-                  }
+                // mark otCounted on shiftSchedules so same-day re-runs don't double count
+                if (!alreadyCounted) {
+                  await upsertShiftSchedule(dateStr, member, { otCounted: true });
                 }
-              } catch (e) {
-                console.warn("Bonus calc failed", e);
-                bonusGiven = 0;
               }
+            }
+          } catch (e) {
+            console.warn("Failed updating overtimeLimits member", e);
+          }
 
-              totalBonusAdded += bonusGiven;
-
-              // ====== Update overtimeLimits doc member entry to reflect new values ======
-              // ====== cập nhật overtimelimits ======
-              try {
-                if (memberLimit && memberLimit > 0) {
-                  // compute patches for overtimeLimits members[] schema
-                  // load existing snapshot once
-                  // We'll derive fields: gioDaLam, gioConLai, soNgayDaLam, ngayConLai, gioThuongDaNhan, gioThuongConLai
-                  // For safe update, fetch doc live
-                  const limitDocRef = doc(
-                    db,
-                    "overtimeLimits",
-                    `limit_${memberLimit}`
-                  );
-                  const limitSnap = await getDoc(limitDocRef);
-                  if (limitSnap.exists()) {
-                    const limitData = limitSnap.data();
-                    const membersArr = Array.isArray(limitData.members)
-                      ? limitData.members
-                      : [];
-                    const idx = membersArr.findIndex(
-                      (mm) => String(mm.id) === String(member.id)
-                    );
-
-                    // build new member payload (merge with existing)
-                    const existing = idx !== -1 ? membersArr[idx] : {};
-                    const existedGioDaLam = Number(
-                      existing.gioDaLam || existing.worked || 0
-                    );
-                    const existedSoNgay = Number(existing.soNgayDaLam || 0);
-                    const existedGioThuongDaNhan = Number(
-                      existing.gioThuongDaNhan || 0
-                    );
-                    const existedGioThuongConLai = Number(
-                      existing.gioThuongConLai || existing.tongGioThuong || 0
-                    );
-
-                    const newGioDaLam = existedGioDaLam + addHours;
-                    const newSoNgay = existedSoNgay + 1;
-                    const totalPlan = Number(
-                      existing.tongGioKeHoach || limitData.limit || 0
-                    );
-                    const newGioConLai = Math.max(totalPlan - newGioDaLam, 0);
-
-                    const newGioThuongDaNhan =
-                      existedGioThuongDaNhan + (bonusGiven || 0);
-                    const newGioThuongConLai = Math.max(
-                      existedGioThuongConLai - (bonusGiven || 0),
-                      0
-                    );
-
-                    const newNgayConLai = Math.max(
-                      Number(existing.ngayConLai || limitData.days || 0) - 1,
-                      0
-                    );
-
-                    const patch = {
-                      id: member.id,
-                      ten: member.nickname || member.realName || "",
-                      gioDaLam: newGioDaLam,
-                      gioConLai: newGioConLai,
-                      soNgayDaLam: newSoNgay,
-                      ngayConLai: newNgayConLai,
-                      gioThuongDaNhan: newGioThuongDaNhan,
-                      gioThuongConLai: newGioThuongConLai,
-                    };
-
-                    // update member entry inside doc
-                    await updateOvertimeLimitsMember(
-                      memberLimit,
-                      member.id,
-                      patch
-                    );
-                  }
-                }
-              } catch (e) {
-                console.warn("Failed updating overtimeLimits member", e);
-              }
-
-              // Finally, write an overtime record in 'overtimes' collection (optional)
-              // Write simple record to allow history / audit (id auto)
-              try {
-                const otRef = doc(collection(db, "overtimes"));
-                await setDoc(otRef, {
-                  userId: user.uid,
-                  memberId: member.id,
-                  realName: member.realName,
-                  nickname: member.nickname || "",
-                  date: dateStr,
-                  checkIn: null,
-                  checkOut: minutesToHHMM(minutesOfDay),
-                  addedHours: addHours,
-                  bonusGiven: bonusGiven || 0,
-                  shift: member.shift || "",
-                  createdAt: serverTimestamp(),
-                });
-              } catch (e) {
-                console.warn("Failed writing overtime record", e);
-              }
-            } // end addHours > 0
-          } // end diffMin >= 60
-        } // end checkout branch
+          // write overtime record
+          try {
+            const otRef = doc(collection(db, "overtimes"));
+            await setDoc(otRef, {
+              userId: user.uid,
+              memberId: member.id,
+              realName: member.realName,
+              nickname: member.nickname || "",
+              date: dateStr,
+              checkIn: shiftRec?.lenCa || null,
+              checkOut: minutesToHHMM(minutesOfDay),
+              addedHours: addHours,
+              bonusGiven: bonusGiven || 0,
+              shift: member.shift || "",
+              createdAt: serverTimestamp(),
+            });
+          } catch (e) {
+            console.warn("Failed writing overtime record", e);
+          }
+        } // end addHours > 0
       } // end for lines
 
-      // done
       return {
         added,
         updated,
