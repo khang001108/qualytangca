@@ -26,11 +26,10 @@ export default function OvertimeForm({
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const [mode, setMode] = useState("checkin"); // "checkin" | "checkout"
+  const [mode, setMode] = useState("checkin");
   const modalRef = useRef();
   const [toasts, setToasts] = useState([]);
 
-  // pending shift updates for preview
   const [pendingShiftUpdates, setPendingShiftUpdates] = useState([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loadingApprove, setLoadingApprove] = useState(false);
@@ -59,7 +58,6 @@ export default function OvertimeForm({
     return inRangeWrap(window[0], window[1], minutesOfDay);
   };
 
-  // Main validate + parse handler (gathers pending updates and shows preview)
   const handleParse = async () => {
     if (!textInput.trim()) {
       showToast("error", "⚠️ Vui lòng nhập dữ liệu chấm công trước.");
@@ -67,9 +65,6 @@ export default function OvertimeForm({
     }
 
     const { day: shiftDay, night: shiftNight } = await loadShiftConfigs();
-    console.log("SHIFT CONFIG DAY =", shiftDay);
-    console.log("SHIFT CONFIG NIGHT =", shiftNight);
-
 
     const lines = textInput
       .split("\n")
@@ -88,7 +83,6 @@ export default function OvertimeForm({
       const namePart = parts[0].replace(/^\d+\.\s*/, "").trim();
       const timePart = parts[1].trim();
 
-      // skip leave codes
       if (timePart === "休") continue;
 
       const timeRegex = /^\d{1,2}:\d{2}$/;
@@ -99,23 +93,19 @@ export default function OvertimeForm({
 
       const [hh, mm] = timePart.split(":").map(Number);
       let minutesOfDay = hh * 60 + mm;
-      // sau let minutesOfDay = hh * 60 + mm;
-      console.log(`[DEBUG] ${namePart} rawMinutes=${minutesOfDay} hhmm=${minutesToHHMM(minutesOfDay)}`);
 
-      // find member
-      // in OvertimeForm loop
       const candidates = members.filter(m => {
         const rn = (m.realName || "").trim();
         const nk = (m.nickname || "").trim();
         return rn === namePart || nk === namePart;
       });
+
       let member = null;
       if (candidates.length === 1) member = candidates[0];
       else if (candidates.length > 1) {
         showToast("error", `Tên ${namePart} không rõ ràng (có nhiều người trùng).`);
         return;
       } else {
-        // fallback startsWith
         const c2 = members.filter(m => {
           const rn = (m.realName || "").trim();
           const nk = (m.nickname || "").trim();
@@ -136,43 +126,30 @@ export default function OvertimeForm({
         }
       }
 
-
       if (!member) {
         showToast("error", `❌ Không tìm thấy nhân viên: ${namePart}`);
         return;
       }
 
-      // get shiftSchedule for that day
       const shiftRec = await getShiftOfMember(member.id, selectedDate);
-
       if (!shiftRec || !shiftRec.shift) {
         showToast("error", `❌ Ngày ${selectedDate} chưa phân ca cho ${namePart}.`);
         return;
       }
 
-      // =====================================
-      // DEBUG BẮT BUỘC CHẠY
-      // =====================================
-      console.log("buildWindows imported from:", buildWindows);
-
-      console.log("LINE =", line);
-      console.log("timePart =", timePart);
-      console.log("minutesOfDay BEFORE =", minutesOfDay);
-      console.log("shiftRec =", shiftRec);
-      console.log("shiftRec.shift =", shiftRec.shift);
-      console.log("mode =", mode);
-      console.log("isNight =", String(shiftRec.shift).toLowerCase().includes("đêm"));
-
+      if (mode === "checkout") {
+        if (!shiftRec || !shiftRec.lenCa) {
+          showToast("error", `❌ ${namePart} chưa có dữ liệu check-in nên không thể checkout.`);
+          return;
+        }
+      }
 
       const shiftLabel = shiftRec.shift;
       const isNight = String(shiftLabel).toLowerCase().includes("đêm");
 
-      // rollover check-out ca đêm → +24h
       if (isNight && mode === "checkout") {
         minutesOfDay += 1440;
       }
-      console.log("minutesOfDay AFTER rollover =", minutesOfDay);
-
 
       const shiftCfg = isNight ? shiftNight : shiftDay;
 
@@ -186,24 +163,8 @@ export default function OvertimeForm({
         showToast("error", `❌ Không thể tạo khung giờ cho ca (${shiftLabel}).`);
         return;
       }
-      // --- paste this block right after `const windows = buildWindows(shiftCfg, isNight);` ---
-      console.log("[DEBUG] windows raw (numbers) =", {
-        somCheckin: windows?.som?.checkin,
-        somCheckout: windows?.som?.checkout,
-        muonCheckin: windows?.muon?.checkin,
-        muonCheckout: windows?.muon?.checkout,
-      });
-      console.log("[DEBUG] windows (HH:MM view) =", {
-        somCheckin: windows?.som?.checkin?.map(minutesToHHMM),
-        somCheckout: windows?.som?.checkout?.map(minutesToHHMM),
-        muonCheckin: windows?.muon?.checkin?.map(minutesToHHMM),
-        muonCheckout: windows?.muon?.checkout?.map(minutesToHHMM),
-      });
 
-      // helper to coerce to Number safely (handles strings, null)
       const num = (x) => (x == null ? null : Number(x));
-
-      // ensure arrays are numeric
       const normWindow = (arr) => {
         if (!arr || !Array.isArray(arr) || arr.length < 2) return null;
         const a = num(arr[0]);
@@ -217,9 +178,6 @@ export default function OvertimeForm({
       const wMuonCheckin = normWindow(windows?.muon?.checkin);
       const wMuonCheckout = normWindow(windows?.muon?.checkout);
 
-      console.log("[DEBUG] normalized windows =", { wSomCheckin, wSomCheckout, wMuonCheckin, wMuonCheckout });
-
-      // inRangeWrap expects numeric args — ensure that
       const inWindowSafe = (win, v) => {
         if (!win) return false;
         return inRangeWrap(win[0], win[1], v);
@@ -231,14 +189,10 @@ export default function OvertimeForm({
       const inMuon =
         mode === "checkin" ? inWindowSafe(wMuonCheckin, minutesOfDay) : inWindowSafe(wMuonCheckout, minutesOfDay);
 
-      console.log(`[DEBUG] inSom=${inSom} inMuon=${inMuon} minutesOfDay=${minutesOfDay} (${minutesToHHMM(minutesOfDay)})`);
-
-      // fallback: if neither matched, pick closest window edge (within threshold)
       let chosenVariant = null;
       if (inSom && !inMuon) chosenVariant = "som";
       else if (inMuon && !inSom) chosenVariant = "muon";
       else if (inSom && inMuon) {
-        // both true — ambiguous, prefer the one where time is closer to center
         const center = (arr) => (arr[0] + arr[1]) / 2;
         const dist = (v, arr) => Math.abs(v - center(arr));
         try {
@@ -249,18 +203,15 @@ export default function OvertimeForm({
           chosenVariant = "som";
         }
       } else {
-        // neither matched — compute distance to nearest window edge and accept if within threshold
-        const EXTRA_THRESHOLD = 6 * 60; // 6 hours tolerance (you can reduce)
+        const EXTRA_THRESHOLD = 6 * 60;
         const distances = [];
 
         const pushDist = (win, label) => {
           if (!win) return;
           const a = win[0], b = win[1];
-          // if v is lower than a -> distance = a - v; if higher than b -> v - b; else inside -> 0
           let d = 0;
           if (minutesOfDay < a) d = a - minutesOfDay;
           else if (minutesOfDay > b) d = minutesOfDay - b;
-          else d = 0;
           distances.push({ label, d, win });
         };
 
@@ -273,13 +224,10 @@ export default function OvertimeForm({
         }
 
         distances.sort((x, y) => x.d - y.d);
-        console.log("[DEBUG] distances to windows =", distances);
 
         if (distances.length > 0 && distances[0].d <= EXTRA_THRESHOLD) {
           chosenVariant = distances[0].label;
-          console.log(`[DEBUG] Fallback chosenVariant=${chosenVariant} by distance (d=${distances[0].d})`);
         } else {
-          // nothing within threshold → show current helpful error
           const somCheck = (mode === "checkin" ? wSomCheckin : wSomCheckout)
             ? wSomCheckin.map(minutesToHHMM).join(" - ")
             : "N/A";
@@ -297,17 +245,11 @@ export default function OvertimeForm({
         }
       }
 
-      // --- continue original code after this block: determine expectedShiftStart based on chosenVariant ---
-
-
-      // determine expected shiftStart token
       const isNightPrefix = isNight ? "lên_ca_đêm_" : "lên_ca_ngày_";
-      const expectedShiftStart = `${isNightPrefix}${chosenVariant === "som" ? "sớm" : "muộn"
-        }`;
+      const expectedShiftStart = `${isNightPrefix}${chosenVariant === "som" ? "sớm" : "muộn"}`;
 
       const currentShiftStart = shiftRec.shiftStart || null;
 
-      // ❗ KHÔNG cập nhật shiftStart khi đang xử lý CHECK-OUT
       if (mode === "checkin") {
         if (currentShiftStart !== expectedShiftStart) {
           pending.push({
@@ -318,13 +260,12 @@ export default function OvertimeForm({
           });
         }
       }
-    } // end loop
+    }
 
-    // Nếu có thay đổi ca → dedupe trước khi mở preview
     if (pending.length > 0) {
       const deduped = Object.values(
         pending.reduce((acc, p) => {
-          acc[p.memberId] = p; // giữ bản mới nhất
+          acc[p.memberId] = p;
           return acc;
         }, {})
       );
@@ -334,20 +275,15 @@ export default function OvertimeForm({
       return;
     }
 
-
-    // otherwise just parse immediately
     try {
       await parseText(textInput, mode);
       showToast("success", "✅ Dữ liệu chấm công đã được xử lý thành công!");
       setTextInput("");
       setFormOpen(false);
     } catch (err) {
-      console.error("Lỗi xử lý:", err);
       showToast("error", "❌ Đã xảy ra lỗi khi xử lý dữ liệu!");
     }
   };
-
-  // Called when user clicks "Bỏ qua" in preview modal (process without DB updates)
   const handleSkipUpdates = async () => {
     setPreviewOpen(false);
     try {
@@ -357,20 +293,16 @@ export default function OvertimeForm({
       setFormOpen(false);
       setPendingShiftUpdates([]);
     } catch (err) {
-      console.error(err);
       showToast("error", "❌ Lỗi khi xử lý chấm công sau khi bỏ cập nhật.");
     }
   };
 
-  // Called when user approves: update DB then run parser
   const handleApproveUpdates = async () => {
     if (!pendingShiftUpdates.length) {
       setPreviewOpen(false);
       return;
     }
     setLoadingApprove(true);
-
-    // Update each shiftSchedules doc's shiftStart. If update fails, we continue but gather errors.
 
     const batch = writeBatch(db);
 
@@ -379,25 +311,23 @@ export default function OvertimeForm({
       const docId = `${dateStr}__${u.memberId}`;
       const ref = doc(db, "shiftSchedules", docId);
 
-      // merge để không mất dữ liệu khác
       batch.set(ref, { shiftStart: u.newShiftStart }, { merge: true });
     }
 
+    let results = [];
     try {
       await batch.commit();
-      console.log("Batch update shiftStart success");
+      results = pendingShiftUpdates.map(() => ({ ok: true }));
     } catch (e) {
-      console.error("Batch update failed", e);
+      results = pendingShiftUpdates.map(() => ({ ok: false }));
       showToast("error", "❌ Lỗi khi cập nhật phân ca bằng batch.");
     }
 
-    // If any failed, inform user (but still try parse)
     const failed = results.filter((r) => !r.ok);
     if (failed.length) {
       showToast("error", `❌ ${failed.length} cập nhật phân ca thất bại. Kiểm tra log.`);
     }
 
-    // Close preview and run parse
     setPreviewOpen(false);
     try {
       await parseText(textInput, mode);
@@ -406,7 +336,6 @@ export default function OvertimeForm({
       setFormOpen(false);
       setPendingShiftUpdates([]);
     } catch (err) {
-      console.error(err);
       showToast("error", "❌ Lỗi khi xử lý chấm công sau cập nhật phân ca.");
     } finally {
       setLoadingApprove(false);
@@ -450,7 +379,12 @@ export default function OvertimeForm({
               </div>
 
               <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400">Thêm tăng ca</h3>
-              <button onClick={() => setFormOpen(false)} className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition">✕</button>
+              <button
+                onClick={() => setFormOpen(false)}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
+              >
+                ✕
+              </button>
             </div>
 
             <div className="flex justify-center mb-5">
@@ -458,10 +392,26 @@ export default function OvertimeForm({
                 className="relative flex items-center w-44 h-10 bg-gray-200 dark:bg-gray-800 rounded-full cursor-pointer transition"
                 onClick={() => setMode((prev) => (prev === "checkin" ? "checkout" : "checkin"))}
               >
-                <div className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${mode === "checkin" ? "from-yellow-500 to-yellow-600" : "from-green-500 to-green-600"} shadow-md transform transition-all duration-300 ${mode === "checkout" ? "translate-x-full" : "translate-x-0"}`} />
+                <div
+                  className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${mode === "checkin"
+                    ? "from-yellow-500 to-yellow-600"
+                    : "from-green-500 to-green-600"
+                    } shadow-md transform transition-all duration-300 ${mode === "checkout" ? "translate-x-full" : "translate-x-0"
+                    }`}
+                />
                 <div className="flex justify-between items-center w-full px-4 z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <div className={`flex items-center gap-1 transition ${mode === "checkin" ? "text-white" : ""}`}><LogIn className="w-4 h-4" /> In</div>
-                  <div className={`flex items-center gap-1 transition ${mode === "checkout" ? "text-white" : ""}`}><LogOut className="w-4 h-4" /> Out</div>
+                  <div
+                    className={`flex items-center gap-1 transition ${mode === "checkin" ? "text-white" : ""
+                      }`}
+                  >
+                    <LogIn className="w-4 h-4" /> In
+                  </div>
+                  <div
+                    className={`flex items-center gap-1 transition ${mode === "checkout" ? "text-white" : ""
+                      }`}
+                  >
+                    <LogOut className="w-4 h-4" /> Out
+                  </div>
                 </div>
               </div>
             </div>
@@ -469,17 +419,34 @@ export default function OvertimeForm({
             <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
               Dán dữ liệu chấm công ({mode === "checkin" ? "Lên ca" : "Xuống ca"})
             </label>
+
             <textarea
               rows={6}
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded-lg mb-4 focus:ring-2 focus:ring-orange-400 dark:focus:ring-orange-500 outline-none transition"
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder={mode === "checkin" ? "Dán dữ liệu chấm công ca lên (ví dụ: 1.陈明壯/18:52)" : "Dán dữ liệu chấm công ca xuống (ví dụ: 1.陈明壯/06:01)"}
+              placeholder={
+                mode === "checkin"
+                  ? "Dán dữ liệu chấm công ca lên (ví dụ: 1.陈明壯/18:52)"
+                  : "Dán dữ liệu chấm công ca xuống (ví dụ: 1.陈明壯/06:01)"
+              }
             />
 
             <div className="flex justify-end gap-2">
-              <button onClick={() => setFormOpen(false)} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition">Quay lại</button>
-              <button onClick={handleParse} className={`px-5 py-2 rounded-lg text-white shadow-md transition ${mode === "checkin" ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800" : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"}`}>
+              <button
+                onClick={() => setFormOpen(false)}
+                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition"
+              >
+                Quay lại
+              </button>
+
+              <button
+                onClick={handleParse}
+                className={`px-5 py-2 rounded-lg text-white shadow-md transition ${mode === "checkin"
+                  ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800"
+                  : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+                  }`}
+              >
                 {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
               </button>
             </div>
