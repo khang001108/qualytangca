@@ -24,16 +24,16 @@ function formatHours(n) {
   return `${Number(n || 0).toLocaleString()} giờ`;
 }
 
-function calcOvertimeHours(shiftStart, checkOut) {
-  if (!checkOut) return 0;
-  const [sH, sM] = shiftStart.split(":").map(Number);
-  const endAdminMinutes = (sH + 9) * 60 + (sM || 0);
-  const [oH, oM] = checkOut.split(":").map(Number);
-  const outMinutes = oH * 60 + (oM || 0);
-  const diff = outMinutes - endAdminMinutes;
-  if (diff < 60) return 0;
-  return Math.floor(diff / 60);
-}
+// function calcOvertimeHours(shiftStart, checkOut) {
+//   if (!checkOut) return 0;
+//   const [sH, sM] = shiftStart.split(":").map(Number);
+//   const endAdminMinutes = (sH + 9) * 60 + (sM || 0);
+//   const [oH, oM] = checkOut.split(":").map(Number);
+//   const outMinutes = oH * 60 + (oM || 0);
+//   const diff = outMinutes - endAdminMinutes;
+//   if (diff < 60) return 0;
+//   return Math.floor(diff / 60);
+// }
 
 export default function OverMember({
   user = null,
@@ -42,7 +42,7 @@ export default function OverMember({
   selectedYear,
   selectedDate,
   members = [],
-  setMembers = () => {},
+  setMembers = () => { },
 }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -103,14 +103,13 @@ export default function OverMember({
 
     const todayOvertime = overtimes.find(
       (o) =>
-        (o.realName === member.realName ||
-          o.realName.includes(member.nickname) ||
-          member.realName.includes(o.realName)) &&
-        o.currentDate === dateStr
+        o.memberId === member.id &&
+        (o.date === dateStr || o.currentDate === dateStr)
     );
 
-    const checkIn = todayOvertime?.checkIn || "";
-    const checkOut = todayOvertime?.checkOut || "";
+
+    const checkIn = todayOvertime?.checkIn || todayOvertime?.lenCa || "";
+    const checkOut = todayOvertime?.checkOut || todayOvertime?.xuongCa || "";
     const note = todayOvertime?.note?.trim() || "";
 
     const noteMap = {
@@ -141,14 +140,40 @@ export default function OverMember({
 
     if (checkIn || checkOut) {
       const checkOutDisplay = checkOut || "__";
-      const hours = calcOvertimeHours(member.shiftStart || "07:00", checkOut);
-      let text = `Check-in: ${checkIn || "__"} • Check-out: ${checkOutDisplay}`;
-      if (hours > 0) text += ` • +${hours}h`;
+      // const hours = calcOvertimeHours(member.shiftStart || "07:00", checkOut);
+      const hours = todayOvertime?.tangCaHomNay || 0;
+      const bonus = todayOvertime?.thuong || 0;
+
+
+
+      const node = (
+        <span className="text-gray-800 dark:text-gray-200">
+          Check-in:{" "}
+          <span className="text-green-600">
+            {checkIn || "__"}
+          </span>
+
+          {" • "}Check-out: {" "}
+          <span className="text-green-600">
+            {checkOut || "__"}
+          </span>
+
+          {hours > 0 && (
+            <>
+              {" • "}
+              <span className="text-emerald-600">+{hours}h</span><span className="text-yellow-600">+{bonus}</span>
+            </>
+          )}
+        </span>
+      );
+
       const color = checkOut
         ? "text-blue-600 dark:text-blue-400"
         : "text-green-600 dark:text-green-400";
-      return { text, color };
+
+      return { node, color };
     }
+
 
     return {
       text: "chưa có dữ liệu chấm công",
@@ -312,7 +337,7 @@ export default function OverMember({
                     : new Date().toLocaleDateString("vi-VN")}
                 </div>
                 <div className={`text-sm font-medium mt-1 ${status.color}`}>
-                  {status.text}
+                  {status.node || status.text}
                 </div>
 
                 <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
@@ -327,11 +352,10 @@ export default function OverMember({
                     Đã tăng: <b>{formatHours(done)}</b>
                   </span>
                   <span
-                    className={`font-semibold ${
-                      remaining === 0
-                        ? "text-red-500 dark:text-red-400"
-                        : "text-sky-600 dark:text-sky-400"
-                    }`}
+                    className={`font-semibold ${remaining === 0
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-sky-600 dark:text-sky-400"
+                      }`}
                   >
                     Còn: {formatHours(remaining)}
                   </span>

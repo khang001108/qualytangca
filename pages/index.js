@@ -80,7 +80,7 @@ export default function Home() {
     const q = query(
       collection(db, "overtimes"),
       where("userId", "==", user.uid),
-      where("currentDate", "==", dateStr)
+      where("date", "==", dateStr)
     );
 
     const unsub = onSnapshot(q, (snap) => {
@@ -355,10 +355,10 @@ export default function Home() {
       {toast && (
         <div
           className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
-              ? "bg-red-500"
-              : toast.type === "loading"
-                ? "bg-blue-500"
-                : "bg-green-500"
+            ? "bg-red-500"
+            : toast.type === "loading"
+              ? "bg-blue-500"
+              : "bg-green-500"
             }`}
         >
           {toast.type === "loading" && (

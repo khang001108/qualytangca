@@ -3,6 +3,7 @@ import { CirclePlus, LogIn, LogOut } from "lucide-react";
 import Toast from "../Toast";
 import useOvertimeParser from "../../hooks/useOvertimeParser/index";
 import ShiftPreviewModal from "./ShiftPreviewModal";
+import { LEAVE_CODES } from "../../hooks/useOvertimeParser/parseHelpers";
 import {
   timeToMinutes,
   minutesToHHMM,
@@ -66,10 +67,25 @@ export default function OvertimeForm({
 
     const { day: shiftDay, night: shiftNight } = await loadShiftConfigs();
 
-    const lines = textInput
+    const RAW_TRASH_PATTERNS = [
+      /上下班/,
+      /打卡/,
+      /记录/,
+      /打卡记录/,
+      /上班/,
+      /下班/,
+      /^\d{1,2}\/\d{1,2}/   // các dòng bắt đầu bằng 11/02 ... 
+    ];
+
+    let lines = textInput
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+      .filter((l) => l.length > 0)
+      .filter((l) => {
+        // Nếu chứa tạp rác → bỏ ngay
+        return !RAW_TRASH_PATTERNS.some((p) => p.test(l));
+      });
+
 
     const pending = [];
 
@@ -82,6 +98,34 @@ export default function OvertimeForm({
 
       const namePart = parts[0].replace(/^\d+\.\s*/, "").trim();
       const timePart = parts[1].trim();
+
+      // --- TÁCH GIỜ + TEXT NGHỈ ---
+      let extractedTime = null;
+      let remainingText = "";
+
+      // Tìm giờ dạng HH:MM trong chuỗi (kể cả khi có "11:01 4h事假")
+      const timeMatch = timePart.match(/\b\d{1,2}:\d{2}\b/);
+
+      if (timeMatch) {
+        extractedTime = timeMatch[0];                      // "11:01"
+        remainingText = timePart.replace(extractedTime, "").trim();  // "4h事假"
+      } else {
+        // Không có giờ → có thể là nghỉ hoàn toàn như: /休 /年假
+        if (LEAVE_CODES.some(code => timePart.includes(code))) {
+          continue;
+        }
+
+        showToast("error", `❌ Sai giờ: ${timePart} (dòng: ${line})`);
+        return;
+      }
+
+      // Nếu phần text sau giờ chứa nghỉ phép → bỏ qua
+      if (remainingText && LEAVE_CODES.some(code => remainingText.includes(code))) {
+        continue;
+      }
+
+      // Giờ hợp lệ → dùng extractedTime để xử lý tiếp
+      const timeString = extractedTime;
 
       if (timePart === "休") continue;
 

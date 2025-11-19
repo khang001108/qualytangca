@@ -38,23 +38,23 @@ QUANLYTHITIEU/
 =======================================
 CA NGÀY
 =======================================
-10/29上下班打卡记录：
-1.陈明壯/18:52
-2.阮玉泰/休
-3.谭文越/ 19:54
-4.裴泰南/18:56
-5.陈文雄/19:46
-6.吴维康/ 19:48
-7.吴秀英/19:56
+11/02上下班打卡记录：
+1.陈明壯/休
+2.阮玉泰/6:58
+3.谭文越/ 年假
+4.裴泰南/6:54
+5.陈文雄/年假
+6.吴维康/ 7:54
+7.吴秀英/7:55
 
-10/29上下班打卡记录：
-1.陈明壯/6:01
-2.阮玉泰/休
-3.谭文越/ 7:01
-4.裴泰南/6:01
-5.陈文雄/7:01
-6.吴维康/ 7:01
-7.吴秀英/7:01
+11/02上下班打卡记录：
+1.陈明壯/休
+2.阮玉泰/16:01
+3.谭文越/ 年假
+4.裴泰南/11:01 4h事假
+5.陈文雄/年假
+6.吴维康/ 17:01
+7.吴秀英/ 17:01
 
 vậy h 
 
@@ -400,3 +400,32 @@ soNgayDaLam 0.5 (number)
 ten "TRẦN VĂN HÙNG" (string)
 tongGioKeHoach 40 (number)
 tongGioThuong 10 (number)
+
+
+
+để mik nói rõ hơn khi checkout
+4.裴泰南/11:01 4h事假 là trường hợp đi làm từ sáng sớm 4.裴泰南/6:54(7h) đến 11h là 4 tiếng rồi họ nghỉ chiều 4 tiếng nên là phép nửa ngày
+4.裴泰南/12:01 4h事假 là trường hợp đi làm từ sáng muộn 4.裴泰南/7:54(8h) đến 12h là 4 tiếng rồi họ nghỉ chiều 4 tiếng nên là phép nửa ngày
+trường hợp này ko có tăng ca vì họ đã xin nghỉ thì về hẳn luôn chứ ko quay lại nữa
+ca đêm tương tự
+
+còn trường hợp nữa là khi checkin
+4.裴泰南/11:46 4h事假 là trường hợp đi làm từ chiều sớm 4.裴泰南/4h事假 đến 11h là hết 4 tiếng nghỉ phép, sau 1 giờ nghỉ trưa, 12h là 4 tiếng làm chiều
+4.裴泰南/12:46 4h事假 là trường hợp đi làm từ chiều muộn 4.裴泰南/4h事假 đến 12h là hết 4 tiếng nghỉ phép, sau 1 giờ nghỉ trưa, 13h là 4 tiếng làm chiều
+trường hợp này sẽ có tăng ca hoặc không tăng ca nhưng ko dc thưởng vì ko đủ giờ hành chính
+ca đêm tương tự
+
+1. Checkout logic (nghỉ chiều):
+if (checkout <= 12:30 && workingHours <= 4.5):
+    leaveType = "4h事假"
+    isOvertime = false
+    bonusAllowed = false
+
+
+2. Checkin logic (nghỉ sáng):
+if (checkin >= 11:30 && checkin <= 13:00):
+    leaveType = "4h事假"
+    afternoonWork = true
+    if (totalWorkingHours < 8):
+        bonusAllowed = false
+chưa sửa

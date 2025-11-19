@@ -520,10 +520,18 @@ export default function useOvertimeParser({
               realName: member.realName,
               nickname: member.nickname || "",
               date: dateStr,
+
+              // giờ
               checkIn: shiftRec?.lenCa || null,
               checkOut: minutesToHHMM(minutesOfDay),
+
+              // tăng ca & thưởng
+              tangCaHomNay: addHours,
+              thuong: bonusGiven,
+
               addedHours: addHours,
-              bonusGiven: bonusGiven || 0,
+              bonusGiven: bonusGiven,
+
               shift: member.shift || "",
               createdAt: serverTimestamp(),
             });
