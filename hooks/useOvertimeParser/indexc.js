@@ -10,7 +10,7 @@ import {
   getDocs,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../../lib/firebase"; // chỉnh path nếu cần
+import { db } from "../../lib/firebase"; // sửa đường dẫn nếu cần
 
 import {
   LEAVE_CODES,
@@ -52,8 +52,8 @@ const safeStr = (v, def = null) => (v == null ? def : v);
 export default function useOvertimeParser({
   user,
   members = [],
-  setMembers = () => {},
-  setItems = () => {},
+  setMembers = () => { },
+  setItems = () => { },
   selectedMonth,
   selectedYear,
   selectedDate,
@@ -100,7 +100,8 @@ export default function useOvertimeParser({
         memberId: member.id,
         realName: member.realName,
         nickname: member.nickname || "",
-        // không tự động ghi đè shift/shiftStart ở đây để tránh ghi đè nguồn phân ca
+        // shift: member.shift || "",
+        // shiftStart: member.shiftStart || "",
         updatedAt: now,
         ...patch,
       },
@@ -140,14 +141,14 @@ export default function useOvertimeParser({
       prev.map((x) =>
         x.id === memberId
           ? {
-              ...x,
-              overtimeLimit: {
-                ...(x.overtimeLimit || {}),
-                workedHours: newWorked,
-                remaining: newRemaining,
-                monthlyLimit,
-              },
-            }
+            ...x,
+            overtimeLimit: {
+              ...(x.overtimeLimit || {}),
+              workedHours: newWorked,
+              remaining: newRemaining,
+              monthlyLimit,
+            },
+          }
           : x
       )
     );
@@ -243,62 +244,36 @@ export default function useOvertimeParser({
           continue;
         }
 
-        // handle leave codes either as whole timePart or namePart
         if (LEAVE_CODES.includes(timePart) || LEAVE_CODES.includes(namePart)) {
           await upsertShiftSchedule(dateStr, member, { note: timePart });
           skipped++;
           continue;
         }
 
-        // Extract time and trailing text (supports "11:01 4h事假")
-        const timeMatch = timePart.match(/\b(\d{1,2}):(\d{2})\b/);
+        const timeMatch = timePart.match(/^(\d{1,2}):(\d{2})$/);
         if (!timeMatch) {
           skipped++;
           continue;
         }
-        const extractedTime = timeMatch[0];
-        const remainingText = timePart.replace(extractedTime, "").trim();
+        const hh = Number(timeMatch[1]);
+        const mm = Number(timeMatch[2]);
+        const minutesOfDay = (hh % 24) * 60 + (mm % 60);
 
-        // parse hh:mm from extractedTime
-        const hh = Number(extractedTime.split(":")[0]);
-        const mm = Number(extractedTime.split(":")[1]);
-        let minutesOfDay = (hh % 24) * 60 + (mm % 60);
-
-        // If remainingText indicates a leave, store note and skip OT logic
-        if (remainingText && LEAVE_CODES.some((c) => remainingText.includes(c))) {
-          // write lenCa or xuongCa depending on mode
-          if (mode === "checkin") {
-            await upsertShiftSchedule(dateStr, member, {
-              lenCa: minutesToHHMM(minutesOfDay),
-              note: remainingText,
-            });
-          } else {
-            await upsertShiftSchedule(dateStr, member, {
-              xuongCa: minutesToHHMM(minutesOfDay),
-              note: remainingText,
-            });
-          }
-          skipped++;
-          continue;
-        }
-
-        // Determine isNight based on explicit member.shift or member.shiftStart
-        // Prefer member.shift which is user-assigned
+        const shiftStart = member.shiftStart || member.shift || "";
         let isNight = false;
+
         if (member.shift === "Ca đêm") {
           isNight = true;
         } else if (member.shift === "Ca ngày") {
           isNight = false;
         } else {
-          // fallback to shiftStart string check (if exists)
-          const ss = String(member.shiftStart || "").toLowerCase();
-          if (ss.includes("đêm") || ss.includes("dem")) isNight = true;
-          else isNight = false;
+          const startMin = timeToMinutes(member.shiftStart);
+          if (startMin !== null) {
+            isNight = (startMin >= 18 || startMin < 6);
+          }
         }
-
         const cfg = isNight ? shiftNight || {} : shiftDay || {};
 
-        // load window strings from cfg
         const lenSomStartStr = safeStr(cfg.lenCaSomBatDau, null);
         const lenSomEndStr = safeStr(cfg.lenCaSomKetThuc, null);
         const lenMuonStartStr = safeStr(cfg.lenCaMuonBatDau, null);
@@ -306,7 +281,6 @@ export default function useOvertimeParser({
         const tanSomStartStr = safeStr(cfg.tanCaSomBatDau, null);
         const tanMuonStartStr = safeStr(cfg.tanCaMuonBatDau, null);
 
-        // convert to minutes where possible
         const lenSomStart = timeToMinutes(lenSomStartStr);
         const lenSomEnd = timeToMinutes(lenSomEndStr);
         const lenMuonStart = timeToMinutes(lenMuonStartStr);
@@ -316,7 +290,6 @@ export default function useOvertimeParser({
 
         // ---------- CHECKIN ----------
         if (mode === "checkin") {
-          // determine checkinType for record (but DO NOT use it to choose official boundaries)
           let checkinType = "other";
 
           if (typeof lenSomStart === "number" && typeof lenSomEnd === "number") {
@@ -331,11 +304,7 @@ export default function useOvertimeParser({
             }
           }
 
-          if (
-            checkinType === "other" &&
-            typeof lenMuonStart === "number" &&
-            typeof lenMuonEnd === "number"
-          ) {
+          if (checkinType === "other" && typeof lenMuonStart === "number" && typeof lenMuonEnd === "number") {
             if (lenMuonStart <= lenMuonEnd) {
               if (minutesOfDay >= lenMuonStart && minutesOfDay <= lenMuonEnd) {
                 checkinType = "muon";
@@ -371,91 +340,54 @@ export default function useOvertimeParser({
           const lenCaMin = timeToMinutes(shiftRec.lenCa);
           if (typeof lenSomStart === "number" && typeof lenSomEnd === "number") {
             if (lenSomStart <= lenSomEnd) {
-              if (lenCaMin >= lenSomStart && lenCaMin <= lenSomEnd)
-                storedCheckinType = "som";
+              if (lenCaMin >= lenSomStart && lenCaMin <= lenSomEnd) storedCheckinType = "som";
             } else {
-              if (lenCaMin >= lenSomStart || lenCaMin <= lenSomEnd)
-                storedCheckinType = "som";
+              if (lenCaMin >= lenSomStart || lenCaMin <= lenSomEnd) storedCheckinType = "som";
             }
           }
-          if (
-            !storedCheckinType &&
-            typeof lenMuonStart === "number" &&
-            typeof lenMuonEnd === "number"
-          ) {
+          if (!storedCheckinType && typeof lenMuonStart === "number" && typeof lenMuonEnd === "number") {
             if (lenMuonStart <= lenMuonEnd) {
-              if (lenCaMin >= lenMuonStart && lenCaMin <= lenMuonEnd)
-                storedCheckinType = "muon";
+              if (lenCaMin >= lenMuonStart && lenCaMin <= lenMuonEnd) storedCheckinType = "muon";
             } else {
-              if (lenCaMin >= lenMuonStart || lenCaMin <= lenMuonEnd)
-                storedCheckinType = "muon";
+              if (lenCaMin >= lenMuonStart || lenCaMin <= lenMuonEnd) storedCheckinType = "muon";
             }
           }
         }
 
         const checkinType = storedCheckinType || "other";
 
-        // ---------- DETERMINING OFFICIAL START/END (FIXED LOGIC) ----------
-        // Prioritize assigned shiftStart string (source of truth),
-        // fallback to using stored checkinType (only if shiftStart missing),
-        // final fallback to best-effort using cfg values.
-
+        // official boundaries based on checkinType
         let officialStart = null;
         let officialEnd = null;
 
-        const ss = String(member.shiftStart || "").trim();
-
-        // Map shiftStart string to proper cfg values (day/night / sớm/muộn)
-        if (ss === "lên_ca_ngày_sớm") {
-          officialStart = timeToMinutes(cfg.lenCaSomKetThuc); // e.g. 07:00
-          officialEnd = timeToMinutes(cfg.tanCaSomBatDau); // e.g. 16:00
-        } else if (ss === "lên_ca_ngày_muộn") {
-          officialStart = timeToMinutes(cfg.lenCaMuonKetThuc); // e.g. 08:00
-          officialEnd = timeToMinutes(cfg.tanCaMuonBatDau); // e.g. 17:00
-        } else if (ss === "lên_ca_đêm_sớm") {
-          officialStart = timeToMinutes(cfg.lenCaSomKetThuc); // e.g. 19:00
-          officialEnd = timeToMinutes(cfg.tanCaSomBatDau); // e.g. 04:00 (wrap)
-        } else if (ss === "lên_ca_đêm_muộn") {
-          officialStart = timeToMinutes(cfg.lenCaMuonKetThuc); // e.g. 20:00
-          officialEnd = timeToMinutes(cfg.tanCaMuonBatDau); // e.g. 05:00 (wrap)
+        if (checkinType === "som") {
+          officialStart = timeToMinutes(lenSomEndStr);
+          officialEnd = timeToMinutes(tanSomStartStr);
+        } else if (checkinType === "muon") {
+          officialStart = timeToMinutes(lenMuonEndStr);
+          officialEnd = timeToMinutes(tanMuonStartStr);
         } else {
-          // fallback: use stored checkinType mapping if shiftStart not available or unknown
-          if (checkinType === "som") {
-            officialStart = timeToMinutes(cfg.lenCaSomKetThuc);
-            officialEnd = timeToMinutes(cfg.tanCaSomBatDau);
-          } else if (checkinType === "muon") {
-            officialStart = timeToMinutes(cfg.lenCaMuonKetThuc);
-            officialEnd = timeToMinutes(cfg.tanCaMuonBatDau);
-          } else {
-            // final fallback: try day config len/tan som
-            officialStart = timeToMinutes(cfg.lenCaSomKetThuc) || null;
-            officialEnd = timeToMinutes(cfg.tanCaSomBatDau) || null;
-          }
+          officialStart = timeToMinutes(lenSomEndStr) || startMin || null;
+          officialEnd = timeToMinutes(tanSomStartStr) || (startMin != null ? (startMin + (cfg.tongGioHanhChinh || 8) * 60) % (24 * 60) : null);
         }
 
-        // If cannot determine official times -> skip
         if (officialStart == null || officialEnd == null) {
           continue;
         }
 
-        // Adjust for wrap-around (overnight shifts where end < start)
-        let checkoutMin = minutesOfDay;
-        if (officialEnd < officialStart) {
-          officialEnd += 24 * 60; // move end to next day minutes
-          if (checkoutMin < officialStart) checkoutMin += 24 * 60;
-        }
-
-        // compute working duration (hc) if needed - preserved logic
+        // compute working duration (hc) - handle wrap
         let hcMin = officialEnd - officialStart;
-        if (hcMin < 0) hcMin += 24 * 60; // just in case
-        hcMin -= Number(cfg.nghiGiuaCa || 1) * 60;
+        if (hcMin < 0) hcMin += 24 * 60;
+
+        hcMin -= (Number(cfg.nghiGiuaCa || 1) * 60);
         if (hcMin < 0) hcMin = 0;
         const gioHanhChinh = hcMin / 60;
 
-        // OT = checkout - officialEnd (wrap handled)
-        let diffMin = checkoutMin - officialEnd;
+        // OT = checkout - officialEnd (wrap)
+        let diffMin = minutesOfDay - officialEnd;
+        if (diffMin < 0) diffMin += 24 * 60;
+
         if (diffMin < 60) {
-          // less than 1 hour -> not counted as OT
           continue;
         }
 
@@ -469,11 +401,10 @@ export default function useOvertimeParser({
         const addHours = memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
 
         if (addHours > 0) {
-          // Update member worked hours
           await updateMemberOvertimeWorked(member.id, addHours);
           totalAddedHours += addHours;
 
-          // bonus calculation (preserve original logic)
+          // bonus calculation
           let bonusGiven = 0;
           try {
             const limitKey = String(memberLimit || 0);
@@ -491,7 +422,8 @@ export default function useOvertimeParser({
               customNoBonus.includes(member.realName) ||
               customNoBonus.includes(member.nickname);
 
-            const isLimitBranchSelected = selectedLimits && selectedLimits.includes(limitKey);
+            const isLimitBranchSelected =
+              selectedLimits && selectedLimits.includes(limitKey);
 
             if (
               bonusEnabled &&
@@ -579,7 +511,7 @@ export default function useOvertimeParser({
             console.warn("Failed updating overtimeLimits member", e);
           }
 
-          // write overtime record (preserve original behavior)
+          // write overtime record
           try {
             const otRef = doc(collection(db, "overtimes"));
             await setDoc(otRef, {
