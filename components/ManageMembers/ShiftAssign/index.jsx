@@ -69,16 +69,15 @@ export default function ShiftAssign(props) {
     (async () => {
       try {
         const col = collection(db, "shiftSchedules");
-        const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+        // FIX chuẩn tính ngày tháng
+        const realMonth = selectedMonth - 1;
+        const lastDay = new Date(selectedYear, realMonth + 1, 0).getDate();
 
-        const startDate = `${selectedYear}-${String(selectedMonth).padStart(
-          2,
-          "0"
-        )}-01`;
-        const endDate = `${selectedYear}-${String(selectedMonth).padStart(
-          2,
-          "0"
-        )}-${String(lastDay).padStart(2, "0")}`;
+        const yyyy = selectedYear;
+        const mm = String(selectedMonth).padStart(2, "0");
+
+        const startDate = `${yyyy}-${mm}-01`;
+        const endDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, "0")}`;
 
         const qShift = query(
           col,
@@ -93,7 +92,14 @@ export default function ShiftAssign(props) {
         snap.docs.forEach((d) => {
           const data = d.data();
           const day = Number(data.date.split("-")[2]);
-          newMap[day] = data.shift.includes("đêm") ? "night" : "day";
+          if (data.shift === "Ca đêm") {
+            newMap[day] = "night";
+          } else if (data.shift === "Ca ngày") {
+            newMap[day] = "day";
+          } else {
+            // fallback an toàn
+            newMap[day] = "day";
+          }
         });
 
         setAssignMap(newMap);
@@ -178,8 +184,8 @@ export default function ShiftAssign(props) {
                 ? "lên_ca_ngày_sớm"
                 : "lên_ca_ngày_muộn"
               : m.earlyShift
-                ? "lên_ca_đêm_sớm"
-                : "lên_ca_đêm_muộn";
+              ? "lên_ca_đêm_sớm"
+              : "lên_ca_đêm_muộn";
           const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
           const docId = `${date}__${m.id}`;
 
@@ -193,13 +199,12 @@ export default function ShiftAssign(props) {
             shiftStart,
 
             // Các trường chấm công (ban đầu để null)
-            lenCa: null,         // check-in
-            xuongCa: null,       // check-out
+            lenCa: null, // check-in
+            xuongCa: null, // check-out
 
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
-
 
           const memberRef = doc(db, "members", m.id);
           await updateDoc(memberRef, {
@@ -231,15 +236,17 @@ export default function ShiftAssign(props) {
     setLoading(true);
     try {
       const col = collection(db, "shiftSchedules");
-      const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
-      const startDate = `${selectedYear}-${String(selectedMonth).padStart(
-        2,
-        "0"
-      )}-01`;
-      const endDate = `${selectedYear}-${String(selectedMonth).padStart(
-        2,
-        "0"
-      )}-${String(lastDay).padStart(2, "0")}`;
+
+      // FIX chuẩn tính ngày tháng khi xóa phân ca
+      const realMonth = selectedMonth - 1;
+      const lastDay = new Date(selectedYear, realMonth + 1, 0).getDate();
+
+      const yyyy = selectedYear;
+      const mm = String(selectedMonth).padStart(2, "0");
+
+      const startDate = `${yyyy}-${mm}-01`;
+      const endDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, "0")}`;
+
       const qShift = query(
         col,
         where("userId", "==", user.uid),
@@ -309,10 +316,11 @@ export default function ShiftAssign(props) {
 
         {popupMsg && (
           <div
-            className={`mb-4 text-center text-sm px-4 py-2 rounded-lg ${popupType === "success"
-              ? "bg-green-100 text-green-700 border border-green-300"
-              : "bg-red-100 text-red-700 border border-red-300"
-              }`}
+            className={`mb-4 text-center text-sm px-4 py-2 rounded-lg ${
+              popupType === "success"
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-red-100 text-red-700 border border-red-300"
+            }`}
           >
             {popupMsg}
           </div>

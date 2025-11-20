@@ -1,4 +1,6 @@
 // hooks/useOvertimeParser/index.js
+// Rewritten parser: ngắn, rõ, chuẩn — xử lý đúng ca ngày/đêm, wrap ca đêm, tránh double-count,
+// tôn trọng phân ca đã lưu (shiftSchedules), bảo toàn logic bonus & limits.
 import { useRef } from "react";
 import dayjs from "dayjs";
 import {
@@ -10,21 +12,22 @@ import {
   getDocs,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../../lib/firebase"; // chỉnh path nếu cần
+import { db } from "../../lib/firebase";
 
 import {
   LEAVE_CODES,
-  LEAVE_MAP,
   normalizeName as normalizeFromHelpers,
-} from "./parseHelpers"; // chỉnh path nếu khác
+} from "./parseHelpers";
 
-// ==================== Helpers nội bộ (fallback nếu helper file khác) ====================
+// --------------------------- Helpers ---------------------------
 const normalizeName = (s) => {
   if (!s) return "";
   if (typeof normalizeFromHelpers === "function")
     return normalizeFromHelpers(s);
   return String(s).trim();
 };
+
+const safeStr = (v, def = null) => (v == null ? def : v);
 
 function timeToMinutes(t) {
   if (!t) return null;
@@ -35,6 +38,7 @@ function timeToMinutes(t) {
 }
 
 function minutesToHHMM(min) {
+  if (min == null) return null;
   min = ((min % (24 * 60)) + 24 * 60) % (24 * 60);
   const hh = Math.floor(min / 60);
   const mm = min % 60;
@@ -42,38 +46,35 @@ function minutesToHHMM(min) {
 }
 
 function minutesToFlooredHours(min) {
-  if (min <= 0) return 0;
+  if (!Number.isFinite(min) || min <= 0) return 0;
   return Math.floor(min / 60);
 }
 
-const safeStr = (v, def = null) => (v == null ? def : v);
+// inclusive range, supports wrap-around if end < start (e.g., 20:00 -> 04:00)
+function inRangeWrap(val, start, end) {
+  if (start == null || end == null || val == null) return false;
+  if (start <= end) return val >= start && val <= end;
+  // wrap
+  return val >= start || val <= end;
+}
 
-// ==================== Hook ====================
-export default function useOvertimeParser({
-  user,
-  members = [],
-  setMembers = () => {},
-  setItems = () => {},
-  selectedMonth,
-  selectedYear,
-  selectedDate,
-}) {
-  const isProcessing = useRef(false);
-
-  async function loadShiftConfig() {
-    try {
-      const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
-      const nightSnap = await getDoc(doc(db, "shiftConfig", "night"));
-      const day = daySnap.exists() ? daySnap.data() : null;
-      const night = nightSnap.exists() ? nightSnap.data() : null;
-      return { day, night };
-    } catch (err) {
-      console.error("Error loading shiftConfig", err);
-      return { day: null, night: null };
-    }
+// ---------------------- Firestore helpers (small & safe) ----------------------
+async function loadShiftConfig() {
+  try {
+    const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
+    const nightSnap = await getDoc(doc(db, "shiftConfig", "night"));
+    return {
+      day: daySnap.exists() ? daySnap.data() : null,
+      night: nightSnap.exists() ? nightSnap.data() : null,
+    };
+  } catch (e) {
+    console.warn("loadShiftConfig failed", e);
+    return { day: null, night: null };
   }
+}
 
-  async function loadBonusAndLimits() {
+async function loadBonusAndLimits() {
+  try {
     const bonusSnap = await getDoc(doc(db, "bonusConfig", "main"));
     const bonus = bonusSnap.exists() ? bonusSnap.data() : {};
     const limitsSnap = await getDocs(collection(db, "overtimeLimits"));
@@ -86,121 +87,100 @@ export default function useOvertimeParser({
       };
     });
     return { bonus, limits };
+  } catch (e) {
+    console.warn("loadBonusAndLimits failed", e);
+    return { bonus: {}, limits: {} };
   }
+}
 
-  async function upsertShiftSchedule(dateStr, member, patch) {
-    const docId = `${dateStr}__${member.id}`;
+async function upsertShiftSchedule(dateStr, member, patch) {
+  const docId = `${dateStr}__${member.id}`;
+  const ref = doc(db, "shiftSchedules", docId);
+  const now = serverTimestamp();
+  await setDoc(
+    ref,
+    {
+      userId: member.userId || null,
+      date: dateStr,
+      memberId: member.id,
+      realName: member.realName,
+      nickname: member.nickname || "",
+      updatedAt: now,
+      ...patch,
+    },
+    { merge: true }
+  );
+}
+
+async function getShiftSchedule(dateStr, memberId) {
+  try {
+    const docId = `${dateStr}__${memberId}`;
     const ref = doc(db, "shiftSchedules", docId);
-    const now = serverTimestamp();
-    await setDoc(
-      ref,
-      {
-        userId: user?.uid,
-        date: dateStr,
-        memberId: member.id,
-        realName: member.realName,
-        nickname: member.nickname || "",
-        // không tự động ghi đè shift/shiftStart ở đây để tránh ghi đè nguồn phân ca
-        updatedAt: now,
-        ...patch,
-      },
-      { merge: true }
-    );
-  }
-
-  async function getShiftSchedule(dateStr, memberId) {
-    try {
-      const docId = `${dateStr}__${memberId}`;
-      const ref = doc(db, "shiftSchedules", docId);
-      const snap = await getDoc(ref);
-      return snap.exists() ? snap.data() : null;
-    } catch (e) {
-      console.warn("getShiftSchedule error", e);
-      return null;
-    }
-  }
-
-  async function updateMemberOvertimeWorked(memberId, addHours) {
-    if (!memberId || !addHours) return null;
-    const ref = doc(db, "members", memberId);
     const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    const m = snap.data();
-    const oldWorked = Number(m.overtimeLimit?.workedHours || 0);
-    const monthlyLimit = Number(m.overtimeLimit?.monthlyLimit || 0);
-    const newWorked = oldWorked + addHours;
-    const newRemaining = Math.max(monthlyLimit - newWorked, 0);
-    await updateDoc(ref, {
-      "overtimeLimit.workedHours": newWorked,
-      "overtimeLimit.remaining": newRemaining,
-      updatedAt: serverTimestamp(),
+    return snap.exists() ? snap.data() : null;
+  } catch (e) {
+    console.warn("getShiftSchedule error", e);
+    return null;
+  }
+}
+
+async function updateMemberOvertimeWorked(memberId, addHours) {
+  if (!memberId || !addHours) return null;
+  const ref = doc(db, "members", memberId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const m = snap.data();
+  const oldWorked = Number(m.overtimeLimit?.workedHours || 0);
+  const monthlyLimit = Number(m.overtimeLimit?.monthlyLimit || 0);
+  const newWorked = oldWorked + addHours;
+  const newRemaining = Math.max(monthlyLimit - newWorked, 0);
+  await updateDoc(ref, {
+    "overtimeLimit.workedHours": newWorked,
+    "overtimeLimit.remaining": newRemaining,
+    updatedAt: serverTimestamp(),
+  });
+  return { newWorked, newRemaining, monthlyLimit };
+}
+
+async function updateOvertimeLimitsMember(limitKey, memberId, patch) {
+  if (!limitKey) return;
+  const docId = `limit_${limitKey}`;
+  const ref = doc(db, "overtimeLimits", docId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  const membersArr = Array.isArray(data.members) ? data.members : [];
+
+  const idx = membersArr.findIndex((mm) => String(mm.id) === String(memberId));
+  if (idx === -1) {
+    membersArr.push({
+      id: memberId,
+      ten: patch.ten || "",
+      gioDaLam: patch.gioDaLam || 0,
+      gioConLai: patch.gioConLai || 0,
+      gioThuongConLai: patch.gioThuongConLai || 0,
+      gioThuongDaNhan: patch.gioThuongDaNhan || 0,
+      soNgayDaLam: patch.soNgayDaLam || 0,
+      ngayConLai: patch.ngayConLai || 0,
     });
-
-    setMembers((prev) =>
-      prev.map((x) =>
-        x.id === memberId
-          ? {
-              ...x,
-              overtimeLimit: {
-                ...(x.overtimeLimit || {}),
-                workedHours: newWorked,
-                remaining: newRemaining,
-                monthlyLimit,
-              },
-            }
-          : x
-      )
-    );
-    return { newWorked, newRemaining, monthlyLimit };
+  } else {
+    membersArr[idx] = { ...membersArr[idx], ...patch };
   }
+  await setDoc(ref, { members: membersArr }, { merge: true });
+}
 
-  async function updateOvertimeLimitsMember(limitKey, memberId, patch) {
-    const docId = `limit_${limitKey}`;
-    const ref = doc(db, "overtimeLimits", docId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return;
-    const data = snap.data();
-    const membersArr = Array.isArray(data.members) ? data.members : [];
+// --------------------------- Main Hook ---------------------------
+export default function useOvertimeParser({
+  user,
+  members = [],
+  setMembers = () => {},
+  setItems = () => {},
+  selectedMonth,
+  selectedYear,
+  selectedDate,
+}) {
+  const isProcessing = useRef(false);
 
-    const idx = membersArr.findIndex((mm) => String(mm.id) === String(memberId));
-    if (idx === -1) {
-      membersArr.push({
-        id: memberId,
-        ten: patch.ten || "",
-        gioDaLam: patch.gioDaLam || 0,
-        gioConLai: patch.gioConLai || 0,
-        gioThuongConLai: patch.gioThuongConLai || 0,
-        gioThuongDaNhan: patch.gioThuongDaNhan || 0,
-        soNgayDaLam: patch.soNgayDaLam || 0,
-        ngayConLai: patch.ngayConLai || 0,
-      });
-    } else {
-      const m = membersArr[idx];
-      membersArr[idx] = {
-        ...m,
-        ...patch,
-      };
-    }
-
-    await setDoc(ref, { members: membersArr }, { merge: true });
-  }
-
-  function findMemberByName(inputName) {
-    const norm = normalizeName(inputName);
-    return members.find((m) => {
-      if (!m) return false;
-      const r = normalizeName(m.realName || "");
-      const n = normalizeName(m.nickname || "");
-      if (!r && !n) return false;
-      if (r === norm) return true;
-      if (n === norm) return true;
-      if (r && r.includes(norm)) return true;
-      if (n && n.includes(norm)) return true;
-      return false;
-    });
-  }
-
-  // ================= main parser =================
   async function parseText(rawText, mode = "checkin") {
     if (isProcessing.current) {
       console.warn("Parser busy");
@@ -229,197 +209,203 @@ export default function useOvertimeParser({
         totalAddedHours = 0,
         totalBonusAdded = 0;
 
+      // precompute day/night windows (minutes)
+      const dayWindows = {
+        som: {
+          checkin: timeToMinutes(shiftDay?.lenCaSomBatDau),
+          checkinEnd: timeToMinutes(shiftDay?.lenCaSomKetThuc),
+        },
+        muon: {
+          checkin: timeToMinutes(shiftDay?.lenCaMuonBatDau),
+          checkinEnd: timeToMinutes(shiftDay?.lenCaMuonKetThuc),
+        },
+      };
+      const nightWindows = {
+        som: {
+          checkin: timeToMinutes(shiftNight?.lenCaSomBatDau),
+          checkinEnd: timeToMinutes(shiftNight?.lenCaSomKetThuc),
+        },
+        muon: {
+          checkin: timeToMinutes(shiftNight?.lenCaMuonBatDau),
+          checkinEnd: timeToMinutes(shiftNight?.lenCaMuonKetThuc),
+        },
+      };
+
       for (let raw of lines) {
         const parts = raw.split("/");
         if (parts.length < 2) {
           skipped++;
           continue;
         }
+
         const namePart = parts[0].replace(/^\d+\.\s*/, "").trim();
         const timePart = parts[1].trim();
-        const member = findMemberByName(namePart);
+        const member = members.find((m) => {
+          const r = normalizeName(m.realName || "");
+          const n = normalizeName(m.nickname || "");
+          if (!r && !n) return false;
+          if (r === normalizeName(namePart)) return true;
+          if (n === normalizeName(namePart)) return true;
+          if (r.includes(normalizeName(namePart))) return true;
+          if (n.includes(normalizeName(namePart))) return true;
+          return false;
+        });
         if (!member) {
           skipped++;
           continue;
         }
 
-        // handle leave codes either as whole timePart or namePart
+        // LEAVE handling: whole token or trailing note
         if (LEAVE_CODES.includes(timePart) || LEAVE_CODES.includes(namePart)) {
           await upsertShiftSchedule(dateStr, member, { note: timePart });
           skipped++;
           continue;
         }
 
-        // Extract time and trailing text (supports "11:01 4h事假")
         const timeMatch = timePart.match(/\b(\d{1,2}):(\d{2})\b/);
         if (!timeMatch) {
           skipped++;
           continue;
         }
         const extractedTime = timeMatch[0];
-        const remainingText = timePart.replace(extractedTime, "").trim();
+        const trailing = timePart.replace(extractedTime, "").trim();
 
-        // parse hh:mm from extractedTime
-        const hh = Number(extractedTime.split(":")[0]);
-        const mm = Number(extractedTime.split(":")[1]);
-        let minutesOfDay = (hh % 24) * 60 + (mm % 60);
-
-        // If remainingText indicates a leave, store note and skip OT logic
-        if (remainingText && LEAVE_CODES.some((c) => remainingText.includes(c))) {
-          // write lenCa or xuongCa depending on mode
+        // trailing indicating leave -> write lenCa/xuongCa and skip OT logic
+        if (trailing && LEAVE_CODES.some((c) => trailing.includes(c))) {
           if (mode === "checkin") {
             await upsertShiftSchedule(dateStr, member, {
-              lenCa: minutesToHHMM(minutesOfDay),
-              note: remainingText,
+              lenCa: extractedTime,
+              note: trailing,
             });
           } else {
             await upsertShiftSchedule(dateStr, member, {
-              xuongCa: minutesToHHMM(minutesOfDay),
-              note: remainingText,
+              xuongCa: extractedTime,
+              note: trailing,
             });
           }
           skipped++;
           continue;
         }
 
-        // Determine isNight based on explicit member.shift or member.shiftStart
-        // Prefer member.shift which is user-assigned
+        const hh = Number(extractedTime.split(":")[0]);
+        const mm = Number(extractedTime.split(":")[1]);
+        let minutesOfDay = (hh % 24) * 60 + (mm % 60);
+
+        // Prefer persisted shiftSchedule for this member/day (authoritative)
+        const shiftRec = await getShiftSchedule(dateStr, member.id);
+
+        // Determine isNight:
+        // 1) If shiftRec.shift exists -> use it (trust manual assignment).
+        // 2) Else if member.shift exists -> use it (member default).
+        // 3) Else: infer by checking whether minutesOfDay falls into any day checkin windows (som/muon).
+        //    if not in day windows but in night windows -> night.
+        //    otherwise fallback to simple rule: [04:00..12:00) => day else night.
         let isNight = false;
-        if (member.shift === "Ca đêm") {
-          isNight = true;
-        } else if (member.shift === "Ca ngày") {
-          isNight = false;
+        if (shiftRec && shiftRec.shift) {
+          isNight = String(shiftRec.shift).toLowerCase().includes("đêm");
+        } else if (member.shift) {
+          isNight = String(member.shift).toLowerCase().includes("đêm");
         } else {
-          // fallback to shiftStart string check (if exists)
-          const ss = String(member.shiftStart || "").toLowerCase();
-          if (ss.includes("đêm") || ss.includes("dem")) isNight = true;
-          else isNight = false;
+          // try day windows
+          const inDay =
+            (typeof dayWindows.som.checkin === "number" &&
+              inRangeWrap(minutesOfDay, dayWindows.som.checkin, dayWindows.som.checkinEnd)) ||
+            (typeof dayWindows.muon.checkin === "number" &&
+              inRangeWrap(minutesOfDay, dayWindows.muon.checkin, dayWindows.muon.checkinEnd));
+
+          const inNight =
+            (typeof nightWindows.som.checkin === "number" &&
+              inRangeWrap(minutesOfDay, nightWindows.som.checkin, nightWindows.som.checkinEnd)) ||
+            (typeof nightWindows.muon.checkin === "number" &&
+              inRangeWrap(minutesOfDay, nightWindows.muon.checkin, nightWindows.muon.checkinEnd));
+
+          if (inDay && !inNight) isNight = false;
+          else if (!inDay && inNight) isNight = true;
+          else {
+            // fallback safe rule
+            isNight = !(minutesOfDay >= 4 * 60 && minutesOfDay < 12 * 60);
+          }
         }
 
+        // For check-in mode: persist lenCa + checkinType (som/muon/other) and continue
+        // Use the chosen shift config (day/night) to decide checkinType
         const cfg = isNight ? shiftNight || {} : shiftDay || {};
+        const lenSomStart = timeToMinutes(cfg.lenCaSomBatDau);
+        const lenSomEnd = timeToMinutes(cfg.lenCaSomKetThuc);
+        const lenMuonStart = timeToMinutes(cfg.lenCaMuonBatDau);
+        const lenMuonEnd = timeToMinutes(cfg.lenCaMuonKetThuc);
 
-        // load window strings from cfg
-        const lenSomStartStr = safeStr(cfg.lenCaSomBatDau, null);
-        const lenSomEndStr = safeStr(cfg.lenCaSomKetThuc, null);
-        const lenMuonStartStr = safeStr(cfg.lenCaMuonBatDau, null);
-        const lenMuonEndStr = safeStr(cfg.lenCaMuonKetThuc, null);
-        const tanSomStartStr = safeStr(cfg.tanCaSomBatDau, null);
-        const tanMuonStartStr = safeStr(cfg.tanCaMuonBatDau, null);
-
-        // convert to minutes where possible
-        const lenSomStart = timeToMinutes(lenSomStartStr);
-        const lenSomEnd = timeToMinutes(lenSomEndStr);
-        const lenMuonStart = timeToMinutes(lenMuonStartStr);
-        const lenMuonEnd = timeToMinutes(lenMuonEndStr);
-        const tanSomStart = timeToMinutes(tanSomStartStr);
-        const tanMuonStart = timeToMinutes(tanMuonStartStr);
-
-        // ---------- CHECKIN ----------
         if (mode === "checkin") {
-          // determine checkinType for record (but DO NOT use it to choose official boundaries)
           let checkinType = "other";
-
-          if (typeof lenSomStart === "number" && typeof lenSomEnd === "number") {
-            if (lenSomStart <= lenSomEnd) {
-              if (minutesOfDay >= lenSomStart && minutesOfDay <= lenSomEnd) {
-                checkinType = "som";
-              }
-            } else {
-              if (minutesOfDay >= lenSomStart || minutesOfDay <= lenSomEnd) {
-                checkinType = "som";
-              }
-            }
-          }
-
           if (
-            checkinType === "other" &&
-            typeof lenMuonStart === "number" &&
-            typeof lenMuonEnd === "number"
+            typeof lenSomStart === "number" &&
+            typeof lenSomEnd === "number" &&
+            inRangeWrap(minutesOfDay, lenSomStart, lenSomEnd)
           ) {
-            if (lenMuonStart <= lenMuonEnd) {
-              if (minutesOfDay >= lenMuonStart && minutesOfDay <= lenMuonEnd) {
-                checkinType = "muon";
-              }
-            } else {
-              if (minutesOfDay >= lenMuonStart || minutesOfDay <= lenMuonEnd) {
-                checkinType = "muon";
-              }
-            }
+            checkinType = "som";
+          } else if (
+            typeof lenMuonStart === "number" &&
+            typeof lenMuonEnd === "number" &&
+            inRangeWrap(minutesOfDay, lenMuonStart, lenMuonEnd)
+          ) {
+            checkinType = "muon";
           }
-
           await upsertShiftSchedule(dateStr, member, {
             lenCa: minutesToHHMM(minutesOfDay),
             checkinType,
+            // do not overwrite shift/shiftStart here (we respect manual assignments)
           });
           updated++;
           continue;
         }
 
-        // ---------- CHECKOUT ----------
-        // Retrieve stored shift schedule first (to get checkinType or lenCa)
-        const shiftRec = await getShiftSchedule(dateStr, member.id);
-
-        // Save xuongCa (once)
+        // ---------- checkout ----------
+        // persist xuongCa immediately
         await upsertShiftSchedule(dateStr, member, {
           xuongCa: minutesToHHMM(minutesOfDay),
         });
         updated++;
 
-        // Determine checkinType: prefer stored checkinType; else infer from stored lenCa; else fallback to other
+        // Determine checkinType: prefer stored checkinType in shiftRec, else infer from stored lenCa, else "other"
         let storedCheckinType = (shiftRec && shiftRec.checkinType) || null;
         if (!storedCheckinType && shiftRec && shiftRec.lenCa) {
           const lenCaMin = timeToMinutes(shiftRec.lenCa);
-          if (typeof lenSomStart === "number" && typeof lenSomEnd === "number") {
-            if (lenSomStart <= lenSomEnd) {
-              if (lenCaMin >= lenSomStart && lenCaMin <= lenSomEnd)
-                storedCheckinType = "som";
-            } else {
-              if (lenCaMin >= lenSomStart || lenCaMin <= lenSomEnd)
-                storedCheckinType = "som";
-            }
-          }
           if (
-            !storedCheckinType &&
-            typeof lenMuonStart === "number" &&
-            typeof lenMuonEnd === "number"
+            typeof lenSomStart === "number" &&
+            typeof lenSomEnd === "number" &&
+            inRangeWrap(lenCaMin, lenSomStart, lenSomEnd)
           ) {
-            if (lenMuonStart <= lenMuonEnd) {
-              if (lenCaMin >= lenMuonStart && lenCaMin <= lenMuonEnd)
-                storedCheckinType = "muon";
-            } else {
-              if (lenCaMin >= lenMuonStart || lenCaMin <= lenMuonEnd)
-                storedCheckinType = "muon";
-            }
+            storedCheckinType = "som";
+          } else if (
+            typeof lenMuonStart === "number" &&
+            typeof lenMuonEnd === "number" &&
+            inRangeWrap(lenCaMin, lenMuonStart, lenMuonEnd)
+          ) {
+            storedCheckinType = "muon";
           }
         }
-
         const checkinType = storedCheckinType || "other";
 
-        // ---------- DETERMINING OFFICIAL START/END (FIXED LOGIC) ----------
-        // Prioritize assigned shiftStart string (source of truth),
-        // fallback to using stored checkinType (only if shiftStart missing),
-        // final fallback to best-effort using cfg values.
-
+        // Build officialStart / officialEnd according to cfg and checkinType.
+        // We only read from cfg fields (lenCaSomKetThuc, tanCaSomBatDau, etc).
+        // For night shifts officialEnd may be < officialStart (wrap) — handle it.
         let officialStart = null;
         let officialEnd = null;
 
-        const ss = String(member.shiftStart || "").trim();
-
-        // Map shiftStart string to proper cfg values (day/night / sớm/muộn)
-        if (ss === "lên_ca_ngày_sớm") {
-          officialStart = timeToMinutes(cfg.lenCaSomKetThuc); // e.g. 07:00
-          officialEnd = timeToMinutes(cfg.tanCaSomBatDau); // e.g. 16:00
-        } else if (ss === "lên_ca_ngày_muộn") {
-          officialStart = timeToMinutes(cfg.lenCaMuonKetThuc); // e.g. 08:00
-          officialEnd = timeToMinutes(cfg.tanCaMuonBatDau); // e.g. 17:00
-        } else if (ss === "lên_ca_đêm_sớm") {
-          officialStart = timeToMinutes(cfg.lenCaSomKetThuc); // e.g. 19:00
-          officialEnd = timeToMinutes(cfg.tanCaSomBatDau); // e.g. 04:00 (wrap)
-        } else if (ss === "lên_ca_đêm_muộn") {
-          officialStart = timeToMinutes(cfg.lenCaMuonKetThuc); // e.g. 20:00
-          officialEnd = timeToMinutes(cfg.tanCaMuonBatDau); // e.g. 05:00 (wrap)
+        if (!isNight) {
+          if (checkinType === "som") {
+            officialStart = timeToMinutes(cfg.lenCaSomKetThuc); // e.g., 07:00
+            officialEnd = timeToMinutes(cfg.tanCaSomBatDau); // e.g., 16:00
+          } else if (checkinType === "muon") {
+            officialStart = timeToMinutes(cfg.lenCaMuonKetThuc); // e.g., 08:00
+            officialEnd = timeToMinutes(cfg.tanCaMuonBatDau); // e.g., 17:00
+          } else {
+            // fallback: use muon window if available
+            officialStart = timeToMinutes(cfg.lenCaMuonKetThuc) ?? timeToMinutes(cfg.lenCaSomKetThuc);
+            officialEnd = timeToMinutes(cfg.tanCaMuonBatDau) ?? timeToMinutes(cfg.tanCaSomBatDau);
+          }
         } else {
-          // fallback: use stored checkinType mapping if shiftStart not available or unknown
+          // night (may wrap)
           if (checkinType === "som") {
             officialStart = timeToMinutes(cfg.lenCaSomKetThuc);
             officialEnd = timeToMinutes(cfg.tanCaSomBatDau);
@@ -427,186 +413,175 @@ export default function useOvertimeParser({
             officialStart = timeToMinutes(cfg.lenCaMuonKetThuc);
             officialEnd = timeToMinutes(cfg.tanCaMuonBatDau);
           } else {
-            // final fallback: try day config len/tan som
-            officialStart = timeToMinutes(cfg.lenCaSomKetThuc) || null;
-            officialEnd = timeToMinutes(cfg.tanCaSomBatDau) || null;
+            officialStart = timeToMinutes(cfg.lenCaMuonKetThuc) ?? timeToMinutes(cfg.lenCaSomKetThuc);
+            officialEnd = timeToMinutes(cfg.tanCaMuonBatDau) ?? timeToMinutes(cfg.tanCaSomBatDau);
           }
         }
 
-        // If cannot determine official times -> skip
         if (officialStart == null || officialEnd == null) {
+          // missing config — cannot compute OT safely
           continue;
         }
 
-        // Adjust for wrap-around (overnight shifts where end < start)
+        // Adjust for wrap-around: if officialEnd < officialStart => end is next day
         let checkoutMin = minutesOfDay;
-        if (officialEnd < officialStart) {
-          officialEnd += 24 * 60; // move end to next day minutes
+        let localOfficialEnd = officialEnd;
+        if (localOfficialEnd < officialStart) {
+          localOfficialEnd += 24 * 60;
           if (checkoutMin < officialStart) checkoutMin += 24 * 60;
         }
 
-        // compute working duration (hc) if needed - preserved logic
-        let hcMin = officialEnd - officialStart;
-        if (hcMin < 0) hcMin += 24 * 60; // just in case
-        hcMin -= Number(cfg.nghiGiuaCa || 1) * 60;
-        if (hcMin < 0) hcMin = 0;
-        const gioHanhChinh = hcMin / 60;
-
-        // OT = checkout - officialEnd (wrap handled)
-        let diffMin = checkoutMin - officialEnd;
+        // OT minutes = checkout - officialEnd
+        let diffMin = checkoutMin - localOfficialEnd;
         if (diffMin < 60) {
-          // less than 1 hour -> not counted as OT
+          // less than 1 hour -> not counted
           continue;
         }
 
         const otHours = minutesToFlooredHours(diffMin);
         if (otHours <= 0) continue;
 
+        // Enforce per-member monthly limit
         const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
         const memberWorked = Number(member.overtimeLimit?.workedHours || 0);
         const memberRemaining = Math.max(memberLimit - memberWorked, 0);
 
         const addHours = memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
+        if (addHours <= 0) continue;
 
-        if (addHours > 0) {
-          // Update member worked hours
+        // Prevent double-count: if shiftRec.otCounted is true -> skip adding hours but still may write ot record
+        const alreadyCounted = !!(shiftRec && shiftRec.otCounted);
+
+        if (!alreadyCounted) {
+          // update member worked hours
           await updateMemberOvertimeWorked(member.id, addHours);
           totalAddedHours += addHours;
+        }
 
-          // bonus calculation (preserve original logic)
-          let bonusGiven = 0;
-          try {
-            const limitKey = String(memberLimit || 0);
-            const limitDoc = limits[limitKey];
-            const bonusEnabled = Boolean(bonus?.batThuongTangCa);
-            const bonusEvery = Number(bonus?.thuongSauBaoNhieuTieng || 0);
-            const bonusAmount = Number(bonus?.congThemBaoNhieuGio || 0);
-            const selectedLimits = bonus?.cacNhanhDuocThuong || [];
+        // Bonus calculation (kept same semantics)
+        let bonusGiven = 0;
+        try {
+          const limitKey = String(memberLimit || 0);
+          const limitDoc = limits[limitKey];
+          const bonusEnabled = Boolean(bonus?.batThuongTangCa);
+          const bonusEvery = Number(bonus?.thuongSauBaoNhieuTieng || 0);
+          const bonusAmount = Number(bonus?.congThemBaoNhieuGio || 0);
+          const selectedLimits = bonus?.cacNhanhDuocThuong || [];
 
-            const customNoBonus = (bonus?.cacMaKhongThuong || []).concat(LEAVE_CODES || []);
-            const nameNormalized = normalizeName(member.realName || "");
+          const customNoBonus = (bonus?.cacMaKhongThuong || []).concat(LEAVE_CODES || []);
+          const nameNormalized = normalizeName(member.realName || "");
 
-            const isNoBonus =
-              customNoBonus.includes(nameNormalized) ||
-              customNoBonus.includes(member.realName) ||
-              customNoBonus.includes(member.nickname);
+          const isNoBonus =
+            customNoBonus.includes(nameNormalized) ||
+            customNoBonus.includes(member.realName) ||
+            customNoBonus.includes(member.nickname);
 
-            const isLimitBranchSelected = selectedLimits && selectedLimits.includes(limitKey);
+          const isLimitBranchSelected =
+            selectedLimits && selectedLimits.includes(limitKey);
 
-            if (
-              bonusEnabled &&
-              !isNoBonus &&
-              isLimitBranchSelected &&
-              bonusEvery > 0 &&
-              bonusAmount > 0
-            ) {
-              const bonusUnits = Math.floor(addHours / bonusEvery);
-              bonusGiven = bonusUnits * bonusAmount;
+          if (
+            bonusEnabled &&
+            !isNoBonus &&
+            isLimitBranchSelected &&
+            bonusEvery > 0 &&
+            bonusAmount > 0
+          ) {
+            const bonusUnits = Math.floor(addHours / bonusEvery);
+            bonusGiven = bonusUnits * bonusAmount;
 
-              if (limitDoc && Array.isArray(limitDoc.members)) {
-                const memberInLimit = (limitDoc.members || []).find(
-                  (mm) => String(mm.id) === String(member.id)
-                );
-                if (memberInLimit) {
-                  const remainBonus =
-                    (memberInLimit.gioThuongConLai ||
-                      memberInLimit.tongGioThuong ||
-                      0) - (memberInLimit.gioThuongDaNhan || 0);
-                  if (remainBonus <= 0) bonusGiven = 0;
-                  else bonusGiven = Math.min(bonusGiven, remainBonus);
-                }
+            if (limitDoc && Array.isArray(limitDoc.members)) {
+              const memberInLimit = (limitDoc.members || []).find(
+                (mm) => String(mm.id) === String(member.id)
+              );
+              if (memberInLimit) {
+                const remainBonus =
+                  (memberInLimit.gioThuongConLai ||
+                    memberInLimit.tongGioThuong ||
+                    0) - (memberInLimit.gioThuongDaNhan || 0);
+                if (remainBonus <= 0) bonusGiven = 0;
+                else bonusGiven = Math.min(bonusGiven, remainBonus);
               }
             }
-          } catch (e) {
-            console.warn("Bonus calc failed", e);
-            bonusGiven = 0;
           }
+        } catch (e) {
+          console.warn("Bonus calc failed", e);
+          bonusGiven = 0;
+        }
+        totalBonusAdded += bonusGiven;
 
-          totalBonusAdded += bonusGiven;
+        // Update overtimeLimits member entry and mark otCounted on shiftSchedules
+        try {
+          if (memberLimit && memberLimit > 0) {
+            const limitDocRef = doc(db, "overtimeLimits", `limit_${memberLimit}`);
+            const limitSnap = await getDoc(limitDocRef);
+            if (limitSnap.exists()) {
+              const limitData = limitSnap.data();
+              const membersArr = Array.isArray(limitData.members) ? limitData.members : [];
+              const idx = membersArr.findIndex((mm) => String(mm.id) === String(member.id));
+              const existing = idx !== -1 ? membersArr[idx] : {};
 
-          // update overtimeLimits member entry with otCounted logic
-          try {
-            if (memberLimit && memberLimit > 0) {
-              const limitDocRef = doc(db, "overtimeLimits", `limit_${memberLimit}`);
-              const limitSnap = await getDoc(limitDocRef);
-              if (limitSnap.exists()) {
-                const limitData = limitSnap.data();
-                const membersArr = Array.isArray(limitData.members) ? limitData.members : [];
-                const idx = membersArr.findIndex((mm) => String(mm.id) === String(member.id));
-                const existing = idx !== -1 ? membersArr[idx] : {};
+              const existedGioDaLam = Number(existing.gioDaLam || existing.worked || 0);
+              const existedSoNgay = Number(existing.soNgayDaLam || 0);
+              const existedGioThuongDaNhan = Number(existing.gioThuongDaNhan || 0);
+              const existedGioThuongConLai = Number(existing.gioThuongConLai || existing.tongGioThuong || 0);
 
-                const existedGioDaLam = Number(existing.gioDaLam || existing.worked || 0);
-                const existedSoNgay = Number(existing.soNgayDaLam || 0);
-                const existedGioThuongDaNhan = Number(existing.gioThuongDaNhan || 0);
-                const existedGioThuongConLai = Number(existing.gioThuongConLai || existing.tongGioThuong || 0);
+              const newGioDaLam = existedGioDaLam + (alreadyCounted ? 0 : addHours);
+              const incrementDay = alreadyCounted ? 0 : 1;
+              const newSoNgay = existedSoNgay + incrementDay;
 
-                // determine if this day already counted for OT
-                const alreadyCounted = !!(shiftRec && shiftRec.otCounted);
+              const totalPlan = Number(existing.tongGioKeHoach || limitData.limit || 0);
+              const newGioConLai = Math.max(totalPlan - newGioDaLam, 0);
 
-                const newGioDaLam = existedGioDaLam + addHours;
-                const incrementDay = alreadyCounted ? 0 : 1;
-                const newSoNgay = existedSoNgay + incrementDay;
+              const newGioThuongDaNhan = existedGioThuongDaNhan + (bonusGiven || 0);
+              const newGioThuongConLai = Math.max(existedGioThuongConLai - (bonusGiven || 0), 0);
 
-                const totalPlan = Number(existing.tongGioKeHoach || limitData.limit || 0);
-                const newGioConLai = Math.max(totalPlan - newGioDaLam, 0);
+              const existedNgayConLai = Number(existing.ngayConLai ?? limitData.days ?? 0);
+              const newNgayConLai = Math.max(existedNgayConLai - incrementDay, 0);
 
-                const newGioThuongDaNhan = existedGioThuongDaNhan + (bonusGiven || 0);
-                const newGioThuongConLai = Math.max(existedGioThuongConLai - (bonusGiven || 0), 0);
+              const patch = {
+                id: member.id,
+                ten: member.nickname || member.realName || "",
+                gioDaLam: newGioDaLam,
+                gioConLai: newGioConLai,
+                soNgayDaLam: newSoNgay,
+                ngayConLai: newNgayConLai,
+                gioThuongDaNhan: newGioThuongDaNhan,
+                gioThuongConLai: newGioThuongConLai,
+              };
 
-                const existedNgayConLai = Number(existing.ngayConLai ?? limitData.days ?? 0);
-                const newNgayConLai = Math.max(existedNgayConLai - incrementDay, 0);
+              await updateOvertimeLimitsMember(memberLimit, member.id, patch);
 
-                const patch = {
-                  id: member.id,
-                  ten: member.nickname || member.realName || "",
-                  gioDaLam: newGioDaLam,
-                  gioConLai: newGioConLai,
-                  soNgayDaLam: newSoNgay,
-                  ngayConLai: newNgayConLai,
-                  gioThuongDaNhan: newGioThuongDaNhan,
-                  gioThuongConLai: newGioThuongConLai,
-                };
-
-                await updateOvertimeLimitsMember(memberLimit, member.id, patch);
-
-                // mark otCounted on shiftSchedules so same-day re-runs don't double count
-                if (!alreadyCounted) {
-                  await upsertShiftSchedule(dateStr, member, { otCounted: true });
-                }
+              if (!alreadyCounted) {
+                // mark otCounted so reruns don't double count
+                await upsertShiftSchedule(dateStr, member, { otCounted: true });
               }
             }
-          } catch (e) {
-            console.warn("Failed updating overtimeLimits member", e);
           }
+        } catch (e) {
+          console.warn("Failed updating overtimeLimits member", e);
+        }
 
-          // write overtime record (preserve original behavior)
-          try {
-            const otRef = doc(collection(db, "overtimes"));
-            await setDoc(otRef, {
-              userId: user.uid,
-              memberId: member.id,
-              realName: member.realName,
-              nickname: member.nickname || "",
-              date: dateStr,
-
-              // giờ
-              checkIn: shiftRec?.lenCa || null,
-              checkOut: minutesToHHMM(minutesOfDay),
-
-              // tăng ca & thưởng
-              tangCaHomNay: addHours,
-              thuong: bonusGiven,
-
-              addedHours: addHours,
-              bonusGiven: bonusGiven,
-
-              shift: member.shift || "",
-              createdAt: serverTimestamp(),
-            });
-          } catch (e) {
-            console.warn("Failed writing overtime record", e);
-          }
-        } // end addHours > 0
+        // write overtime record (one per detection)
+        try {
+          const otRef = doc(collection(db, "overtimes"));
+          await setDoc(otRef, {
+            userId: user.uid,
+            memberId: member.id,
+            realName: member.realName,
+            nickname: member.nickname || "",
+            date: dateStr,
+            checkIn: shiftRec?.lenCa || null,
+            checkOut: minutesToHHMM(minutesOfDay),
+            tangCaHomNay: alreadyCounted ? 0 : addHours,
+            thuong: bonusGiven,
+            addedHours: alreadyCounted ? 0 : addHours,
+            bonusGiven,
+            shift: shiftRec?.shift || member.shift || "",
+            createdAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.warn("Failed writing overtime record", e);
+        }
       } // end for lines
 
       return {

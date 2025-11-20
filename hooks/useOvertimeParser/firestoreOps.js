@@ -1,7 +1,6 @@
 // hooks/useOvertimeParser/firestoreOps.js
 // Hàm thao tác với Firestore để lấy và lưu dữ liệu tăng ca
 
-
 import {
   collection,
   query,
@@ -24,7 +23,7 @@ export async function getShiftMap(uid, date) {
   const snap = await getDocs(shiftQ);
   snap.docs.forEach((d) => {
     const data = d.data();
-    shiftMap[data.realName] = {
+    shiftMap[data.memberId] = {
       shift: data.shift,
       shiftStart: data.shiftStart,
     };
@@ -41,7 +40,7 @@ export async function saveOvertimeRecord(
   const q = query(
     collection(db, "overtimes"),
     where("userId", "==", user.uid),
-    where("realName", "==", member.realName),
+    where("memberId", "==", member.id),
     where("currentDate", "==", date)
   );
   const snap = await getDocs(q);
@@ -53,8 +52,10 @@ export async function saveOvertimeRecord(
   if (snap.empty) {
     await addDoc(collection(db, "overtimes"), {
       userId: user.uid,
+      memberId: member.id,
       realName: member.realName,
       nickname: member.nickname || member.realName,
+      date,
       currentDate: date,
       shift: shift?.shift || member.shift,
       shiftStart: shift?.shiftStart || member.shiftStart,
@@ -73,11 +74,7 @@ export async function saveOvertimeRecord(
     const newCheckOut =
       mode === "checkout" ? checkTime || prev.checkOut : prev.checkOut;
 
-    if (calcOvertimeHours)
-      newHours = calcOvertimeHours(
-        shift?.shiftStart || member.shiftStart,
-        newCheckOut
-      );
+  // newHours = 0; OT hours đã được tính ở parser, không tính lại ở đây
 
     await updateDoc(ref, {
       checkIn: newCheckIn,
