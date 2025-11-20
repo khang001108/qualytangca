@@ -87,8 +87,12 @@ export default function OverMember({
         data[item.date][item.realName] = {
           shift: item.shift,
           shiftStart: item.shiftStart,
-          memberId: item.memberId || null,
+          memberId: item.memberId,
+          lenCa: item.lenCa || "",
+          xuongCa: item.xuongCa || "",
+          note: item.note || "",
         };
+
       });
       setShiftSchedules(data);
     });
@@ -101,16 +105,25 @@ export default function OverMember({
     const dateStr = safeDate.format("YYYY-MM-DD");
     const formatted = safeDate.format("DD/MM/YYYY");
 
+    // Lấy dữ liệu tăng ca từ bảng overtimes
     const todayOvertime = overtimes.find(
       (o) =>
         o.memberId === member.id &&
         (o.date === dateStr || o.currentDate === dateStr)
     );
 
+    // Nếu overtimes không có thì fallback sang shiftSchedules
+    let checkIn = todayOvertime?.checkIn || todayOvertime?.lenCa || "";
+    let checkOut = todayOvertime?.checkOut || todayOvertime?.xuongCa || "";
+    let note = todayOvertime?.note?.trim() || "";
 
-    const checkIn = todayOvertime?.checkIn || todayOvertime?.lenCa || "";
-    const checkOut = todayOvertime?.checkOut || todayOvertime?.xuongCa || "";
-    const note = todayOvertime?.note?.trim() || "";
+    // ⬇️ PATCH QUAN TRỌNG
+    if (!todayOvertime && shiftSchedules?.[dateStr]?.[member.realName]) {
+      const s = shiftSchedules[dateStr][member.realName];
+      checkIn = s.lenCa || "";
+      checkOut = s.xuongCa || "";
+      note = s.note || "";
+    }
 
     const noteMap = {
       休: "nghỉ luân phiên",
