@@ -258,9 +258,9 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
                     lenCaMuonKetThuc: "08:00",
                     tanCaMuonBatDau: "17:00",
                     tanCaMuonKetThuc: "17:15",
-                    gioLenCa: "7H",
-                    gioXuongCa: "16H",
-                    nghiGiuaCa: "1H",
+                    gioLenCa: "7",
+                    gioXuongCa: "16",
+                    nghiGiuaCa: "1",
                     tongGioHanhChinh: 8,
                   }
                   : {
@@ -272,9 +272,9 @@ export default function SectionShiftConfig({ config, setConfig, onDataChange }) 
                     lenCaMuonKetThuc: "20:00",
                     tanCaMuonBatDau: "05:00",
                     tanCaMuonKetThuc: "05:15",
-                    gioLenCa: "19H",
-                    gioXuongCa: "4H",
-                    nghiGiuaCa: "1H",
+                    gioLenCa: "19",
+                    gioXuongCa: "4",
+                    nghiGiuaCa: "1",
                     tongGioHanhChinh: 8,
                   };
 

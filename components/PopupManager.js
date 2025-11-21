@@ -1,6 +1,4 @@
 // components/PopupManager.js
-// Quản lý popup hiển thị giao diện quản lý nhân viên và phân ca
-
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import ManageMembers from "./ManageMembers";
@@ -19,13 +17,32 @@ export default function PopupManager({
 }) {
   const [showAssign, setShowAssign] = useState(false);
 
-  // 🔒 Khóa cuộn nền khi mở popup
+  // 🔥 Popup dành cho xóa dữ liệu tháng
+  const [deletePopup, setDeletePopup] = useState({
+    visible: false,
+    state: "confirm", // confirm | loading | success
+  });
+
+  // 🔒 Khóa scroll nền khi popup mở
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
     };
   }, []);
+
+  // Khi user bấm "Xóa"
+  const handleConfirmDelete = async () => {
+    setDeletePopup({ visible: true, state: "loading" });
+
+    try {
+      await handleDeleteAll(); // ← gọi hàm xóa từ index.js
+      setDeletePopup({ visible: true, state: "success" });
+    } catch (e) {
+      setDeletePopup({ visible: false, state: "confirm" });
+      setToast({ type: "error", msg: "❌ Lỗi khi xóa dữ liệu!" });
+    }
+  };
 
   if (showAssign) {
     return (
@@ -49,77 +66,129 @@ export default function PopupManager({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={onClose} // <-- ấn ra ngoài để đóng
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          transform: "scale(0.9)", // 👈 chỉnh tỉ lệ tổng thể
-          transformOrigin: "center", // 👈 giữ popup ở giữa
-        }}
-        className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-             rounded-2xl w-[95vw] max-w-[1600px] shadow-2xl border border-gray-200
-             dark:border-gray-700 flex flex-col overflow-visible"
+    <>
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+        onClick={onClose}
       >
-        {/* 🔹 Nút đóng góc phải */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
-          title="Đóng"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          onClick={(e) => e.stopPropagation()}
+          className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 
+                     rounded-2xl w-[95vw] max-w-[1600px] shadow-2xl border border-gray-200 
+                     dark:border-gray-700 flex flex-col overflow-visible"
         >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* 🔹 Nội dung chính có thể cuộn */}
-        <div className="flex-1 p-6">
-          <div className="flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400 font-semibold gap-2">
-            <motion.div whileHover={{ scale: 1.1 }}>
-              <Users className="w-6 h-6" />
-            </motion.div>
-            <span className="text-xl tracking-wide">Quản lý nhân viên</span>
-          </div>
-
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
-            Ngày hiện tại:{" "}
-            <span className="font-medium text-indigo-600 dark:text-indigo-400">
-              {new Date().toLocaleDateString("vi-VN")}
-            </span>
-          </div>
-
-          <div
-            className="border border-zinc-300 dark:border-zinc-700 rounded-xl p-4 mb-4 
-                      hover:border-zinc-400 dark:hover:border-zinc-600 
-                      hover:bg-zinc-50 dark:hover:bg-gray-800 transition"
-          >
-            <ManageMembers
-              user={user}
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-              selectedDate={selectedDate}
-              shiftSchedules={shiftSchedules}
-              setToast={setToast}
-            />
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-center sticky bottom-0">
           <button
-            onClick={handleDeleteAll}
-            className="w-full border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 
-                     hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-500 dark:hover:border-red-600 
-                     py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+            onClick={onClose}
+            className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
           >
-            <Trash2 className="w-4 h-4" />
-            Xóa toàn bộ dữ liệu trong tháng {selectedMonth}/{selectedYear}
+            <X className="w-5 h-5" />
           </button>
+
+          <div className="flex-1 p-6">
+            <div className="flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400 font-semibold gap-2">
+              <Users className="w-6 h-6" />
+              <span className="text-xl">Quản lý nhân viên</span>
+            </div>
+
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
+              Ngày hiện tại:{" "}
+              <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                {new Date().toLocaleDateString("vi-VN")}
+              </span>
+            </div>
+
+            <div
+              className="border border-zinc-300 dark:border-zinc-700 rounded-xl p-4 mb-4 
+                         hover:border-zinc-400 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-gray-800"
+            >
+              <ManageMembers
+                user={user}
+                selectedMonth={selectedMonth}
+                selectedYear={selectedYear}
+                selectedDate={selectedDate}
+                shiftSchedules={shiftSchedules}
+                setToast={setToast}
+              />
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-center">
+            <button
+              onClick={() =>
+                setDeletePopup({ visible: true, state: "confirm" })
+              }
+              className="w-full border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 
+                         hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-500 dark:hover:border-red-600 
+                         py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Xóa toàn bộ dữ liệu trong tháng {selectedMonth}/{selectedYear}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ================= POPUP DELETE =================== */}
+      {deletePopup.visible && (
+        <div className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl w-[350px] text-center shadow-xl">
+            {deletePopup.state === "confirm" && (
+              <>
+                <div className="text-xl font-semibold text-red-600 mb-3">
+                  Xóa toàn bộ dữ liệu tháng?
+                </div>
+                <div className="text-gray-700 dark:text-gray-300 mb-5">
+                  Thao tác này không thể khôi phục.
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 py-2 rounded-lg bg-gray-200 dark:bg-gray-700"
+                    onClick={() => setDeletePopup({ visible: false })}
+                  >
+                    Hủy
+                  </button>
+
+                  <button
+                    className="flex-1 py-2 rounded-lg bg-red-600 text-white"
+                    onClick={handleConfirmDelete}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </>
+            )}
+
+            {deletePopup.state === "loading" && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-10 h-10 border-4 border-gray-300 border-t-orange-500 rounded-full animate-spin"></div>
+                <div className="text-gray-700 dark:text-gray-300 text-lg font-medium">
+                  Đang xóa dữ liệu tháng {selectedMonth}/{selectedYear}...
+                </div>
+              </div>
+            )}
+
+            {deletePopup.state === "success" && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-green-500 text-5xl">✓</div>
+                <div className="text-green-600 text-lg font-semibold">
+                  Đã xóa sạch dữ liệu!
+                </div>
+                <button
+                  className="mt-2 py-2 px-5 bg-green-600 text-white rounded-lg"
+                  onClick={() => setDeletePopup({ visible: false })}
+                >
+                  Đóng
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </motion.div>
-    </div>
+      )}
+    </>
   );
 }

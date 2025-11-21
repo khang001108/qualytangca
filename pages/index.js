@@ -1,7 +1,6 @@
 // pages/index.js
 // Trang chính của ứng dụng quản lý tăng ca
 
-
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import OverMember from "../components/OverMember";
@@ -90,7 +89,6 @@ export default function Home() {
     return () => unsub();
   }, [user?.uid, selectedDate]);
 
-
   useEffect(() => {
     if (!user) return;
     const startStr = dayjs(
@@ -174,22 +172,21 @@ export default function Home() {
     setUser(null);
   };
 
-  const handleDeleteAll = async () => {
-    if (
-      !window.confirm(
-        "⚠️ XÓA TOÀN BỘ DỮ LIỆU THÁNG NÀY? Không thể khôi phục."
-      )
-    ) return;
+  const [deletePopup, setDeletePopup] = useState({
+    visible: false,
+    state: "confirm", // confirm | loading | success
+  });
 
+  const handleDeleteAll = async () => {
     try {
+      setDeletePopup({ visible: true, state: "loading" });
+
       const yyyy = selectedYear;
       const mm = String(selectedMonth).padStart(2, "0");
       const startDate = `${yyyy}-${mm}-01`;
       const endDate = dayjs(startDate).endOf("month").format("YYYY-MM-DD");
 
-      // ================================
-      // 1) XÓA toàn bộ OVERTIMES
-      // ================================
+      // ========== XÓA OVERTIMES ==========
       const otQ = query(
         collection(db, "overtimes"),
         where("date", ">=", startDate),
@@ -197,13 +194,9 @@ export default function Home() {
         where("userId", "==", user.uid)
       );
       const otSnap = await getDocs(otQ);
-      for (const d of otSnap.docs) {
-        await deleteDoc(doc(db, "overtimes", d.id));
-      }
+      for (const d of otSnap.docs) await deleteDoc(doc(db, "overtimes", d.id));
 
-      // ================================
-      // 2) XÓA toàn bộ SHIFT SCHEDULES
-      // ================================
+      // ========== XÓA SHIFT SCHEDULES ==========
       const ssQ = query(
         collection(db, "shiftSchedules"),
         where("date", ">=", startDate),
@@ -211,39 +204,33 @@ export default function Home() {
         where("userId", "==", user.uid)
       );
       const ssSnap = await getDocs(ssQ);
-      for (const d of ssSnap.docs) {
+      for (const d of ssSnap.docs)
         await deleteDoc(doc(db, "shiftSchedules", d.id));
-      }
 
-      // ================================
-      // 3) RESET toàn bộ OVERTIME LIMITS
-      //  (limit_40, limit_56, limit_72 …)
-      // ================================
+      // ========== RESET OVERTIME LIMIT ==========
       const limitSnap = await getDocs(collection(db, "overtimeLimits"));
       for (const docLimit of limitSnap.docs) {
         const data = docLimit.data();
-        const resetMembers = (data.members || []).map((m) => ({
+        const reset = (data.members || []).map((m) => ({
           ...m,
           gioDaLam: 0,
           gioConLai: data.limit || 0,
           gioThuongDaNhan: 0,
-          gioThuongConLai: data.gioThuongConLai || m.gioThuongConLai || 0,
+          gioThuongConLai: data.gioThuongConLai || 0,
           soNgayDaLam: 0,
-          ngayConLai: data.days || m.ngayConLai || 0,
+          ngayConLai: data.days || 0,
         }));
 
         await updateDoc(doc(db, "overtimeLimits", docLimit.id), {
-          members: resetMembers,
+          members: reset,
         });
       }
 
-      // ================================
-      // 4) RESET tất cả MEMBERS
-      // ================================
+      // ========== RESET MEMBERS ==========
       const membersSnap = await getDocs(collection(db, "members"));
       for (const m of membersSnap.docs) {
         const data = m.data();
-        const isNight = data.shift?.toLowerCase().includes("đêm");
+        const isNight = data.shift?.includes("đêm");
         const defaultStart = isNight ? "20:00" : "08:00";
 
         await updateDoc(doc(db, "members", m.id), {
@@ -260,36 +247,31 @@ export default function Home() {
         });
       }
 
-      // ================================
-      // 5) CẬP NHẬT TRÊN UI
-      // ================================
+      // ========== UPDATE UI ==========
       setOvertimeItems([]);
       setMembers((prev) =>
-        prev.map((m) => {
-          const isNight = m.shift?.toLowerCase().includes("đêm");
-          return {
-            ...m,
-            lastCheckInDate: "",
-            lastCheckInTime: "",
-            lastCheckOutTime: "",
-            earlyShift: false,
-            shiftStart: isNight ? "20:00" : "08:00",
-            overtimeLimit: {
-              ...m.overtimeLimit,
-              workedHours: 0,
-              remaining: m.overtimeLimit?.monthlyLimit || 0,
-            },
-          };
-        })
+        prev.map((m) => ({
+          ...m,
+          lastCheckInDate: "",
+          lastCheckInTime: "",
+          lastCheckOutTime: "",
+          earlyShift: false,
+          shiftStart: m.shift?.includes("đêm") ? "20:00" : "08:00",
+          overtimeLimit: {
+            ...m.overtimeLimit,
+            workedHours: 0,
+            remaining: m.overtimeLimit?.monthlyLimit || 0,
+          },
+        }))
       );
 
-      alert("✅ ĐÃ XÓA SẠCH toàn bộ dữ liệu tháng!");
+      // ==> báo thành công
+      setDeletePopup({ visible: true, state: "success" });
     } catch (err) {
       console.error("Delete error:", err);
-      alert("❌ Xóa thất bại. Kiểm tra console.");
+      setDeletePopup({ visible: true, state: "error" });
     }
   };
-
 
   if (!user)
     return (
@@ -411,12 +393,13 @@ export default function Home() {
       {/* ✅ Toast duy nhất */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
-            ? "bg-red-500"
-            : toast.type === "loading"
+          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
+            toast.type === "error"
+              ? "bg-red-500"
+              : toast.type === "loading"
               ? "bg-blue-500"
               : "bg-green-500"
-            }`}
+          }`}
         >
           {toast.type === "loading" && (
             <Hourglass className="w-4 h-4 animate-spin" />
@@ -434,6 +417,78 @@ export default function Home() {
         >
           <ArrowUp className="w-5 h-5" />
         </motion.button>
+      )}
+
+      {deletePopup.visible && (
+        <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl w-[350px] text-center shadow-xl">
+            {deletePopup.state === "confirm" && (
+              <>
+                <div className="text-xl font-semibold text-red-600 mb-3">
+                  Xóa toàn bộ dữ liệu tháng?
+                </div>
+                <div className="text-gray-700 dark:text-gray-300 mb-5">
+                  Thao tác này không thể khôi phục.
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 py-2 rounded-lg bg-gray-200 dark:bg-gray-700"
+                    onClick={() => setDeletePopup({ visible: false })}
+                  >
+                    Hủy
+                  </button>
+
+                  <button
+                    className="flex-1 py-2 rounded-lg bg-red-600 text-white"
+                    onClick={handleDeleteAll}
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </>
+            )}
+
+            {deletePopup.state === "loading" && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="loader w-10 h-10 border-4 border-gray-300 border-t-red-500 rounded-full animate-spin"></div>
+                <div className="text-gray-700 dark:text-gray-300 text-lg font-medium">
+                  Đang xóa dữ liệu tháng {selectedMonth}/{selectedYear}...
+                </div>
+              </div>
+            )}
+
+            {deletePopup.state === "success" && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-green-500 text-5xl">✓</div>
+                <div className="text-green-600 text-lg font-semibold">
+                  Đã xóa sạch dữ liệu!
+                </div>
+                <button
+                  className="mt-2 py-2 px-5 bg-green-600 text-white rounded-lg"
+                  onClick={() => setDeletePopup({ visible: false })}
+                >
+                  Đóng
+                </button>
+              </div>
+            )}
+
+            {deletePopup.state === "error" && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-red-500 text-5xl">✗</div>
+                <div className="text-red-600 text-lg font-semibold">
+                  Lỗi khi xóa dữ liệu!
+                </div>
+                <button
+                  className="mt-2 py-2 px-5 bg-red-600 text-white rounded-lg"
+                  onClick={() => setDeletePopup({ visible: false })}
+                >
+                  Đóng
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
