@@ -177,37 +177,92 @@ export default function Home() {
   const handleDeleteAll = async () => {
     if (
       !window.confirm(
-        "Bạn có chắc chắn muốn xóa toàn bộ dữ liệu tháng này không?"
+        "⚠️ XÓA TOÀN BỘ DỮ LIỆU THÁNG NÀY? Không thể khôi phục."
       )
-    )
-      return;
+    ) return;
+
     try {
-      const q = query(
+      const yyyy = selectedYear;
+      const mm = String(selectedMonth).padStart(2, "0");
+      const startDate = `${yyyy}-${mm}-01`;
+      const endDate = dayjs(startDate).endOf("month").format("YYYY-MM-DD");
+
+      // ================================
+      // 1) XÓA toàn bộ OVERTIMES
+      // ================================
+      const otQ = query(
         collection(db, "overtimes"),
-        where("month", "==", selectedMonth),
-        where("year", "==", selectedYear)
+        where("date", ">=", startDate),
+        where("date", "<=", endDate),
+        where("userId", "==", user.uid)
       );
-      const snap = await getDocs(q);
-      for (const d of snap.docs) await deleteDoc(doc(db, "overtimes", d.id));
+      const otSnap = await getDocs(otQ);
+      for (const d of otSnap.docs) {
+        await deleteDoc(doc(db, "overtimes", d.id));
+      }
 
-      const membersRef = collection(db, "members");
-      const membersSnap = await getDocs(membersRef);
+      // ================================
+      // 2) XÓA toàn bộ SHIFT SCHEDULES
+      // ================================
+      const ssQ = query(
+        collection(db, "shiftSchedules"),
+        where("date", ">=", startDate),
+        where("date", "<=", endDate),
+        where("userId", "==", user.uid)
+      );
+      const ssSnap = await getDocs(ssQ);
+      for (const d of ssSnap.docs) {
+        await deleteDoc(doc(db, "shiftSchedules", d.id));
+      }
 
+      // ================================
+      // 3) RESET toàn bộ OVERTIME LIMITS
+      //  (limit_40, limit_56, limit_72 …)
+      // ================================
+      const limitSnap = await getDocs(collection(db, "overtimeLimits"));
+      for (const docLimit of limitSnap.docs) {
+        const data = docLimit.data();
+        const resetMembers = (data.members || []).map((m) => ({
+          ...m,
+          gioDaLam: 0,
+          gioConLai: data.limit || 0,
+          gioThuongDaNhan: 0,
+          gioThuongConLai: data.gioThuongConLai || m.gioThuongConLai || 0,
+          soNgayDaLam: 0,
+          ngayConLai: data.days || m.ngayConLai || 0,
+        }));
+
+        await updateDoc(doc(db, "overtimeLimits", docLimit.id), {
+          members: resetMembers,
+        });
+      }
+
+      // ================================
+      // 4) RESET tất cả MEMBERS
+      // ================================
+      const membersSnap = await getDocs(collection(db, "members"));
       for (const m of membersSnap.docs) {
         const data = m.data();
         const isNight = data.shift?.toLowerCase().includes("đêm");
         const defaultStart = isNight ? "20:00" : "08:00";
+
         await updateDoc(doc(db, "members", m.id), {
           lastCheckInDate: "",
           lastCheckInTime: "",
           lastCheckOutTime: "",
           earlyShift: false,
           shiftStart: defaultStart,
-          "overtimeLimit.workedHours": 0,
-          "overtimeLimit.remaining": data.overtimeLimit?.monthlyLimit ?? 0,
+          overtimeLimit: {
+            ...data.overtimeLimit,
+            workedHours: 0,
+            remaining: data.overtimeLimit?.monthlyLimit ?? 0,
+          },
         });
       }
 
+      // ================================
+      // 5) CẬP NHẬT TRÊN UI
+      // ================================
       setOvertimeItems([]);
       setMembers((prev) =>
         prev.map((m) => {
@@ -227,12 +282,14 @@ export default function Home() {
           };
         })
       );
-      alert("✅ Đã xóa toàn bộ dữ liệu tháng và bỏ tích 'Lên ca sớm'.");
+
+      alert("✅ ĐÃ XÓA SẠCH toàn bộ dữ liệu tháng!");
     } catch (err) {
-      console.error("Lỗi khi xóa dữ liệu:", err);
-      alert("❌ Lỗi khi xóa dữ liệu, kiểm tra console.");
+      console.error("Delete error:", err);
+      alert("❌ Xóa thất bại. Kiểm tra console.");
     }
   };
+
 
   if (!user)
     return (
