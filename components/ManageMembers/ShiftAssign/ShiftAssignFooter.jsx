@@ -5,7 +5,7 @@ export default function ShiftAssignFooter({
   loading,
   onCancel,
   handleApply,
-  handleDelete,
+  handleDeleteAll, // đổi tên
 }) {
   return (
     <div
@@ -16,9 +16,8 @@ export default function ShiftAssignFooter({
         border-gray-300 dark:border-gray-700
       "
     >
-      {/* Nút xóa tháng — thu nhỏ lại */}
       <button
-        onClick={handleDelete}
+        onClick={handleDeleteAll}
         className="
           flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
           bg-red-600 hover:bg-red-700 text-white
@@ -29,9 +28,7 @@ export default function ShiftAssignFooter({
         Xóa tháng
       </button>
 
-      {/* Nút Quay lại & Lưu */}
       <div className="flex gap-3">
-        {/* Quay lại */}
         <button
           onClick={onCancel}
           className="
@@ -44,7 +41,6 @@ export default function ShiftAssignFooter({
           Quay lại
         </button>
 
-        {/* Lưu phân ca */}
         <button
           onClick={handleApply}
           disabled={loading}

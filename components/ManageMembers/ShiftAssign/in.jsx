@@ -10,7 +10,6 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  getDoc,
 } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 
@@ -31,16 +30,14 @@ export default function ShiftAssign(props) {
     selectedYear,
   } = props;
 
+  // ===== giữ nguyên toàn bộ logic từ file gốc =====
   const ref = useRef();
   const [loading, setLoading] = useState(false);
   const [shiftType, setShiftType] = useState("day");
-  const [assignMap, setAssignMap] = useState({}); // day -> "day"|"night"
+  const [assignMap, setAssignMap] = useState({});
   const [hasLoaded, setHasLoaded] = useState(false);
   const [popupMsg, setPopupMsg] = useState(null);
   const [popupType, setPopupType] = useState("success");
-
-  // const [showSelectModal, setShowSelectModal] = useState(false);
-  const [selectedMembersMap, setSelectedMembersMap] = useState({});
 
   const assignMapRef = useRef(assignMap);
   useEffect(() => {
@@ -56,12 +53,11 @@ export default function ShiftAssign(props) {
     startY: 0,
   });
 
-  // RESET khi đổi tháng hoặc user thay đổi — fix: reset selectedMembersMap luôn
+  // reset + load logic như file gốc…
   useEffect(() => {
     if (!user?.uid) return;
     setHasLoaded(false);
     setAssignMap({});
-    setSelectedMembersMap({});
   }, [selectedMonth, selectedYear, user?.uid]);
 
   useEffect(() => {
@@ -69,6 +65,7 @@ export default function ShiftAssign(props) {
     (async () => {
       try {
         const col = collection(db, "shiftSchedules");
+        // FIX chuẩn tính ngày tháng
         const realMonth = selectedMonth - 1;
         const lastDay = new Date(selectedYear, realMonth + 1, 0).getDate();
 
@@ -91,8 +88,14 @@ export default function ShiftAssign(props) {
         snap.docs.forEach((d) => {
           const data = d.data();
           const day = Number(data.date.split("-")[2]);
-          if (data.shift === "Ca đêm") newMap[day] = "night";
-          else newMap[day] = "day";
+          if (data.shift === "Ca đêm") {
+            newMap[day] = "night";
+          } else if (data.shift === "Ca ngày") {
+            newMap[day] = "day";
+          } else {
+            // fallback an toàn
+            newMap[day] = "day";
+          }
         });
 
         setAssignMap(newMap);
@@ -103,11 +106,12 @@ export default function ShiftAssign(props) {
     })();
   }, [user?.uid, selectedMonth, selectedYear, hasLoaded]);
 
-  // --- MOUSE INTERACTIONS: FIX ngày khởi đầu không toggle (always set to selectingShift) ---
+  // xử lý chọn ô – giữ nguyên logic gốc
   const handleMouseDown = (day, e) => {
     if (loading) return;
     e.preventDefault();
     e.stopPropagation();
+
     dragState.current.isSelecting = true;
     dragState.current.selectingShift = shiftType;
     dragState.current.dragged = false;
@@ -115,8 +119,13 @@ export default function ShiftAssign(props) {
     dragState.current.startX = e.clientX;
     dragState.current.startY = e.clientY;
 
-    // FIX: set first day to selectingShift (không toggle)
-    setAssignMap((prev) => ({ ...prev, [day]: shiftType }));
+    setAssignMap((prev) => {
+      const cur = prev[day] ?? null;
+      let next = null;
+      if (shiftType === "day") next = cur === "day" ? null : "day";
+      else next = cur === "night" ? null : "night";
+      return { ...prev, [day]: next };
+    });
 
     const onMove = (ev) => {
       const dx = Math.abs(ev.clientX - dragState.current.startX);
@@ -145,126 +154,113 @@ export default function ShiftAssign(props) {
     }));
   };
 
-  // show popup helper
-  const showPopup = (msg, type) => {
-    setPopupMsg(msg);
-    setPopupType(type);
-    setTimeout(() => setPopupMsg(null), 2500);
-  };
-
-  // selected summary helper
-  const selectedSummary = () => {
-    const selected = Object.entries(selectedMembersMap)
-      .filter(([id, v]) => v.include)
-      .map(([id]) => {
-        const mem = members.find((mm) => mm.id === id);
-        return mem ? mem.realName : id;
-      });
-    if (selected.length === 0) return "(Không có nhân viên được chọn)";
-    if (selected.length > 5)
-      return selected.slice(0, 5).join(", ") + `, +${selected.length - 5}...`;
-    return selected.join(", ");
-  };
-
-  // --- HANDLE APPLY: dùng merge để không overwrite các trường khác ---
+  // lưu + xóa logic cũng giữ nguyên như bản cũ…
   const handleApply = async () => {
     if (!user?.uid) return;
     const selectedDays = Object.keys(assignMap).filter((d) => assignMap[d]);
     if (selectedDays.length === 0)
       return showPopup("⚠️ Chưa chọn ngày nào để lưu!", "error");
 
-    const membersToApply = Object.entries(selectedMembersMap)
-      .filter(([id, v]) => v.include)
-      .map(([id, v]) => ({ id, earlyShift: !!v.earlyShift }));
-
     setLoading(true);
-    onStatusChange?.({ loading: true });
-
+    onStatusChange?.({ loading: true }); // 👈 báo bắt đầu loading
     try {
+      // Load configs once
       const configs = await loadShiftConfigs();
       const dayCfg = configs?.day || null;
       const nightCfg = configs?.night || null;
 
-      // ALLOW EMPTY: nếu không có member nào được chọn => no-op
-      if (membersToApply.length === 0) {
-        showPopup(
-          "ℹ️ Không có nhân viên được chọn — không có gì để lưu.",
-          "success"
-        );
-        onStatusChange?.({
-          loading: false,
-          success: true,
-          month: selectedMonth,
-        });
-        setLoading(false);
-        return;
-      }
-
       for (const dayStr of selectedDays) {
         const type = assignMap[dayStr];
         const shift = type === "day" ? "Ca ngày" : "Ca đêm";
+
         const date = `${selectedYear}-${String(selectedMonth).padStart(
           2,
           "0"
         )}-${String(dayStr).padStart(2, "0")}`;
 
-        for (const sel of membersToApply) {
-          const member = members.find((mm) => mm.id === sel.id);
-          if (!member) continue;
+        for (const m of members) {
+          if (!m?.realName) continue;
 
+          // compute per-member shiftStart
           const shiftStart =
             type === "day"
-              ? sel.earlyShift
+              ? m.earlyShift
                 ? "lên_ca_ngày_sớm"
                 : "lên_ca_ngày_muộn"
-              : sel.earlyShift
+              : m.earlyShift
               ? "lên_ca_đêm_sớm"
               : "lên_ca_đêm_muộn";
 
+          // pick cfg for this type
           const cfg = type === "day" ? dayCfg : nightCfg;
-          let fields = {};
+          if (!cfg) {
+            console.warn("⚠️ shiftConfig missing for type:", type);
+            // fallback: continue without fields
+          }
 
+          // build fields based on shiftStart
+          let fields = {};
           if (cfg) {
-            if (shiftStart.includes("sớm")) {
-              fields = {
-                lenCaSomBatDau: cfg.lenCaSomBatDau,
-                lenCaSomKetThuc: cfg.lenCaSomKetThuc,
-                tanCaSomBatDau: cfg.tanCaSomBatDau,
-                tanCaSomKetThuc: cfg.tanCaSomKetThuc,
-              };
+            if (type === "day") {
+              if (shiftStart === "lên_ca_ngày_sớm") {
+                fields = {
+                  lenCaSomBatDau: cfg.lenCaSomBatDau,
+                  lenCaSomKetThuc: cfg.lenCaSomKetThuc,
+                  tanCaSomBatDau: cfg.tanCaSomBatDau,
+                  tanCaSomKetThuc: cfg.tanCaSomKetThuc,
+                };
+              } else {
+                fields = {
+                  lenCaMuonBatDau: cfg.lenCaMuonBatDau,
+                  lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
+                  tanCaMuonBatDau: cfg.tanCaMuonBatDau,
+                  tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
+                };
+              }
             } else {
-              fields = {
-                lenCaMuonBatDau: cfg.lenCaMuonBatDau,
-                lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
-                tanCaMuonBatDau: cfg.tanCaMuonBatDau,
-                tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
-              };
+              // night
+              if (shiftStart === "lên_ca_đêm_sớm") {
+                fields = {
+                  lenCaSomBatDau: cfg.lenCaSomBatDau,
+                  lenCaSomKetThuc: cfg.lenCaSomKetThuc,
+                  tanCaSomBatDau: cfg.tanCaSomBatDau,
+                  tanCaSomKetThuc: cfg.tanCaSomKetThuc,
+                };
+              } else {
+                fields = {
+                  lenCaMuonBatDau: cfg.lenCaMuonBatDau,
+                  lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
+                  tanCaMuonBatDau: cfg.tanCaMuonBatDau,
+                  tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
+                };
+              }
             }
           }
 
-          const docId = `${date}__${member.id}`;
-          // FIX: merge true để không overwrite lenCa/xuongCa/những trường khác
-          await setDoc(
-            doc(db, "shiftSchedules", docId),
-            {
-              userId: user.uid,
-              date,
-              memberId: member.id,
-              realName: member.realName,
-              nickname: member.nickname || "",
-              shift,
-              shiftStart,
-              ...fields,
-              lenCa: null,
-              xuongCa: null,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
+          const docId = `${date}__${m.id}`;
 
-          // update member default
-          await updateDoc(doc(db, "members", member.id), {
+          await setDoc(doc(db, "shiftSchedules", docId), {
+            userId: user.uid,
+            date,
+            memberId: m.id,
+            realName: m.realName,
+            nickname: m.nickname || "",
+            shift,
+            shiftStart,
+
+            // ===== GẮN GIỜ CA SỚM / MUỘN THEO CONFIG =====
+            ...fields,
+
+            // ===== KHỞI TẠO CHẤM CÔNG =====
+            lenCa: null,
+            xuongCa: null,
+
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+
+          const memberRef = doc(db, "members", m.id);
+          await updateDoc(memberRef, {
             shift,
             shiftStart,
             updatedAt: serverTimestamp(),
@@ -273,7 +269,11 @@ export default function ShiftAssign(props) {
       }
 
       showPopup("✅ Đã lưu phân ca và đồng bộ thành công!", "success");
-      onStatusChange?.({ loading: false, success: true, month: selectedMonth });
+      onStatusChange?.({
+        loading: false,
+        success: true,
+        month: selectedMonth,
+      }); // 👈 báo thành công
       onSuccess?.();
     } catch (err) {
       console.error("🔥 Lỗi lưu phân ca:", err);
@@ -284,12 +284,13 @@ export default function ShiftAssign(props) {
     }
   };
 
-  // --- HANDLE DELETE ALL: prop name consistent later ---
   const handleDeleteAll = async () => {
     if (!window.confirm("⚠️ Xóa toàn bộ phân ca tháng này?")) return;
     setLoading(true);
     try {
       const col = collection(db, "shiftSchedules");
+
+      // FIX chuẩn tính ngày tháng khi xóa phân ca
       const realMonth = selectedMonth - 1;
       const lastDay = new Date(selectedYear, realMonth + 1, 0).getDate();
 
@@ -309,18 +310,17 @@ export default function ShiftAssign(props) {
       for (const d of snap.docs)
         await deleteDoc(doc(db, "shiftSchedules", d.id));
 
-      // RESET member defaults: use existing member default if present; keep consistent schema
+      // ✅ Đặt lại ca mặc định cho tất cả members
       for (const m of members) {
         const memberRef = doc(db, "members", m.id);
         await updateDoc(memberRef, {
           shift: "Ca ngày",
-          shiftStart: "lên_ca_ngày_muộn",
+          shiftStart: "08:00",
           updatedAt: serverTimestamp(),
         });
       }
 
       setAssignMap({});
-      setSelectedMembersMap({});
       showPopup("🗑️ Đã xóa toàn bộ phân ca và reset ca mặc định!", "success");
     } catch (err) {
       console.error("🔥 Lỗi khi xóa phân ca:", err);
@@ -330,15 +330,20 @@ export default function ShiftAssign(props) {
     }
   };
 
+  const showPopup = (msg, type) => {
+    setPopupMsg(msg);
+    setPopupType(type);
+    setTimeout(() => setPopupMsg(null), 2500);
+  };
+
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-  const totalDayShift = Object.values(assignMap).filter(
-    (v) => v === "day"
-  ).length;
+  const totalDayShift = Object.values(assignMap).filter((v) => v === "day")
+    .length;
   const totalNightShift = Object.values(assignMap).filter(
     (v) => v === "night"
   ).length;
 
-  // --- UI: thêm left sidebar hiển thị full danh sách nhân viên với checkbox (bên phải calendar) ---
+  // ===================== RETURN UI =========================
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -350,11 +355,9 @@ export default function ShiftAssign(props) {
 
       <div
         ref={ref}
-        className="
-    relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-    w-11/12 max-w-5xl p-6 rounded-2xl shadow-2xl 
-    border border-gray-200 dark:border-gray-700 z-10 select-none
-  "
+        className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 
+        w-11/12 max-w-lg p-6 rounded-2xl shadow-2xl border border-gray-200 
+        dark:border-gray-700 z-10 select-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <ShiftAssignHeader
@@ -375,93 +378,45 @@ export default function ShiftAssign(props) {
           </div>
         )}
 
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <ShiftAssignShiftSelector
-            shiftType={shiftType}
-            setShiftType={setShiftType}
-            loading={loading}
-          />
+        <ShiftAssignShiftSelector
+          shiftType={shiftType}
+          setShiftType={setShiftType}
+          loading={loading}
+        />
 
-          <div className="flex flex-col items-end gap-1">
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              Nhân viên đã chọn: {selectedSummary()}
-            </div>
-          </div>
+        {/* Tổng số ngày đã chọn */}
+        <div
+          className="
+  flex justify-center gap-6 mt-2 mb-4 
+  text-sm font-medium 
+  text-gray-700 dark:text-gray-300
+"
+        >
+          <span className="flex items-center gap-1">
+            ☀️ <span className="font-semibold">{totalDayShift}</span> ngày
+          </span>
+
+          <span className="opacity-50">•</span>
+
+          <span className="flex items-center gap-1">
+            🌙 <span className="font-semibold">{totalNightShift}</span> ngày
+          </span>
         </div>
 
-        <div className="flex gap-6">
-          {/* LEFT: full list */}
-          <div className="w-1/3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border dark:border-gray-700 max-h-[420px] overflow-auto">
-            <div className="text-sm font-semibold mb-2">
-              Danh sách nhân viên
-            </div>
-            {members.map((m) => {
-              const sel = selectedMembersMap[m.id] || {
-                include: false,
-                earlyShift: !!m.earlyShift ?? false,
-              };
-              return (
-                <div
-                  key={m.id}
-                  className="flex items-center justify-between py-2 border-b last:border-b-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={!!sel.include}
-                      onChange={() =>
-                        setSelectedMembersMap((prev) => ({
-                          ...prev,
-                          [m.id]: {
-                            ...(prev[m.id] || sel),
-                            include: !sel.include,
-                          },
-                        }))
-                      }
-                    />
-                    <div className="text-sm">
-                      {m.realName} {m.nickname ? `(${m.nickname})` : ""}
-                    </div>
-                  </div>
+        <ShiftAssignCalendar
+          daysInMonth={daysInMonth}
+          assignMap={assignMap}
+          handleMouseDown={handleMouseDown}
+          handleMouseEnter={handleMouseEnter}
+          loading={loading}
+        />
 
-                  {sel.earlyShift && (
-                    <span className="text-xs font-semibold text-orange-500">
-                      Lên sớm
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* RIGHT: calendar + stats */}
-          <div className="flex-1">
-            <div className="flex justify-center gap-6 mt-2 mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-              <span className="flex items-center gap-1">
-                ☀️ <span className="font-semibold">{totalDayShift}</span> ngày
-              </span>
-              <span className="opacity-50">•</span>
-              <span className="flex items-center gap-1">
-                🌙 <span className="font-semibold">{totalNightShift}</span> ngày
-              </span>
-            </div>
-
-            <ShiftAssignCalendar
-              daysInMonth={daysInMonth}
-              assignMap={assignMap}
-              handleMouseDown={handleMouseDown}
-              handleMouseEnter={handleMouseEnter}
-              loading={loading}
-            />
-
-            <ShiftAssignFooter
-              loading={loading}
-              onCancel={onCancel}
-              handleApply={handleApply}
-              handleDeleteAll={handleDeleteAll}
-            />
-          </div>
-        </div>
+        <ShiftAssignFooter
+          loading={loading}
+          onCancel={onCancel}
+          handleApply={handleApply}
+          handleDeleteAll={handleDeleteAll}
+        />
       </div>
     </div>
   );

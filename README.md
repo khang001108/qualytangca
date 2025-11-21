@@ -474,3 +474,18 @@ lenCaMuonKetThuc "08:00"
 updatedAt November 21, 2025 at 9:32:59 PM UTC+7 (timestamp)
 userId "3ApO3NKNLJQiV8bUP0hInpJCw653" (string)
 xuongCa null
+
+
+Phân ca cho nhiều nhân viên (multiple select)
+
+1) Hiển thị full danh sách (checkbox cột trái)
+
+2) Modal riêng để chọn nhân viên
+Nút: Chọn nhân viên → popup → tick nhân viên → xác nhận.
+
+
+3) Ngay trên Calendar
+
+4) Allow rỗng (áp dụng 0 người)
+
+(nếu tích là lên ca sớm, ko tích là mặc định ca muộn)
