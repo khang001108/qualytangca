@@ -459,4 +459,18 @@ if (checkin >= 11:30 && checkin <= 13:00):
     afternoonWork = true
     if (totalWorkingHours < 8):
         bonusAllowed = false
-chưa sửa
+
+
+createdAt November 21, 2025 at 9:32:59 PM UTC+7 (timestamp)
+date "2025-11-01" (string)
+lenCa null (null)
+memberId "FtxosfIXMjdLg46RMhlt" (string)
+nickname "BÙI THÁI NAM" (string)
+realName "裴泰南" (string)
+shift "Ca ngày" (string)
+shiftStart "lên_ca_ngày_muộn" (string)
+lenCaMuonBatDau "07:45"
+lenCaMuonKetThuc "08:00"
+updatedAt November 21, 2025 at 9:32:59 PM UTC+7 (timestamp)
+userId "3ApO3NKNLJQiV8bUP0hInpJCw653" (string)
+xuongCa null

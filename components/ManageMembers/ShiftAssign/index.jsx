@@ -17,6 +17,7 @@ import ShiftAssignHeader from "./ShiftAssignHeader";
 import ShiftAssignShiftSelector from "./ShiftAssignShiftSelector";
 import ShiftAssignCalendar from "./ShiftAssignCalendar";
 import ShiftAssignFooter from "./ShiftAssignFooter";
+import { loadShiftConfigs } from "../../../hooks/useOvertimeParser/shiftHelpers";
 
 export default function ShiftAssign(props) {
   const {
@@ -51,11 +52,6 @@ export default function ShiftAssign(props) {
     startX: 0,
     startY: 0,
   });
-
-  // khi mở lại poppup rst trạng thái
-  // useEffect(() => {
-  //   setLoading(false);
-  // }, [selectedMonth, selectedYear, onCancel]);
 
   // reset + load logic như file gốc…
   useEffect(() => {
@@ -168,9 +164,15 @@ export default function ShiftAssign(props) {
     setLoading(true);
     onStatusChange?.({ loading: true }); // 👈 báo bắt đầu loading
     try {
+      // Load configs once
+      const configs = await loadShiftConfigs();
+      const dayCfg = configs?.day || null;
+      const nightCfg = configs?.night || null;
+
       for (const dayStr of selectedDays) {
         const type = assignMap[dayStr];
         const shift = type === "day" ? "Ca ngày" : "Ca đêm";
+
         const date = `${selectedYear}-${String(selectedMonth).padStart(
           2,
           "0"
@@ -178,6 +180,8 @@ export default function ShiftAssign(props) {
 
         for (const m of members) {
           if (!m?.realName) continue;
+
+          // compute per-member shiftStart
           const shiftStart =
             type === "day"
               ? m.earlyShift
@@ -186,7 +190,53 @@ export default function ShiftAssign(props) {
               : m.earlyShift
               ? "lên_ca_đêm_sớm"
               : "lên_ca_đêm_muộn";
-          const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
+
+          // pick cfg for this type
+          const cfg = type === "day" ? dayCfg : nightCfg;
+          if (!cfg) {
+            console.warn("⚠️ shiftConfig missing for type:", type);
+            // fallback: continue without fields
+          }
+
+          // build fields based on shiftStart
+          let fields = {};
+          if (cfg) {
+            if (type === "day") {
+              if (shiftStart === "lên_ca_ngày_sớm") {
+                fields = {
+                  lenCaSomBatDau: cfg.lenCaSomBatDau,
+                  lenCaSomKetThuc: cfg.lenCaSomKetThuc,
+                  tanCaSomBatDau: cfg.tanCaSomBatDau,
+                  tanCaSomKetThuc: cfg.tanCaSomKetThuc,
+                };
+              } else {
+                fields = {
+                  lenCaMuonBatDau: cfg.lenCaMuonBatDau,
+                  lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
+                  tanCaMuonBatDau: cfg.tanCaMuonBatDau,
+                  tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
+                };
+              }
+            } else {
+              // night
+              if (shiftStart === "lên_ca_đêm_sớm") {
+                fields = {
+                  lenCaSomBatDau: cfg.lenCaSomBatDau,
+                  lenCaSomKetThuc: cfg.lenCaSomKetThuc,
+                  tanCaSomBatDau: cfg.tanCaSomBatDau,
+                  tanCaSomKetThuc: cfg.tanCaSomKetThuc,
+                };
+              } else {
+                fields = {
+                  lenCaMuonBatDau: cfg.lenCaMuonBatDau,
+                  lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
+                  tanCaMuonBatDau: cfg.tanCaMuonBatDau,
+                  tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
+                };
+              }
+            }
+          }
+
           const docId = `${date}__${m.id}`;
 
           await setDoc(doc(db, "shiftSchedules", docId), {
@@ -198,9 +248,12 @@ export default function ShiftAssign(props) {
             shift,
             shiftStart,
 
-            // Các trường chấm công (ban đầu để null)
-            lenCa: null, // check-in
-            xuongCa: null, // check-out
+            // ===== GẮN GIỜ CA SỚM / MUỘN THEO CONFIG =====
+            ...fields,
+
+            // ===== KHỞI TẠO CHẤM CÔNG =====
+            lenCa: null,
+            xuongCa: null,
 
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
@@ -284,9 +337,8 @@ export default function ShiftAssign(props) {
   };
 
   const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-  const totalDayShift = Object.values(assignMap).filter(
-    (v) => v === "day"
-  ).length;
+  const totalDayShift = Object.values(assignMap).filter((v) => v === "day")
+    .length;
   const totalNightShift = Object.values(assignMap).filter(
     (v) => v === "night"
   ).length;
