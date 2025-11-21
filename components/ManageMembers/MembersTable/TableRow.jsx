@@ -2,7 +2,13 @@ import React from "react";
 import dayjs from "dayjs";
 import { Moon, SunMedium } from "lucide-react";
 import { db } from "../../../lib/firebase";
-import { doc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  setDoc,
+  serverTimestamp,
+  deleteField
+} from "firebase/firestore";
 
 export default function TableRow({
   index,
@@ -16,63 +22,45 @@ export default function TableRow({
 }) {
   const fmt = (n) => `${Number(n || 0).toLocaleString()}h`;
 
-  // --------------------------
-  // Xác định ngày hiện tại
-  // --------------------------
+  // ===========================
+  // XÁC ĐỊNH NGÀY
+  // ===========================
   const currentDate = selectedDate
     ? dayjs(selectedDate).format("YYYY-MM-DD")
     : dayjs().format("YYYY-MM-DD");
 
-  // --------------------------
-  // Nghỉ luân phiên
-  // --------------------------
-  const weekday = dayjs(currentDate).day();
-  const restDay = m.restDay || "Không";
-
-  // --------------------------
-  // Load ca làm thực tế theo shiftSchedules
-  // --------------------------
+  // ===========================
+  // LOAD CA THỰC TẾ
+  // ===========================
   let shiftName = m.shift;
   let shiftStart = m.shiftStart;
 
-  if (shiftSchedules[currentDate]) {
-    const dateData = shiftSchedules[currentDate];
-    const item = dateData[m.id]; // CHỈ DÙNG memberId LÀM KEY
-
-    if (item) {
-      shiftName = item.shift;
-      shiftStart = item.shiftStart;
-    }
+  if (shiftSchedules[currentDate]?.[m.id]) {
+    const item = shiftSchedules[currentDate][m.id];
+    shiftName = item.shift;
+    shiftStart = item.shiftStart;
   }
 
   shiftStart = shiftStart || m.shiftStart || "08:00";
 
-  // Xác định ca ngày / đêm
-  const isNight = (shiftName || "").toLowerCase().includes("đêm");
-  const cfg = isNight ? shiftConfig?.night : shiftConfig?.day;
+  const isNightShift = (shiftName || "").toLowerCase().includes("đêm");
+  const cfg = isNightShift ? shiftConfig?.night : shiftConfig?.day;
 
-  // check lỗi in console
-  // console.log("shiftName:", shiftName);
-  // console.log("isNight:", isNight);
-  // console.log("shiftConfig:", shiftConfig);
-  // console.log("cfg:", cfg);
-
-  // --------------------------
-  // Overtime
-  // --------------------------
+  // ===========================
+  // OVERTIME
+  // ===========================
   const limit = m.overtimeLimit?.monthlyLimit || 0;
   const worked = m.overtimeLimit?.workedHours || 0;
   const total = limit + worked;
 
-  const dateDisplay =
-    overtimeDates[m.id] || m.overtimeLimit?.lastOvertimeDate || "-";
-
-  // --------------------------
-  // Toggle lên ca sớm
-  // --------------------------
+  // ===========================
+  // LÊN CA SỚM
+  // ===========================
   const handleEarlyShiftToggle = async (checked) => {
     try {
       const isNight = (shiftName || "").toLowerCase().includes("đêm");
+      const cfg = isNight ? shiftConfig?.night : shiftConfig?.day;
+
       const newShiftStart = checked
         ? isNight
           ? "lên_ca_đêm_sớm"
@@ -81,10 +69,43 @@ export default function TableRow({
         ? "lên_ca_đêm_muộn"
         : "lên_ca_ngày_muộn";
 
-      const today = dayjs().format("YYYY-MM-DD");
       const dateStr = currentDate;
 
-      // update local UI
+      // ===== BUILD FIELDS =====
+      let fields = {};
+      let clearFields = {};
+
+      if (checked) {
+        fields = {
+          lenCaSomBatDau: cfg.lenCaSomBatDau,
+          lenCaSomKetThuc: cfg.lenCaSomKetThuc,
+          tanCaSomBatDau: cfg.tanCaSomBatDau,
+          tanCaSomKetThuc: cfg.tanCaSomKetThuc,
+        };
+
+        clearFields = {
+          lenCaMuonBatDau: deleteField(),
+          lenCaMuonKetThuc: deleteField(),
+          tanCaMuonBatDau: deleteField(),
+          tanCaMuonKetThuc: deleteField(),
+        };
+      } else {
+        fields = {
+          lenCaMuonBatDau: cfg.lenCaMuonBatDau,
+          lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
+          tanCaMuonBatDau: cfg.tanCaMuonBatDau,
+          tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
+        };
+
+        clearFields = {
+          lenCaSomBatDau: deleteField(),
+          lenCaSomKetThuc: deleteField(),
+          tanCaSomBatDau: deleteField(),
+          tanCaSomKetThuc: deleteField(),
+        };
+      }
+
+      // ===== UPDATE UI =====
       setMembers((prev) =>
         prev.map((mem) =>
           mem.id === m.id
@@ -93,102 +114,82 @@ export default function TableRow({
                 earlyShift: checked,
                 shiftStart: newShiftStart,
                 shift: shiftName,
-                updatedDate: today,
               }
             : mem
         )
       );
 
-      // update Firestore: members
-      const memberRef = doc(db, "members", m.id);
-      await updateDoc(memberRef, {
+      // ===== UPDATE members =====
+      await updateDoc(doc(db, "members", m.id), {
         earlyShift: checked,
         shiftStart: newShiftStart,
         shift: shiftName,
-        updatedDate: today,
         updatedAt: serverTimestamp(),
       });
 
-      // update Firestore: shiftSchedules
-      // const safeName = m.realName.replace(/[\/\\.#$[\]]/g, "_");
-      const docId = `${user.uid}_${m.id}_${dateStr}`;
-      const shiftDoc = doc(db, "shiftSchedules", docId);
-
-      await setDoc(shiftDoc, {
-        userId: user.uid,
-        memberId: m.id,
-        realName: m.realName,
-        shift: shiftName,
-        shiftStart: newShiftStart,
-        date: dateStr,
-        updatedAt: serverTimestamp(),
-      });
+      // ===== UPDATE shiftSchedules =====
+      await setDoc(
+        doc(db, "shiftSchedules", `${dateStr}__${m.id}`),
+        {
+          shift: shiftName,
+          shiftStart: newShiftStart,
+          ...fields,
+          ...clearFields,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
     } catch (err) {
-      console.error("❌ Lỗi cập nhật Firestore:", err);
+      console.error("❌ Firestore error:", err);
       alert("Không thể cập nhật Firestore.");
     }
   };
 
-  // --------------------------
-  // Cập nhật ngày nghỉ luân phiên
-  // --------------------------
+  // ===========================
+  // UPDATE NGÀY NGHỈ
+  // ===========================
   const handleRestDayChange = async (value) => {
     try {
-      // Update UI local
       setMembers((prev) =>
         prev.map((mem) => (mem.id === m.id ? { ...mem, restDay: value } : mem))
       );
 
-      // Update Firestore
-      const ref = doc(db, "members", m.id);
-      await updateDoc(ref, {
+      await updateDoc(doc(db, "members", m.id), {
         restDay: value,
         updatedAt: serverTimestamp(),
       });
-
-      console.log(`✔ Cập nhật ngày nghỉ của ${m.realName}: ${value}`);
     } catch (err) {
-      console.error("❌ Lỗi lưu ngày nghỉ:", err);
-      alert("Không thể lưu ngày nghỉ luân phiên.");
+      console.error("❌ Lỗi cập nhật restDay:", err);
     }
   };
 
-  // =========================
-  // TÍNH SỐ NGÀY CÒN LẠI
-  // =========================
+  // ===========================
+  // TÍNH NGÀY CÒN LẠI
+  // ===========================
   const getRemainingDays = () => {
     const limitDoc = m.limitInfo;
 
     if (limitDoc?.days) return limitDoc.days;
 
-    const memberLimit = m.overtimeLimit?.monthlyLimit || 0;
-    const worked = m.overtimeLimit?.workedHours || 0;
-    const remaining = Math.max(memberLimit - worked, 0);
+    const remaining =
+      (m.overtimeLimit?.monthlyLimit || 0) -
+      (m.overtimeLimit?.workedHours || 0);
 
     const perDay = shiftConfig?.day?.perDay || 2;
     return Math.floor(remaining / perDay);
   };
 
-  // --------------------------
-  // Render
-  // --------------------------
+  // ===========================
+  // RENDER
+  // ===========================
   return (
-    <tr
-      className="
-        hover:bg-purple-100 dark:hover:bg-gray-800 
-        transition-colors border-t 
-        border-gray-300 dark:border-gray-700
-      "
-    >
+    <tr className="hover:bg-purple-100 dark:hover:bg-gray-800 transition-colors border-t border-gray-300 dark:border-gray-700">
       <td className="p-2 font-medium">{index + 1}</td>
-
       <td className="p-2">{m.realName}</td>
-
       <td className="p-2">{m.nickname}</td>
 
-      {/* Ca ngày / đêm */}
       <td className="p-2">
-        {shiftName?.toLowerCase().includes("đêm") ? (
+        {isNightShift ? (
           <div className="flex items-center justify-center gap-1">
             <Moon className="w-4 h-4 text-blue-500" />
             <span>Đêm</span>
@@ -201,18 +202,11 @@ export default function TableRow({
         )}
       </td>
 
-      {/* ngày luân phiên */}
       <td className="p-2">
         <select
           value={m.restDay || "Không"}
           onChange={(e) => handleRestDayChange(e.target.value)}
-          className="
-      px-2 py-1 rounded-lg text-sm
-      bg-gray-200 dark:bg-gray-700
-      text-gray-900 dark:text-gray-100
-      border border-gray-300 dark:border-gray-600
-      focus:ring-2 focus:ring-purple-500
-    "
+          className="px-2 py-1 rounded-lg bg-gray-200 dark:bg-gray-700 border"
         >
           <option value="Không">Không</option>
           <option value="Thứ 2">Thứ 2</option>
@@ -231,23 +225,13 @@ export default function TableRow({
           : cfg?.lenCaMuonKetThuc || "--:--"}
       </td>
 
-      <td className="p-2 text-green-600 dark:text-green-400 font-semibold">
-        {fmt(limit)}
-      </td>
-
-      <td className="p-2 text-yellow-600 dark:text-yellow-400 font-semibold">
-        {fmt(worked)}
-      </td>
-
-      <td className="p-2 text-indigo-700 dark:text-indigo-400 font-semibold">
-        {fmt(total)}
-      </td>
-
+      <td className="p-2 text-green-600 font-semibold">{fmt(limit)}</td>
+      <td className="p-2 text-yellow-600 font-semibold">{fmt(worked)}</td>
+      <td className="p-2 text-indigo-700 font-semibold">{fmt(total)}</td>
       <td className="p-2 text-orange-500 font-semibold">
         {getRemainingDays()}
       </td>
 
-      {/* Checkbox lên ca sớm */}
       <td className="p-2">
         <input
           type="checkbox"
