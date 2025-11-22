@@ -78,23 +78,22 @@ export default function ManageMembers({
     const unsubDay = onSnapshot(doc(db, "shiftConfig", "day"), (snap) => {
       setShiftConfig((prev) => ({
         ...prev,
-        day: snap.exists() ? snap.data() : {}
+        day: snap.exists() ? snap.data() : {},
       }));
     });
-  
+
     const unsubNight = onSnapshot(doc(db, "shiftConfig", "night"), (snap) => {
       setShiftConfig((prev) => ({
         ...prev,
-        night: snap.exists() ? snap.data() : {}
+        night: snap.exists() ? snap.data() : {},
       }));
     });
-  
+
     return () => {
       unsubDay();
       unsubNight();
     };
   }, []);
-    
 
   // === Load shiftSchedules realtime ===
   useEffect(() => {
@@ -447,10 +446,23 @@ export default function ManageMembers({
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
           onCancel={() => setShowAssign(false)}
-          onStatusChange={({ loading, success, month }) => {
-            if (loading)
-              setToast({ msg: "Đang lưu phân ca...", type: "loading" });
-            else if (success)
+          onStatusChange={({ loading, saving, success, month }) => {
+            if (loading) {
+              if (saving) {
+                setToast({
+                  msg: `⏳ Đang lưu ngày ${saving.day} (${saving.index}/${saving.total})`,
+                  type: "loading",
+                });
+              } else {
+                setToast({
+                  msg: "⏳ Đang chuẩn bị lưu phân ca...",
+                  type: "loading",
+                });
+              }
+              return;
+            }
+
+            if (success)
               setToast({
                 msg: `✅ Phân ca tháng ${month} hoàn tất.`,
                 type: "success",
@@ -459,6 +471,7 @@ export default function ManageMembers({
           }}
         />
       )}
+
       {showFormula && (
         <OvertimeConfigPopup
           user={user}

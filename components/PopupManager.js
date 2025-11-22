@@ -51,15 +51,31 @@ export default function PopupManager({
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
         onCancel={() => setShowAssign(false)}
-        onStatusChange={({ loading, success, month }) => {
-          if (loading)
-            setToast({ type: "loading", msg: "⏳ Đang lưu phân ca..." });
-          else if (success)
+        onStatusChange={({ loading, saving, success, month }) => {
+          if (loading) {
+            if (saving) {
+              setToast({
+                type: "loading",
+                msg: `⏳ Đang lưu ngày ${saving.day} (${saving.index}/${saving.total})`,
+              });
+            } else {
+              setToast({
+                type: "loading",
+                msg: "⏳ Đang chuẩn bị lưu phân ca...",
+              });
+            }
+            return;
+          }
+
+          if (success) {
             setToast({
               type: "success",
               msg: `✅ Phân ca tháng ${month} hoàn tất.`,
             });
-          else setToast({ type: "error", msg: "❌ Lỗi khi lưu phân ca!" });
+            return;
+          }
+
+          setToast({ type: "error", msg: "❌ Lỗi khi lưu phân ca!" });
         }}
       />
     );

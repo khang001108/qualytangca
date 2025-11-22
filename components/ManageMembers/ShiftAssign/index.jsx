@@ -102,15 +102,14 @@ export default function ShiftAssign(props) {
             data.shiftStart?.includes("sớm") ||
             data.shiftStart?.includes("som"); // phòng unicode lỗi
 
-          setSelectedMembersMap(prev => ({
+          setSelectedMembersMap((prev) => ({
             ...prev,
             [data.memberId]: {
               include: true,
               earlyShift: isEarly,
-            }
+            },
           }));
         });
-
 
         setAssignMap(newMap);
         setHasLoaded(true);
@@ -185,7 +184,6 @@ export default function ShiftAssign(props) {
     return selected.join(", ");
   };
 
-
   // --- HANDLE APPLY: dùng merge để không overwrite các trường khác ---
   const handleApply = async () => {
     if (!user?.uid) return;
@@ -199,7 +197,8 @@ export default function ShiftAssign(props) {
       .map(([id, v]) => ({ id, earlyShift: !!v.earlyShift }));
 
     setLoading(true);
-    onStatusChange?.({ loading: true });
+    // onStatusChange?.({ loading: true });
+
 
     try {
       const configs = await loadShiftConfigs();
@@ -207,14 +206,30 @@ export default function ShiftAssign(props) {
       const nightCfg = configs?.night || null;
 
       if (membersToApply.length === 0) {
-        showPopup("ℹ️ Không có nhân viên được chọn — không có gì để lưu.", "success");
-        onStatusChange?.({ loading: false, success: true, month: selectedMonth });
+        showPopup(
+          "ℹ️ Không có nhân viên được chọn — không có gì để lưu.",
+          "success"
+        );
+        onStatusChange?.({
+          loading: false,
+          success: true,
+          month: selectedMonth,
+        });
         setLoading(false);
         return;
       }
 
       for (let i = 0; i < selectedDays.length; i++) {
         const dayStr = selectedDays[i];
+
+        onStatusChange?.({
+          loading: true,
+          saving: {
+            index: i + 1,
+            total: selectedDays.length,
+            day: dayStr,
+          },
+        });
 
         // update progress
         setSavingProgress({
@@ -225,7 +240,10 @@ export default function ShiftAssign(props) {
 
         const type = assignMap[dayStr];
         const shift = type === "day" ? "Ca ngày" : "Ca đêm";
-        const date = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(dayStr).padStart(2, "0")}`;
+        const date = `${selectedYear}-${String(selectedMonth).padStart(
+          2,
+          "0"
+        )}-${String(dayStr).padStart(2, "0")}`;
 
         for (const sel of membersToApply) {
           const member = members.find((mm) => mm.id === sel.id);
@@ -237,8 +255,8 @@ export default function ShiftAssign(props) {
                 ? "lên_ca_ngày_sớm"
                 : "lên_ca_ngày_muộn"
               : sel.earlyShift
-                ? "lên_ca_đêm_sớm"
-                : "lên_ca_đêm_muộn";
+              ? "lên_ca_đêm_sớm"
+              : "lên_ca_đêm_muộn";
 
           const cfg = type === "day" ? dayCfg : nightCfg;
 
@@ -315,7 +333,6 @@ export default function ShiftAssign(props) {
       setLoading(false);
     }
   };
-
 
   // --- HANDLE DELETE ALL: prop name consistent later ---
   const handleDeleteAll = async () => {
@@ -399,10 +416,11 @@ export default function ShiftAssign(props) {
 
         {popupMsg && (
           <div
-            className={`mb-4 text-center text-sm px-4 py-2 rounded-lg ${popupType === "success"
-              ? "bg-green-100 text-green-700 border border-green-300"
-              : "bg-red-100 text-red-700 border border-red-300"
-              }`}
+            className={`mb-4 text-center text-sm px-4 py-2 rounded-lg ${
+              popupType === "success"
+                ? "bg-green-100 text-green-700 border border-green-300"
+                : "bg-red-100 text-red-700 border border-red-300"
+            }`}
           >
             {popupMsg}
           </div>
@@ -414,18 +432,13 @@ export default function ShiftAssign(props) {
           Nhân viên đã chọn: {selectedSummary()}
         </div>
         <div className="w-full flex flex-col items-end mb-3">
-
           {/* Ca ngày / Ca đêm */}
           <ShiftAssignShiftSelector
             shiftType={shiftType}
             setShiftType={setShiftType}
             loading={loading}
           />
-
-
         </div>
-
-
 
         <div className="flex gap-6">
           {/* LEFT: full list */}
@@ -456,7 +469,7 @@ export default function ShiftAssign(props) {
                         ...prev,
                         [m.id]: {
                           ...(prev[m.id] || sel),
-                          include: true,              // TỰ ĐỘNG CHỌN NHÂN VIÊN
+                          include: true, // TỰ ĐỘNG CHỌN NHÂN VIÊN
                           earlyShift: !sel.earlyShift, // ĐỔI SỚM↔MUỘN
                         },
                       }))
@@ -471,7 +484,6 @@ export default function ShiftAssign(props) {
                 </div>
               );
             })}
-
           </div>
 
           {/* RIGHT: calendar + stats */}
@@ -483,7 +495,8 @@ export default function ShiftAssign(props) {
                 </span>
                 <span className="opacity-50">•</span>
                 <span className="flex items-center gap-1">
-                  🌙 <span className="font-semibold">{totalNightShift}</span> ngày
+                  🌙 <span className="font-semibold">{totalNightShift}</span>{" "}
+                  ngày
                 </span>
               </div>
 
@@ -504,7 +517,6 @@ export default function ShiftAssign(props) {
               />
             </div>
           </div>
-
         </div>
       </div>
     </div>
