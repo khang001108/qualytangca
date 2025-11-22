@@ -13,6 +13,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
+import { deleteField } from "firebase/firestore";
 
 import ShiftAssignHeader from "./ShiftAssignHeader";
 import ShiftAssignShiftSelector from "./ShiftAssignShiftSelector";
@@ -91,9 +92,24 @@ export default function ShiftAssign(props) {
         snap.docs.forEach((d) => {
           const data = d.data();
           const day = Number(data.date.split("-")[2]);
-          if (data.shift === "Ca đêm") newMap[day] = "night";
-          else newMap[day] = "day";
+
+          // ca ngày / đêm
+          newMap[day] = data.shift === "Ca đêm" ? "night" : "day";
+
+          // load trạng thái sớm / muộn
+          const isEarly =
+            data.shiftStart?.includes("sớm") ||
+            data.shiftStart?.includes("som"); // phòng unicode lỗi
+
+          setSelectedMembersMap(prev => ({
+            ...prev,
+            [data.memberId]: {
+              include: true,
+              earlyShift: isEarly,
+            }
+          }));
         });
+
 
         setAssignMap(newMap);
         setHasLoaded(true);
@@ -155,16 +171,19 @@ export default function ShiftAssign(props) {
   // selected summary helper
   const selectedSummary = () => {
     const selected = Object.entries(selectedMembersMap)
-      .filter(([id, v]) => v.include)
+      .filter(([id, v]) => v.include && v.earlyShift)
       .map(([id]) => {
         const mem = members.find((mm) => mm.id === id);
         return mem ? mem.realName : id;
       });
-    if (selected.length === 0) return "(Không có nhân viên được chọn)";
+
+    if (selected.length === 0) return "(Không có ai lên ca sớm)";
     if (selected.length > 5)
       return selected.slice(0, 5).join(", ") + `, +${selected.length - 5}...`;
+
     return selected.join(", ");
   };
+
 
   // --- HANDLE APPLY: dùng merge để không overwrite các trường khác ---
   const handleApply = async () => {
@@ -218,8 +237,8 @@ export default function ShiftAssign(props) {
                 ? "lên_ca_ngày_sớm"
                 : "lên_ca_ngày_muộn"
               : sel.earlyShift
-              ? "lên_ca_đêm_sớm"
-              : "lên_ca_đêm_muộn";
+                ? "lên_ca_đêm_sớm"
+                : "lên_ca_đêm_muộn";
 
           const cfg = type === "day" ? dayCfg : nightCfg;
           let fields = {};
@@ -243,7 +262,7 @@ export default function ShiftAssign(props) {
           }
 
           const docId = `${date}__${member.id}`;
-          // FIX: merge true để không overwrite lenCa/xuongCa/những trường khác
+
           await setDoc(
             doc(db, "shiftSchedules", docId),
             {
@@ -254,14 +273,28 @@ export default function ShiftAssign(props) {
               nickname: member.nickname || "",
               shift,
               shiftStart,
+
+              // XÓA FIELD CŨ TRƯỚC KHI GHI FIELD MỚI
+              lenCaSomBatDau: deleteField(),
+              lenCaSomKetThuc: deleteField(),
+              tanCaSomBatDau: deleteField(),
+              tanCaSomKetThuc: deleteField(),
+              lenCaMuonBatDau: deleteField(),
+              lenCaMuonKetThuc: deleteField(),
+              tanCaMuonBatDau: deleteField(),
+              tanCaMuonKetThuc: deleteField(),
+
+              // GHI FIELD MỚI
               ...fields,
+
               lenCa: null,
               xuongCa: null,
-              createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
             },
             { merge: true }
           );
+
 
           // update member default
           await updateDoc(doc(db, "members", member.id), {
@@ -365,29 +398,33 @@ export default function ShiftAssign(props) {
 
         {popupMsg && (
           <div
-            className={`mb-4 text-center text-sm px-4 py-2 rounded-lg ${
-              popupType === "success"
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-red-100 text-red-700 border border-red-300"
-            }`}
+            className={`mb-4 text-center text-sm px-4 py-2 rounded-lg ${popupType === "success"
+              ? "bg-green-100 text-green-700 border border-green-300"
+              : "bg-red-100 text-red-700 border border-red-300"
+              }`}
           >
             {popupMsg}
           </div>
         )}
 
-        <div className="flex items-start justify-between gap-3 mb-3">
+        {/* HÀNG TRÊN CÙNG: đẩy full sang phải */}
+        {/* Nhân viên đã chọn */}
+        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+          Nhân viên đã chọn: {selectedSummary()}
+        </div>
+        <div className="w-full flex flex-col items-end mb-3">
+
+          {/* Ca ngày / Ca đêm */}
           <ShiftAssignShiftSelector
             shiftType={shiftType}
             setShiftType={setShiftType}
             loading={loading}
           />
 
-          <div className="flex flex-col items-end gap-1">
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              Nhân viên đã chọn: {selectedSummary()}
-            </div>
-          </div>
+
         </div>
+
+
 
         <div className="flex gap-6">
           {/* LEFT: full list */}
@@ -400,67 +437,72 @@ export default function ShiftAssign(props) {
                 include: false,
                 earlyShift: !!m.earlyShift ?? false,
               };
+
               return (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between py-2 border-b last:border-b-0"
+                  className="flex items-center justify-between py-2 border-b last:border-b-0 select-none"
                 >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={!!sel.include}
-                      onChange={() =>
-                        setSelectedMembersMap((prev) => ({
-                          ...prev,
-                          [m.id]: {
-                            ...(prev[m.id] || sel),
-                            include: !sel.include,
-                          },
-                        }))
-                      }
-                    />
-                    <div className="text-sm">
-                      {m.realName} {m.nickname ? `(${m.nickname})` : ""}
-                    </div>
+                  {/* BẤM VÀO TÊN → BỎ CHỌN */}
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    {m.realName} {m.nickname ? `(${m.nickname})` : ""}
                   </div>
 
-                  {sel.earlyShift && (
-                    <span className="text-xs font-semibold text-orange-500">
-                      Lên sớm
-                    </span>
-                  )}
+                  {/* CLICK VÀO CHỮ → SET include = true + đổi sớm/muộn */}
+                  <span
+                    onClick={() =>
+                      setSelectedMembersMap((prev) => ({
+                        ...prev,
+                        [m.id]: {
+                          ...(prev[m.id] || sel),
+                          include: true,              // TỰ ĐỘNG CHỌN NHÂN VIÊN
+                          earlyShift: !sel.earlyShift, // ĐỔI SỚM↔MUỘN
+                        },
+                      }))
+                    }
+                    className={`
+          text-xs font-semibold cursor-pointer px-2 py-1 rounded
+          ${sel.earlyShift ? "text-orange-500" : "text-gray-500"}
+        `}
+                  >
+                    {sel.earlyShift ? "Lên sớm" : "Lên muộn"}
+                  </span>
                 </div>
               );
             })}
+
           </div>
 
           {/* RIGHT: calendar + stats */}
-          <div className="flex-1">
-            <div className="flex justify-center gap-6 mt-2 mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-              <span className="flex items-center gap-1">
-                ☀️ <span className="font-semibold">{totalDayShift}</span> ngày
-              </span>
-              <span className="opacity-50">•</span>
-              <span className="flex items-center gap-1">
-                🌙 <span className="font-semibold">{totalNightShift}</span> ngày
-              </span>
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[430px]">
+              <div className="flex justify-center gap-6 mt-2 mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="flex items-center gap-1">
+                  ☀️ <span className="font-semibold">{totalDayShift}</span> ngày
+                </span>
+                <span className="opacity-50">•</span>
+                <span className="flex items-center gap-1">
+                  🌙 <span className="font-semibold">{totalNightShift}</span> ngày
+                </span>
+              </div>
+
+              <ShiftAssignCalendar
+                daysInMonth={daysInMonth}
+                assignMap={assignMap}
+                handleMouseDown={handleMouseDown}
+                handleMouseEnter={handleMouseEnter}
+                loading={loading}
+              />
+
+              <ShiftAssignFooter
+                loading={loading}
+                onCancel={onCancel}
+                handleApply={handleApply}
+                handleDeleteAll={handleDeleteAll}
+              />
             </div>
-
-            <ShiftAssignCalendar
-              daysInMonth={daysInMonth}
-              assignMap={assignMap}
-              handleMouseDown={handleMouseDown}
-              handleMouseEnter={handleMouseEnter}
-              loading={loading}
-            />
-
-            <ShiftAssignFooter
-              loading={loading}
-              onCancel={onCancel}
-              handleApply={handleApply}
-              handleDeleteAll={handleDeleteAll}
-            />
           </div>
+
         </div>
       </div>
     </div>
