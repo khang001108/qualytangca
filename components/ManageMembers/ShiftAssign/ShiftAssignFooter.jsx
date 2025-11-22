@@ -43,11 +43,12 @@ export default function ShiftAssignFooter({
             "
           >
             <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-            Đang lưu ngày {savingProgress.day} ({savingProgress.index}/{savingProgress.total})
+            {/* Đang lưu {savingProgress.day} ({savingProgress.index}/{savingProgress.total}) */}
+            Đang lưu ({savingProgress.index}/{savingProgress.total})
           </div>
         )}
 
-        <button
+        {/* <button
           onClick={onCancel}
           className="
             flex items-center gap-2 px-4 py-2 rounded-lg text-sm 
@@ -57,7 +58,7 @@ export default function ShiftAssignFooter({
         >
           <Undo2 className="w-4 h-4" />
           Quay lại
-        </button>
+        </button> */}
 
         <button
           onClick={handleApply}
