@@ -43,6 +43,7 @@ export default function TableRow({
 
   shiftStart = shiftStart || m.shiftStart || "08:00";
 
+  const isEarly = shiftStart.includes("sớm");
   const isNightShift = (shiftName || "").toLowerCase().includes("đêm");
   const cfg = isNightShift ? shiftConfig?.night : shiftConfig?.day;
 
@@ -66,8 +67,8 @@ export default function TableRow({
           ? "lên_ca_đêm_sớm"
           : "lên_ca_ngày_sớm"
         : isNight
-        ? "lên_ca_đêm_muộn"
-        : "lên_ca_ngày_muộn";
+          ? "lên_ca_đêm_muộn"
+          : "lên_ca_ngày_muộn";
 
       const dateStr = currentDate;
 
@@ -110,18 +111,18 @@ export default function TableRow({
         prev.map((mem) =>
           mem.id === m.id
             ? {
-                ...mem,
-                earlyShift: checked,
-                shiftStart: newShiftStart,
-                shift: shiftName,
-              }
+              ...mem,
+              earlyShift: checked,
+              shiftStart: newShiftStart,
+              shift: shiftName,
+            }
             : mem
         )
       );
 
       // ===== UPDATE members =====
       await updateDoc(doc(db, "members", m.id), {
-        earlyShift: checked,
+        // earlyShift: checked,
         shiftStart: newShiftStart,
         shift: shiftName,
         updatedAt: serverTimestamp(),
@@ -235,7 +236,7 @@ export default function TableRow({
       <td className="p-2">
         <input
           type="checkbox"
-          checked={m.earlyShift || false}
+          checked={isEarly}
           onChange={(e) => handleEarlyShiftToggle(e.target.checked)}
         />
       </td>

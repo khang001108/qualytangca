@@ -39,6 +39,7 @@ export default function ShiftAssign(props) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [popupMsg, setPopupMsg] = useState(null);
   const [popupType, setPopupType] = useState("success");
+  const [savingProgress, setSavingProgress] = useState(null);
 
   // const [showSelectModal, setShowSelectModal] = useState(false);
   const [selectedMembersMap, setSelectedMembersMap] = useState({});
@@ -188,6 +189,7 @@ export default function ShiftAssign(props) {
   // --- HANDLE APPLY: dùng merge để không overwrite các trường khác ---
   const handleApply = async () => {
     if (!user?.uid) return;
+
     const selectedDays = Object.keys(assignMap).filter((d) => assignMap[d]);
     if (selectedDays.length === 0)
       return showPopup("⚠️ Chưa chọn ngày nào để lưu!", "error");
@@ -204,28 +206,26 @@ export default function ShiftAssign(props) {
       const dayCfg = configs?.day || null;
       const nightCfg = configs?.night || null;
 
-      // ALLOW EMPTY: nếu không có member nào được chọn => no-op
       if (membersToApply.length === 0) {
-        showPopup(
-          "ℹ️ Không có nhân viên được chọn — không có gì để lưu.",
-          "success"
-        );
-        onStatusChange?.({
-          loading: false,
-          success: true,
-          month: selectedMonth,
-        });
+        showPopup("ℹ️ Không có nhân viên được chọn — không có gì để lưu.", "success");
+        onStatusChange?.({ loading: false, success: true, month: selectedMonth });
         setLoading(false);
         return;
       }
 
-      for (const dayStr of selectedDays) {
+      for (let i = 0; i < selectedDays.length; i++) {
+        const dayStr = selectedDays[i];
+
+        // update progress
+        setSavingProgress({
+          index: i + 1,
+          total: selectedDays.length,
+          day: dayStr,
+        });
+
         const type = assignMap[dayStr];
         const shift = type === "day" ? "Ca ngày" : "Ca đêm";
-        const date = `${selectedYear}-${String(selectedMonth).padStart(
-          2,
-          "0"
-        )}-${String(dayStr).padStart(2, "0")}`;
+        const date = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(dayStr).padStart(2, "0")}`;
 
         for (const sel of membersToApply) {
           const member = members.find((mm) => mm.id === sel.id);
@@ -241,8 +241,8 @@ export default function ShiftAssign(props) {
                 : "lên_ca_đêm_muộn";
 
           const cfg = type === "day" ? dayCfg : nightCfg;
-          let fields = {};
 
+          let fields = {};
           if (cfg) {
             if (shiftStart.includes("sớm")) {
               fields = {
@@ -274,7 +274,7 @@ export default function ShiftAssign(props) {
               shift,
               shiftStart,
 
-              // XÓA FIELD CŨ TRƯỚC KHI GHI FIELD MỚI
+              // XÓA
               lenCaSomBatDau: deleteField(),
               lenCaSomKetThuc: deleteField(),
               tanCaSomBatDau: deleteField(),
@@ -284,7 +284,7 @@ export default function ShiftAssign(props) {
               tanCaMuonBatDau: deleteField(),
               tanCaMuonKetThuc: deleteField(),
 
-              // GHI FIELD MỚI
+              // GHI
               ...fields,
 
               lenCa: null,
@@ -295,8 +295,6 @@ export default function ShiftAssign(props) {
             { merge: true }
           );
 
-
-          // update member default
           await updateDoc(doc(db, "members", member.id), {
             shift,
             shiftStart,
@@ -313,9 +311,11 @@ export default function ShiftAssign(props) {
       showPopup("❌ Không thể lưu phân ca!", "error");
       onStatusChange?.({ loading: false, success: false });
     } finally {
+      setSavingProgress(null);
       setLoading(false);
     }
   };
+
 
   // --- HANDLE DELETE ALL: prop name consistent later ---
   const handleDeleteAll = async () => {
@@ -359,6 +359,7 @@ export default function ShiftAssign(props) {
       console.error("🔥 Lỗi khi xóa phân ca:", err);
       showPopup("❌ Không thể xóa phân ca!", "error");
     } finally {
+      setSavingProgress(null);
       setLoading(false);
     }
   };
@@ -496,6 +497,7 @@ export default function ShiftAssign(props) {
 
               <ShiftAssignFooter
                 loading={loading}
+                savingProgress={savingProgress}
                 onCancel={onCancel}
                 handleApply={handleApply}
                 handleDeleteAll={handleDeleteAll}

@@ -1,11 +1,12 @@
 import React from "react";
-import { Trash2, Undo2, Save } from "lucide-react";
+import { Trash2, Undo2, Save, Loader2 } from "lucide-react";
 
 export default function ShiftAssignFooter({
   loading,
+  savingProgress,
   onCancel,
   handleApply,
-  handleDeleteAll, // đổi tên
+  handleDeleteAll,
 }) {
   return (
     <div
@@ -28,7 +29,24 @@ export default function ShiftAssignFooter({
         Xóa tháng
       </button>
 
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
+
+        {/* TIẾN TRÌNH LƯU - STYLE MỚI */}
+        {loading && savingProgress && (
+          <div
+            className="
+              flex items-center gap-2
+              px-3 py-1.5
+              bg-purple-600/20 border border-purple-500/30
+              text-purple-300 rounded-lg
+              text-xs font-medium
+            "
+          >
+            <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+            Đang lưu ngày {savingProgress.day} ({savingProgress.index}/{savingProgress.total})
+          </div>
+        )}
+
         <button
           onClick={onCancel}
           className="
