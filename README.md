@@ -64,13 +64,13 @@ QUANLYTHITIEU/
 5.陈文雄/7:46
 6.吴维康/休
 
-11/04上下班打卡记录：
-1.陈明壯/16:01
-2.阮玉泰/16:01
-3.谭文越/ 17:01
-4.裴泰南/16:01
-5.陈文雄/17:01
-6.吴维康/休
+    11/04上下班打卡记录：
+    1.陈明壯/16:01
+    2.阮玉泰/16:01
+    3.谭文越/ 17:01
+    4.裴泰南/16:01
+    5.陈文雄/17:01
+    6.吴维康/休
 
 11/04上下班打卡记录：
 1.陈明壯/18:01
@@ -112,8 +112,49 @@ t nhầm dữ liệu checkin vào checkout hay là nhầm ca ngày sang ca đêm
 
 khang khang
 
+============================ CA MUỘN ====================================
+lenCaMuonKetThuc "20:00", tanCaMuonBatDau "05:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 20h -> 0h == (24-20) *60 = 240
+ 
+tính từ 0h -> 5h sáng == 05 *60 = 300
+
+shiftConfig -> night -> nghiGiuaCa 1 tiếng (60)
+
+tổng giờ hành chính == shiftConfig -> night -> tongGioHanhChinh 8 tiếng (8 *60 = 480)
 
 
+ vậy là tính đc 9 tiếng trừ 1 tiếng nghỉ giữa ca sẽ bằng tiếng thực hành chính
+ 8 tiếng (480) = (240 + 300) -60 
+
+sau 480 cứ đầu vào checkout 7:01 (ví dụ 2 tiếng)
+
+tính từ 0h -> 7h sáng == 07 *60 = 420
+lấy tính từ (0h -> 7h) - (0h -> 5h) == 420 - 300 = 120 ( 120/60 = 2 tiếng tăng ca)
+
+tương tự có ca sớm
+============================ CA SỚM ====================================
+lenCaSomKetThuc "19:00", tanCaSomBatDau "04:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 19h -> 0h == (24-19) *60 = 300
+ 
+tính từ 0h -> 4h sáng == 04 *60 = 240 
+
+shiftConfig -> night -> nghiGiuaCa 1 tiếng (60)
+
+tổng giờ hành chính == shiftConfig -> night -> tongGioHanhChinh 8 tiếng (480)
+
+
+ vậy là tính đc 9 tiếng trừ 1 tiếng nghỉ giữa ca sẽ bằng tiếng thực hành chính
+ 8 tiếng (480) = (240 + 300) -60
+
+sau hành chính 480 cứ đầu vào checkout 6:01 (ví dụ 2 tiếng)
+
+tính từ 0h -> 6h sáng == 06 *60 = 360
+lấy tính từ (0h -> 6h) - (0h -> 4h) == 360 - 240 = 120 ( 120/60 = 2 tiếng tăng ca)
+
+
+20 *60 = 1200
 mik muốn viết lại để khi mik dán 
 
 1.陈明壯/18:52
@@ -433,34 +474,6 @@ tongGioKeHoach 40 (number)
 tongGioThuong 10 (number)
 
 
-
-để mik nói rõ hơn khi checkout
-4.裴泰南/11:01 4h事假 là trường hợp đi làm từ sáng sớm 4.裴泰南/6:54(7h) đến 11h là 4 tiếng rồi họ nghỉ chiều 4 tiếng nên là phép nửa ngày
-4.裴泰南/12:01 4h事假 là trường hợp đi làm từ sáng muộn 4.裴泰南/7:54(8h) đến 12h là 4 tiếng rồi họ nghỉ chiều 4 tiếng nên là phép nửa ngày
-trường hợp này ko có tăng ca vì họ đã xin nghỉ thì về hẳn luôn chứ ko quay lại nữa
-ca đêm tương tự
-
-còn trường hợp nữa là khi checkin
-4.裴泰南/11:46 4h事假 là trường hợp đi làm từ chiều sớm 4.裴泰南/4h事假 đến 11h là hết 4 tiếng nghỉ phép, sau 1 giờ nghỉ trưa, 12h là 4 tiếng làm chiều
-4.裴泰南/12:46 4h事假 là trường hợp đi làm từ chiều muộn 4.裴泰南/4h事假 đến 12h là hết 4 tiếng nghỉ phép, sau 1 giờ nghỉ trưa, 13h là 4 tiếng làm chiều
-trường hợp này sẽ có tăng ca hoặc không tăng ca nhưng ko dc thưởng vì ko đủ giờ hành chính
-ca đêm tương tự
-
-1. Checkout logic (nghỉ chiều):
-if (checkout <= 12:30 && workingHours <= 4.5):
-    leaveType = "4h事假"
-    isOvertime = false
-    bonusAllowed = false
-
-
-2. Checkin logic (nghỉ sáng):
-if (checkin >= 11:30 && checkin <= 13:00):
-    leaveType = "4h事假"
-    afternoonWork = true
-    if (totalWorkingHours < 8):
-        bonusAllowed = false
-
-
 createdAt November 21, 2025 at 9:32:59 PM UTC+7 (timestamp)
 date "2025-11-01" (string)
 lenCa null (null)
@@ -489,3 +502,82 @@ Nút: Chọn nhân viên → popup → tick nhân viên → xác nhận.
 4) Allow rỗng (áp dụng 0 người)
 
 (nếu tích là lên ca sớm, ko tích là mặc định ca muộn)
+
+
+
+để mik nói rõ hơn khi checkout
+4.裴泰南/11:01 4h事假 là trường hợp đi làm từ sáng sớm 4.裴泰南/6:54(7h) đến 11h là 4 tiếng rồi họ nghỉ chiều 4 tiếng nên là phép nửa ngày
+4.裴泰南/12:01 4h事假 là trường hợp đi làm từ sáng muộn 4.裴泰南/7:54(8h) đến 12h là 4 tiếng rồi họ nghỉ chiều 4 tiếng nên là phép nửa ngày
+trường hợp này ko có tăng ca vì họ đã xin nghỉ thì về hẳn luôn chứ ko quay lại nữa
+ca đêm tương tự
+
+còn trường hợp nữa là khi checkin
+4.裴泰南/11:46 4h事假 là trường hợp đi làm từ chiều sớm 4.裴泰南/4h事假 đến 11h là hết 4 tiếng nghỉ phép, sau 1 giờ nghỉ trưa, 12h là 4 tiếng làm chiều
+4.裴泰南/12:46 4h事假 là trường hợp đi làm từ chiều muộn 4.裴泰南/4h事假 đến 12h là hết 4 tiếng nghỉ phép, sau 1 giờ nghỉ trưa, 13h là 4 tiếng làm chiều
+trường hợp này sẽ có tăng ca hoặc không tăng ca nhưng ko dc thưởng vì ko đủ giờ hành chính
+ca đêm tương tự
+
+if (checkout <= 12:30 && workingHours <= 4.5):
+    leaveType = "4h事假"
+    isOvertime = false
+    bonusAllowed = false
+
+
+================ CA NGÀY ================
+
+1. Checkout logic (nghỉ chiều):
+ví dụ checkout == 11:01 4h事假, 11:01
+shiftStart "lên_ca_ngày_sớm"
+lenCaSomKetThuc "7:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 7h + 4h事假 = 11h + 1 tiếng nghiGiuaCa = 12h(720)
+if ( 11h(660) >= checkout >= (12h-30p= 11h30(690)) ):
+nv chấm 11h01 là đủ 4 tiếng
+lenCaSomKetThuc "07:00" tới 11h = 11(660) - 7(420) = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
+
+
+2. Checkin logic (nghỉ sáng):
+ví dụ checkin == 11:45 4h事假, 11:45
+shiftStart "lên_ca_ngày_sớm"
+lenCaSomKetThuc "7:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 7h + 4h事假 = 11h + 1 tiếng nghiGiuaCa = 12h(720)
+if ( (12h-30p= 11h30(690)) <= checkin <= 12h(720) ):
+nv chấm 11h45 là trc 12h 15p
+12h tới tanCaSomBatDau "16:00" = 16(960) - 12(720) = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
+sau hành chính 480 hoặc 240 cứ đầu vào checkout 18:01 (ví dụ 2 tiếng)
+
+tính từ 12h -> 18h chiều == 18 *60 = 1080
+lấy tính từ (12h -> 18h) - (12h -> tanCaSomBatDau "16:00") == 1080 - 960 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
+
+
+================ CA ĐÊM ================
+
+1. Checkout logic (nghỉ chiều):
+ví dụ checkout == 23:01 4h事假, 23:01
+shiftStart "lên_ca_đêm_sớm"
+lenCaSomKetThuc "19:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 19h + 4h事假 = 23h + 1 tiếng nghiGiuaCa = 00h(1440)
+if ( 23h >= checkout >= (00h-30p= 23h30 (1410)) ):
+nv chấm 11h01 là đủ 4 tiếng
+lenCaSomKetThuc "19:00" tới 23h = 23(1380) - 19(1140) = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> night -> tongGioHanhChinh  8 tiếng (480))
+
+
+2. Checkin logic (nghỉ sáng):
+ví dụ checkin == 23:45 4h事假
+shiftStart "lên_ca_đêm_sớm"
+lenCaSomKetThuc "19:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 19h + 4h事假 = 23h + 1 nghiGiuaCa = 00h(1440)
+if ( (00h-30p= 23h30 (1410)) <= checkin <= 00h ):
+nv chấm 23h45 là trc 00h 15p
+00h tới tanCaSomBatDau "04:00" = 04 - 00 = 4 ///////////////////////////////////////
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
+sau hành chính 480 hoặc 240 cứ đầu vào checkout 18:01 (ví dụ 2 tiếng)
+
+tính từ 12h -> 18h chiều == 18 *60 = 1080
+lấy tính từ (12h -> 18h) - (12h -> tanCaSomBatDau "16:00") == 1080 - 960 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng

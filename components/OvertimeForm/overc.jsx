@@ -31,11 +31,11 @@ export default function OvertimeForm({
 
   const showToast = (type, message) => {
     const id = Date.now() + Math.random();
-    setToasts((p) => [...p, { id, type, message }]);
+    setToasts((prev) => [...prev, { id, type, message }]);
   };
 
   const removeToast = (id) => {
-    setToasts((p) => p.filter((t) => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   const { parseText } = useOvertimeParser({
@@ -66,16 +66,16 @@ export default function OvertimeForm({
       return;
     }
 
-    let tmpOT = []; // thay otPreview.length = 0
-    let pending = []; // pending ca
-
+    otPreview.length = 0; // reset mảng xem trước OT
     let lines = textInput
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
+    const pending = [];
+    // ----- LỌC RÁC / BỎ DÒNG HEADER -----
     const RAW_TRASH_PATTERNS = [
-      /^(\d{1,2}\/\d{1,2})?上下班打卡记录[:：]?$/i,
+      /^(\d{1,2}\/\d{1,2})?上下班打卡记录[:：]?$/i, // 11/04上下班打卡记录:
       /^上下班打卡[:：]?$/i,
       /^上下班$/i,
       /^打卡记录[:：]?$/i,
@@ -85,12 +85,15 @@ export default function OvertimeForm({
       /^日期[:：]?$/i,
       /^时间[:：]?$/i,
       /^考勤[:：]?$/i,
-      /^(\d{1,2})月(\d{1,2})日[:：]?$/i,
-      /^(\d{1,2}\/\d{1,2})[:：]?$/i,
+      /^(\d{1,2})月(\d{1,2})日[:：]?$/i, // 11月04日
+      /^(\d{1,2}\/\d{1,2})[:：]?$/i, // 11/04
     ];
+    // xóa các dòng khớp mẫu rác
+    lines = lines.filter((l) => {
+      return !RAW_TRASH_PATTERNS.some((p) => p.test(l));
+    });
 
-    lines = lines.filter((l) => !RAW_TRASH_PATTERNS.some((p) => p.test(l)));
-
+    // ---- XỬ LÝ TỪNG DÒNG ----
     for (let line of lines) {
       const parts = line.split("/");
       if (parts.length < 2) {
@@ -101,42 +104,54 @@ export default function OvertimeForm({
       const namePart = parts[0].replace(/^\d+\.\s*/, "").trim();
       const timePart = parts[1].trim();
 
+      let extractedTime = null;
       const timeMatch = timePart.match(/\b\d{1,2}:\d{2}\b/);
-      if (!timeMatch) {
-        if (LEAVE_CODES.some((c) => timePart.includes(c))) continue;
-        showToast("error", `❌ Sai giờ: ${timePart}`);
+
+      if (timeMatch) {
+        extractedTime = timeMatch[0];
+      } else {
+        if (LEAVE_CODES.some((code) => timePart.includes(code))) continue;
+        showToast("error", `❌ Sai giờ: ${timePart} (dòng: ${line})`);
         return;
       }
 
-      const timeString = timeMatch[0];
-      let [hh, mm] = timeString.split(":").map(Number);
+      const timeString = extractedTime;
+
+      const [hh, mm] = timeString.split(":").map(Number);
       let minutesOfDay = hh * 60 + mm;
 
-      // tìm nhân viên
-      const exact = members.filter(
-        (m) =>
+      // ---- TÌM NHÂN VIÊN ----
+      const candidates = members.filter((m) => {
+        return (
           (m.realName || "").trim() === namePart ||
           (m.nickname || "").trim() === namePart
-      );
+        );
+      });
 
       let member = null;
-      if (exact.length === 1) member = exact[0];
+
+      if (candidates.length === 1) member = candidates[0];
       else {
-        const start = members.filter(
-          (m) =>
+        const c2 = members.filter((m) => {
+          return (
             (m.realName || "").trim().startsWith(namePart) ||
             (m.nickname || "").trim().startsWith(namePart)
-        );
-        if (start.length === 1) member = start[0];
+          );
+        });
+        if (c2.length === 1) member = c2[0];
         else {
-          const include = members.filter(
-            (m) =>
+          const c3 = members.filter((m) => {
+            return (
               (m.realName || "").trim().includes(namePart) ||
               (m.nickname || "").trim().includes(namePart)
-          );
-          if (include.length === 1) member = include[0];
+            );
+          });
+          if (c3.length === 1) member = c3[0];
           else {
-            showToast("error", `❌ Không tìm thấy nhân viên: ${namePart}`);
+            showToast(
+              "error",
+              `❌ Không tìm thấy nhân viên duy nhất: ${namePart}`
+            );
             return;
           }
         }
@@ -146,85 +161,121 @@ export default function OvertimeForm({
       if (!shiftRec || !shiftRec.shift) {
         showToast(
           "error",
-          `❌ Ngày ${selectedDate} chưa phân ca cho ${namePart}`
+          `❌ Ngày ${selectedDate} chưa phân ca cho ${namePart}.`
         );
         return;
       }
 
       if (mode === "checkout" && !shiftRec.lenCa) {
-        showToast("error", `❌ ${namePart} chưa có check-in.`);
+        showToast(
+          "error",
+          `❌ ${namePart} chưa có check-in nên không thể checkout.`
+        );
         return;
       }
 
-      const label = shiftRec.shift;
-      const isNight = String(label).toLowerCase().includes("đêm");
+      const shiftLabel = shiftRec.shift;
+      const isNight = String(shiftLabel).toLowerCase().includes("đêm");
 
+      // ---- CHUYỂN KHUNG GIỜ TỪ DB → phút ----
       const toMin = (s) => {
         if (!s) return null;
-        let [h, m] = s.split(":").map(Number);
+        const [h, m] = s.split(":").map(Number);
         return h * 60 + m;
       };
 
-      const somInStart = toMin(shiftRec.lenCaSomBatDau);
-      const somInEnd = toMin(shiftRec.lenCaSomKetThuc);
-      const muonInStart = toMin(shiftRec.lenCaMuonBatDau);
-      const muonInEnd = toMin(shiftRec.lenCaMuonKetThuc);
+      const somStart = toMin(shiftRec.lenCaSomBatDau);
+      const somEnd = toMin(shiftRec.lenCaSomKetThuc);
+      const muonStart = toMin(shiftRec.lenCaMuonBatDau);
+      const muonEnd = toMin(shiftRec.lenCaMuonKetThuc);
 
       const somOutStart = toMin(shiftRec.tanCaSomBatDau);
+      const somOutEnd = toMin(shiftRec.tanCaSomKetThuc);
       const muonOutStart = toMin(shiftRec.tanCaMuonBatDau);
+      const muonOutEnd = toMin(shiftRec.tanCaMuonKetThuc);
+
+      // ===== CHUẨN HÓA GIỜ CHECKOUT CHO CA ĐÊM =====
+      // Ca đêm luôn tính từ 00:00 trở đi
+      if (isNight && mode === "checkout") {
+        // giữ nguyên phút trong ngày
+      }
 
       let chosenVariant = null;
 
-      // ============================ CHECK IN =============================
+      // ---- CHECK-IN ----
       if (mode === "checkin") {
-        if (minutesOfDay >= somInStart && minutesOfDay <= somInEnd) {
+        if (
+          somStart != null &&
+          somEnd != null &&
+          minutesOfDay >= somStart &&
+          minutesOfDay <= somEnd
+        ) {
+          // Nằm trong khung lên ca SỚM → chuẩn hóa về giờ kết thúc khung
           chosenVariant = "sớm";
-          minutesOfDay = somInEnd;
-        } else if (minutesOfDay >= muonInStart && minutesOfDay <= muonInEnd) {
+          minutesOfDay = somEnd;
+        } else if (
+          muonStart != null &&
+          muonEnd != null &&
+          minutesOfDay >= muonStart &&
+          minutesOfDay <= muonEnd
+        ) {
+          // Nằm trong khung lên ca MUỘN → chuẩn hóa về giờ kết thúc khung
           chosenVariant = "muộn";
-          minutesOfDay = muonInEnd;
+          minutesOfDay = muonEnd;
         } else {
           showToast(
             "error",
-            `${namePart} — ${timeString} không nằm trong khung giờ lên ca.`
+            `${namePart} — ${timeString} không nằm trong KHUNG GIỜ LÊN CA.\n` +
+              `Sớm: ${shiftRec.lenCaSomBatDau}-${shiftRec.lenCaSomKetThuc}\n` +
+              `Muộn: ${shiftRec.lenCaMuonBatDau}-${shiftRec.lenCaMuonKetThuc}`
           );
           return;
         }
       }
 
-      // ============================ CHECK OUT – CA NGÀY =============================
+      // ---- CHECK-OUT ----
+      // ====================== TÍNH OT CA NGÀY ======================
       if (mode === "checkout" && !isNight) {
         const checkoutMin = minutesOfDay;
+
         let otStart = null;
         let variant = null;
 
+        // Ca ngày có thể có khung tăng ca sớm
         if (somOutStart != null && checkoutMin >= somOutStart) {
           otStart = somOutStart;
           variant = "sớm";
         }
-        if (
-          muonOutStart != null &&
-          checkoutMin >= muonOutStart &&
-          (otStart == null ||
+
+        // Ca ngày có thể có khung tăng ca muộn
+        if (muonOutStart != null && checkoutMin >= muonOutStart) {
+          if (
+            otStart == null ||
             Math.abs(checkoutMin - muonOutStart) <
-              Math.abs(checkoutMin - otStart))
-        ) {
-          otStart = muonOutStart;
-          variant = "muộn";
+              Math.abs(checkoutMin - otStart)
+          ) {
+            otStart = muonOutStart;
+            variant = "muộn";
+          }
         }
 
+        // Không rơi vào khung tăng ca nào
         if (otStart == null) {
-          showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
+          showToast(
+            "error",
+            `${namePart} — ${timeString} chưa tới giờ tăng ca.`
+          );
           return;
         }
 
         const otMinutes = checkoutMin - otStart;
+
         if (otMinutes < 1) {
-          showToast("error", `${namePart} — không có tăng ca.`);
+          showToast("error", `${namePart} — ${timeString} không có tăng ca.`);
           return;
         }
 
-        tmpOT.push({
+        otPreview.push({
           memberId: member.id,
           name: namePart,
           nickname: member.nickname || "",
@@ -235,98 +286,117 @@ export default function OvertimeForm({
         });
       }
 
-      // ============================ CHECK OUT – CA ĐÊM =============================
+      // ===== TÍNH OT CA ĐÊM (CHUẨN THEO DB) =====
       if (mode === "checkout" && isNight) {
+        const somStart = toMin(shiftRec.tanCaSomBatDau); // 04:00
+        const muonStart = toMin(shiftRec.tanCaMuonBatDau); // 05:00
+
+        const somShiftEnd = toMin(shiftRec.lenCaSomKetThuc); // 19:00
+        const muonShiftEnd = toMin(shiftRec.lenCaMuonKetThuc); // 20:00
+
+        const nghi = (shiftRec.nghiGiuaCa || 0) * 60; // nghỉ giữa ca -> phút
+
+        // Chuẩn hóa checkout: 6:01 → 361 phút, KHÔNG +1440 nữa
         const checkoutMin = minutesOfDay;
 
-        const nightSomStart = toMin(shiftRec.tanCaSomBatDau);
-        const nightMuonStart = toMin(shiftRec.tanCaMuonBatDau);
-
         let otStart = null;
-        let variant = null;
+        let chosenVariant = null;
 
-        if (checkoutMin >= nightSomStart) {
-          otStart = nightSomStart;
-          variant = "sớm";
+        // ------------ CA SỚM ------------
+        // ca sớm: hành chính kết thúc 19:00, OT bắt đầu 04:00
+        if (checkoutMin >= somStart) {
+          otStart = somStart;
+          chosenVariant = "sớm";
         }
 
-        if (
-          checkoutMin >= nightMuonStart &&
-          (otStart == null ||
-            Math.abs(checkoutMin - nightMuonStart) <
-              Math.abs(checkoutMin - otStart))
-        ) {
-          otStart = nightMuonStart;
-          variant = "muộn";
+        // ------------ CA MUỘN ------------
+        // ca muộn: hành chính kết thúc 20:00, OT bắt đầu 05:00
+        if (checkoutMin >= muonStart) {
+          // chọn ca gần nhất với giờ checkout
+          if (
+            otStart == null ||
+            Math.abs(checkoutMin - muonStart) < Math.abs(checkoutMin - otStart)
+          ) {
+            otStart = muonStart;
+            chosenVariant = "muộn";
+          }
         }
 
         if (otStart == null) {
-          showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
+          showToast(
+            "error",
+            `${namePart} — ${timeString} chưa tới giờ tăng ca.`
+          );
           return;
         }
 
         const otMinutes = checkoutMin - otStart;
+
         if (otMinutes < 1) {
-          showToast("error", `${namePart} — không có tăng ca.`);
+          showToast("error", `${namePart} — ${timeString} không có tăng ca.`);
           return;
         }
 
-        tmpOT.push({
+        otPreview.push({
           memberId: member.id,
           name: namePart,
           nickname: member.nickname || "",
           checkout: timeString,
           otMinutes,
           shiftEnd: otStart,
-          ca: variant,
+          ca: chosenVariant,
         });
       }
 
-      // ============================ GỢI Ý PHÂN CA =============================
+      // ---- Sinh shiftStart mong muốn ----
       const prefix = isNight ? "lên_ca_đêm_" : "lên_ca_ngày_";
       const expectedShiftStart =
         prefix + (chosenVariant === "sớm" ? "sớm" : "muộn");
 
-      if (mode === "checkin" && shiftRec.shiftStart !== expectedShiftStart) {
+      const currentShiftStart = shiftRec.shiftStart || null;
+
+      if (mode === "checkin" && currentShiftStart !== expectedShiftStart) {
         pending.push({
           memberId: member.id,
           name: namePart,
-          oldShiftStart: shiftRec.shiftStart,
+          oldShiftStart: currentShiftStart,
           newShiftStart: expectedShiftStart,
         });
       }
     }
 
-    // ============================ MỞ POPUP OT =============================
-    if (mode === "checkout" && tmpOT.length > 0) {
-      setOtPreview(tmpOT);
+    // ---- Có tăng ca → mở popup xem trước ----
+    if (mode === "checkout" && otPreview.length > 0) {
+      setOtPreview([...otPreview]);
       setOtPreviewOpen(true);
       return;
     }
 
-    // ============================ MỞ POPUP UPDATE CA =============================
+    // ---- CÓ THAY ĐỔI CA → MỞ POPUP ----
     if (pending.length > 0) {
-      const dedup = Object.values(
+      const deduped = Object.values(
         pending.reduce((acc, p) => {
           acc[p.memberId] = p;
           return acc;
         }, {})
       );
 
-      setPendingShiftUpdates(dedup);
+      setPendingShiftUpdates(deduped);
       setPreviewOpen(true);
       return;
     }
 
+    // ---- KHÔNG THAY ĐỔI CA → LƯU TRỰC TIẾP ----
     try {
       await parseText(textInput, mode);
-      showToast("success", "✔ Xử lý chấm công thành công!");
+      showToast("success", "✅ Xử lý chấm công thành công!");
       setTextInput("");
       setFormOpen(false);
-    } catch (e) {
+    } catch (err) {
       showToast("error", "❌ Lỗi xử lý chấm công!");
     }
   };
+
   const handleSkipUpdates = async () => {
     setPreviewOpen(false);
     try {
@@ -377,7 +447,6 @@ export default function OvertimeForm({
     }
   };
 
-  // ============================ JSX RENDER =============================
   return (
     <>
       <Toast toasts={toasts} onClose={removeToast} />
@@ -401,7 +470,6 @@ export default function OvertimeForm({
           }
         >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
           <div
             ref={modalRef}
             className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-11/12 max-w-xl p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors"
@@ -420,7 +488,6 @@ export default function OvertimeForm({
               <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400">
                 Thêm tăng ca
               </h3>
-
               <button
                 onClick={() => setFormOpen(false)}
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
@@ -429,7 +496,6 @@ export default function OvertimeForm({
               </button>
             </div>
 
-            {/* SWITCH MODE */}
             <div className="flex justify-center mb-5">
               <div
                 className="relative flex items-center w-44 h-10 bg-gray-200 dark:bg-gray-800 rounded-full cursor-pointer transition"
@@ -448,18 +514,16 @@ export default function OvertimeForm({
                     mode === "checkout" ? "translate-x-full" : "translate-x-0"
                   }`}
                 />
-
                 <div className="flex justify-between items-center w-full px-4 z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <div
-                    className={`flex items-center gap-1 ${
+                    className={`flex items-center gap-1 transition ${
                       mode === "checkin" ? "text-white" : ""
                     }`}
                   >
                     <LogIn className="w-4 h-4" /> In
                   </div>
-
                   <div
-                    className={`flex items-center gap-1 ${
+                    className={`flex items-center gap-1 transition ${
                       mode === "checkout" ? "text-white" : ""
                     }`}
                   >
@@ -477,15 +541,15 @@ export default function OvertimeForm({
             <textarea
               rows={6}
               className={`
-                w-full border rounded-lg mb-4 p-3 outline-none transition
-                bg-white dark:bg-gray-800
-                text-gray-800 dark:text-gray-200
-                ${
-                  mode === "checkin"
-                    ? "border-orange-400 focus:ring-2 focus:ring-orange-500"
-                    : "border-green-400 focus:ring-2 focus:ring-green-500"
-                }
-              `}
+    w-full border rounded-lg mb-4 p-3 outline-none transition
+    bg-white dark:bg-gray-800
+    text-gray-800 dark:text-gray-200
+    ${
+      mode === "checkin"
+        ? "border-orange-400 focus:ring-2 focus:ring-orange-500"
+        : "border-green-400 focus:ring-2 focus:ring-green-500"
+    }
+  `}
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={
@@ -518,7 +582,6 @@ export default function OvertimeForm({
         </div>
       )}
 
-      {/* POPUP đổi ca */}
       <ShiftPreviewModal
         visible={previewOpen}
         pending={pendingShiftUpdates}
@@ -528,7 +591,6 @@ export default function OvertimeForm({
         loading={loadingApprove}
       />
 
-      {/* POPUP xem trước OT */}
       <OvertimePreviewModal
         visible={otPreviewOpen}
         items={otPreview}
