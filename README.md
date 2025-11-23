@@ -583,3 +583,84 @@ tính từ 00h -> 6h sáng == 6 *60 = 360
 lấy tính từ (00h -> 6h) - (00h -> tanCaSomBatDau "04:00") == 360 - 240 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
 
 ca muộn tương tự
+
+
+
+bây h tui có ý tưởng này t muốn sửa 
+
+5.陈文雄/12:01 cái này thành cho phép ko báo lỗi bên OvertimeForm
+
+popup bên OvertimePreviewModal hiện nhân viên đó chấm than đỏ báo lỗi
+
+
+tạo 1 file.jsx chuyên tính chấm công thủ công cho những bất thường
+
+admin ấn vào chấm than đỏ đó sẽ hiện ra popup mới popup này sẽ hỏi nhân viên này chọn trong các trường hợp nghỉ, phép trong parseHelpers, 
+tích chọn có tăng ca hay ko, 
+nếu không thì chỉ cần hiện nghỉ, phép đó ko có dữ liệu tăng ca gì cả
+nếu có cứ lấy số giờ tanCaMuonBatDau của họ + thêm 60 = 1 tiếng ko lấy phút
+vd hùng ca muộn checkin 12h47 = ( (13h-30p= 12h30) <= checkin <= 13h ): hùng chấm công đúng
+và nếu tăng ca thì sẽ tính theo công thức như này 
+
+vd ca sớm
+
+================ CA NGÀY ================
+
+1. Checkout logic (nghỉ chiều):
+ví dụ checkout == 11:01 4h事假, 11:01
+shiftStart "lên_ca_ngày_sớm"
+lenCaSomKetThuc "7:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 7h + 4h事假 = 11h + 1 tiếng nghiGiuaCa = 12h(720)
+if ( 11h(660) >= checkout >= (12h-30p= 11h30(690)) ):
+nv chấm 11h01 là đủ 4 tiếng
+lenCaSomKetThuc "07:00" tới 11h = 11(660) - 7(420) = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
+
+
+2. Checkin logic (nghỉ sáng):
+ví dụ checkin == 11:45 4h事假, 11:45
+shiftStart "lên_ca_ngày_sớm"
+lenCaSomKetThuc "7:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 7h + 4h事假 = 11h + 1 tiếng nghiGiuaCa = 12h(720)
+if ( (12h-30p= 11h30(690)) <= checkin <= 12h(720) ):
+nv chấm 11h45 là trc 12h 15p
+12h tới tanCaSomBatDau "16:00" = 16(960) - 12(720) = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
+sau hành chính 480 hoặc 240 cứ đầu vào checkout 18:01 (ví dụ 2 tiếng)
+
+tính từ 12h -> 18h chiều == 18 *60 = 1080
+lấy tính từ (12h -> 18h) - (12h -> tanCaSomBatDau "16:00") == 1080 - 960 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
+
+
+================ CA ĐÊM ================
+
+1. Checkout logic (nghỉ chiều):
+ví dụ checkout == 23:01 4h事假, 23:01
+shiftStart "lên_ca_đêm_sớm"
+lenCaSomKetThuc "19:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 19h + 4h事假 = 23h + 1 tiếng nghiGiuaCa = 00h(1440)
+if ( 23h >= checkout >= (00h-30p= 23h30 (1410)) ):
+nv chấm 11h01 là đủ 4 tiếng
+lenCaSomKetThuc "19:00" tới 23h = 23(1380) - 19(1140) = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> night -> tongGioHanhChinh  8 tiếng (480))
+
+
+2. Checkin logic (nghỉ sáng):
+ví dụ checkin == 23:45 4h事假
+shiftStart "lên_ca_đêm_sớm"
+lenCaSomKetThuc "19:00"
+ loại bỏ phút mm chỉ lấy giờ hh
+tính từ 19h + 4h事假 = 23h + 1 nghiGiuaCa = 00h(1440)
+if ( (00h-30p= 23h30 (1410)) <= checkin <= 00h ):
+nv chấm 23h45 là trc 00h 15p
+00h tới tanCaSomBatDau "04:00" = 4(240)
+(tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
+sau hành chính 480 hoặc 240 cứ đầu vào checkout 06:01 (ví dụ 2 tiếng)
+
+tính từ 00h -> 6h sáng == 6 *60 = 360
+lấy tính từ (00h -> 6h) - (00h -> tanCaSomBatDau "04:00") == 360 - 240 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
+
+ca muộn tương tự

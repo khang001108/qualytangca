@@ -4,10 +4,22 @@ import Toast from "../Toast";
 import useOvertimeParser from "../../hooks/useOvertimeParser/index";
 import ShiftPreviewModal from "./ShiftPreviewModal";
 import OvertimePreviewModal from "./OvertimePreviewModal";
-import { LEAVE_CODES } from "../../hooks/useOvertimeParser/parseHelpers";
+import {
+  LEAVE_CODES,
+  LEAVE_MAP,
+} from "../../hooks/useOvertimeParser/parseHelpers";
 import { doc, writeBatch } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { getShiftOfMember } from "../../hooks/useOvertimeParser/shiftHelpers";
+import ManualAttendanceAdjust from "./ManualAttendanceAdjust";
+
+const sessionToText = (s) => {
+  if (s === "morning") return "sáng";
+  if (s === "afternoon") return "chiều";
+  if (s === "full") return "cả ngày";
+  return "";
+};
+
 
 export default function OvertimeForm({
   user,
@@ -28,6 +40,9 @@ export default function OvertimeForm({
   const [loadingApprove, setLoadingApprove] = useState(false);
   const [otPreview, setOtPreview] = useState([]);
   const [otPreviewOpen, setOtPreviewOpen] = useState(false);
+  // popup xử lý thủ công
+  const [manualItem, setManualItem] = useState(null);
+  const [manualPopupOpen, setManualPopupOpen] = useState(false);
 
   const showToast = (type, message) => {
     const id = Date.now() + Math.random();
@@ -213,15 +228,44 @@ export default function OvertimeForm({
           variant = "muộn";
         }
 
-        if (otStart == null) {
-          showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
-          return;
-        }
+        // if (otStart == null) {
+        //   showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
+        //   return;
+        // }
+
+        // if (otMinutes < 1) {
+        //   showToast("error", `${namePart} — không có tăng ca.`);
+        //   return;
+        // }
 
         const otMinutes = checkoutMin - otStart;
+        if (otStart == null) {
+          // không có tăng ca nhưng vẫn được đưa vào preview
+          tmpOT.push({
+            memberId: member.id,
+            name: namePart,
+            nickname: member.nickname || "",
+            checkout: timeString,
+            otMinutes: 0,
+            shiftEnd: null,
+            ca: null,
+            error: "notYet",
+          });
+          continue;
+        }
+
         if (otMinutes < 1) {
-          showToast("error", `${namePart} — không có tăng ca.`);
-          return;
+          tmpOT.push({
+            memberId: member.id,
+            name: namePart,
+            nickname: member.nickname || "",
+            checkout: timeString,
+            otMinutes: 0,
+            shiftEnd: otStart,
+            ca: variant,
+            error: "noOT",
+          });
+          continue;
         }
 
         tmpOT.push({
@@ -260,15 +304,44 @@ export default function OvertimeForm({
           variant = "muộn";
         }
 
-        if (otStart == null) {
-          showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
-          return;
-        }
+        // if (otStart == null) {
+        //   showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
+        //   return;
+        // }
+
+        // if (otMinutes < 1) {
+        //   showToast("error", `${namePart} — không có tăng ca.`);
+        //   return;
+        // }
 
         const otMinutes = checkoutMin - otStart;
+        if (otStart == null) {
+          // không có tăng ca nhưng vẫn được đưa vào preview
+          tmpOT.push({
+            memberId: member.id,
+            name: namePart,
+            nickname: member.nickname || "",
+            checkout: timeString,
+            otMinutes: 0,
+            shiftEnd: null,
+            ca: null,
+            error: "notYet",
+          });
+          continue;
+        }
+
         if (otMinutes < 1) {
-          showToast("error", `${namePart} — không có tăng ca.`);
-          return;
+          tmpOT.push({
+            memberId: member.id,
+            name: namePart,
+            nickname: member.nickname || "",
+            checkout: timeString,
+            otMinutes: 0,
+            shiftEnd: otStart,
+            ca: variant,
+            error: "noOT",
+          });
+          continue;
         }
 
         tmpOT.push({
@@ -534,6 +607,42 @@ export default function OvertimeForm({
         items={otPreview}
         onClose={() => setOtPreviewOpen(false)}
         onConfirm={handleConfirmOT}
+        onManualAdjust={(item) => {
+          // bật popup xử lý thủ công
+          setManualItem(item);
+          setManualPopupOpen(true);
+        }}
+      />
+
+      {/* POPUP xử lý thủ công */}
+      <ManualAttendanceAdjust
+        visible={manualPopupOpen}
+        item={manualItem}
+        leaveMap={LEAVE_MAP}
+        onClose={() => setManualPopupOpen(false)}
+        onSave={(data) => {
+          setOtPreview((prev) =>
+            prev.map((it) =>
+              it.memberId === data.memberId
+                ? {
+                    ...it,
+                    error: "fixed", // icon xanh
+                    leaveType: data.leaveType,
+                    leaveLabel: LEAVE_MAP[data.leaveType] || null, // SỬA TẠI ĐÂY
+                    session: data.session,
+                    otMinutes: data.withOT ? data.otHours * 60 : 0,
+                    shiftEnd: data.leaveType
+                      ? `Phép: ${LEAVE_MAP[data.leaveType]} (${sessionToText(
+                          data.session
+                        )})`
+                      : it.shiftEnd,
+                  }
+                : it
+            )
+          );
+
+          setManualPopupOpen(false);
+        }}
       />
     </>
   );

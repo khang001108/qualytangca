@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
+
+const sessionToText = (s) => {
+  if (s === "morning") return "sáng";
+  if (s === "afternoon") return "chiều";
+  if (s === "full") return "cả ngày";
+  return "";
+};
 
 export default function OvertimePreviewModal({
   visible,
   items = [],
   onClose,
   onConfirm,
+  onManualAdjust, // ← CALLBACK MỚI: bật popup xử lý thủ công
 }) {
   const [skipList, setSkipList] = useState({});
 
-  // ===== CHẶN CUỘN BACKGROUND =====
   useEffect(() => {
     if (visible) document.body.style.overflow = "hidden";
     return () => (document.body.style.overflow = "auto");
@@ -22,6 +29,7 @@ export default function OvertimePreviewModal({
   };
 
   const toHHMM = (minutes) => {
+    if (!minutes && minutes !== 0) return "--:--";
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -80,27 +88,54 @@ export default function OvertimePreviewModal({
                   shadow-inner
                 "
               >
+                {/* Row: Name + OT + Error Icon */}
                 <div className="flex items-center justify-between border-l-4 border-orange-500 pl-3">
-                  {/* Tên */}
-                  <div className="text-base font-semibold text-gray-900 dark:text-white">
-                    {it.name}
-                    {it.nickname && (
-                      <span className="ml-1 text-gray-500 dark:text-gray-400 text-sm">
-                        ({it.nickname})
-                      </span>
+                  <div className="flex items-center gap-2">
+                    <div className="text-base font-semibold text-gray-900 dark:text-white">
+                      {it.name}
+                      {it.nickname && (
+                        <span className="ml-1 text-gray-500 dark:text-gray-400 text-sm">
+                          ({it.nickname})
+                        </span>
+                      )}
+                    </div>
+
+                    {/* ICON CẢNH BÁO */}
+                    {it.error === "fixed" && (
+                      <button
+                        onClick={() => onManualAdjust(it)}
+                        className="text-green-600 hover:text-green-700 transition"
+                        title="Đã xử lý — bấm để sửa lại"
+                      >
+                        <AlertTriangle size={18} />
+                      </button>
+                    )}
+
+                    {/* if error khác fixed → icon đỏ */}
+                    {it.error && it.error !== "fixed" && (
+                      <button
+                        onClick={() => onManualAdjust(it)}
+                        className="text-red-600 hover:text-red-700 transition"
+                        title="Bấm để xử lý thủ công"
+                      >
+                        <AlertTriangle size={18} />
+                      </button>
                     )}
                   </div>
 
-                  {/* Số giờ OT lớn bên phải */}
+                  {/* OT hours */}
                   <div className={`text-xl font-bold ${getOtColor(otH)}`}>
                     {otH}h
                   </div>
                 </div>
 
                 <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Kết thúc ca hành chính: {toHHMM(it.shiftEnd)}
+                  {it.leaveType
+                    ? `Phép: ${it.leaveLabel} (${sessionToText(it.session)})`
+                    : `Kết thúc ca hành chính: ${toHHMM(it.shiftEnd)}`}
                 </div>
 
+                {/* Skip toggle */}
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mt-2">
                   <input
                     type="checkbox"
