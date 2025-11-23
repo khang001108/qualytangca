@@ -20,8 +20,11 @@ export default function ManualAttendanceAdjust({
 
     setLeaveType(item.leaveType || "");
     setSession(item.session || "none");
-    setWithOT(item.otMinutes > 0);
-    setOtHours(item.otMinutes ? item.otMinutes / 60 : 0);
+
+    const minutes = item?.otMinutes || 0;
+
+    setWithOT(minutes > 0);
+    setOtHours(minutes > 0 ? minutes / 60 : 0);
   }, [item]);
 
   const handleSubmit = () => {
@@ -39,6 +42,7 @@ export default function ManualAttendanceAdjust({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div className="relative z-10 w-11/12 max-w-md bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl shadow-2xl p-6 border border-gray-300 dark:border-gray-700">
+
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-orange-600 dark:text-orange-400">
@@ -52,8 +56,9 @@ export default function ManualAttendanceAdjust({
           </button>
         </div>
 
+        {/* Tên nhân viên */}
         <div className="text-base font-semibold mb-3">
-          {item.name}
+          {item.realName}
           {item.nickname && (
             <span className="ml-1 text-gray-500 text-sm">
               ({item.nickname})
@@ -132,6 +137,7 @@ export default function ManualAttendanceAdjust({
             <Save size={16} /> Lưu lại
           </button>
         </div>
+
       </div>
     </div>
   );

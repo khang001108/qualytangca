@@ -470,7 +470,8 @@ export default function ShiftAssign(props) {
                         [m.id]: {
                           ...(prev[m.id] || sel),
                           include: true, // TỰ ĐỘNG CHỌN NHÂN VIÊN
-                          earlyShift: !sel.earlyShift, // ĐỔI SỚM↔MUỘN
+                          // earlyShift: !sel.earlyShift, // ĐỔI SỚM↔MUỘN
+                          earlyShift: !old.earlyShift,
                         },
                       }))
                     }
