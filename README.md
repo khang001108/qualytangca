@@ -575,9 +575,11 @@ lenCaSomKetThuc "19:00"
 tính từ 19h + 4h事假 = 23h + 1 nghiGiuaCa = 00h(1440)
 if ( (00h-30p= 23h30 (1410)) <= checkin <= 00h ):
 nv chấm 23h45 là trc 00h 15p
-00h tới tanCaSomBatDau "04:00" = 04 - 00 = 4 ///////////////////////////////////////
+00h tới tanCaSomBatDau "04:00" = 4(240)
 (tổng giờ hành chính = 4 tiếng (240)) <> (shiftConfig -> day -> tongGioHanhChinh  8 tiếng (480))
-sau hành chính 480 hoặc 240 cứ đầu vào checkout 18:01 (ví dụ 2 tiếng)
+sau hành chính 480 hoặc 240 cứ đầu vào checkout 06:01 (ví dụ 2 tiếng)
 
-tính từ 12h -> 18h chiều == 18 *60 = 1080
-lấy tính từ (12h -> 18h) - (12h -> tanCaSomBatDau "16:00") == 1080 - 960 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
+tính từ 00h -> 6h sáng == 6 *60 = 360
+lấy tính từ (00h -> 6h) - (00h -> tanCaSomBatDau "04:00") == 360 - 240 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
+
+ca muộn tương tự
