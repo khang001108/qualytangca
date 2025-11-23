@@ -20,7 +20,6 @@ const sessionToText = (s) => {
   return "";
 };
 
-
 export default function OvertimeForm({
   user,
   members = [],
@@ -43,6 +42,7 @@ export default function OvertimeForm({
   // popup xử lý thủ công
   const [manualItem, setManualItem] = useState(null);
   const [manualPopupOpen, setManualPopupOpen] = useState(false);
+  const [editedTimes, setEditedTimes] = useState({});
 
   const showToast = (type, message) => {
     const id = Date.now() + Math.random();
@@ -606,7 +606,7 @@ export default function OvertimeForm({
         visible={otPreviewOpen}
         items={otPreview}
         onClose={() => setOtPreviewOpen(false)}
-        onConfirm={handleConfirmOT}
+        onConfirm={() => handleConfirmOT(editedTimes)}
         onManualAdjust={(item) => {
           // bật popup xử lý thủ công
           setManualItem(item);
@@ -621,25 +621,27 @@ export default function OvertimeForm({
         leaveMap={LEAVE_MAP}
         onClose={() => setManualPopupOpen(false)}
         onSave={(data) => {
+          // 1. update preview UI
           setOtPreview((prev) =>
             prev.map((it) =>
               it.memberId === data.memberId
                 ? {
                     ...it,
-                    error: "fixed", // icon xanh
+                    error: "fixed",
                     leaveType: data.leaveType,
-                    leaveLabel: LEAVE_MAP[data.leaveType] || null, // SỬA TẠI ĐÂY
+                    leaveLabel: LEAVE_MAP[data.leaveType] || null,
                     session: data.session,
                     otMinutes: data.withOT ? data.otHours * 60 : 0,
-                    shiftEnd: data.leaveType
-                      ? `Phép: ${LEAVE_MAP[data.leaveType]} (${sessionToText(
-                          data.session
-                        )})`
-                      : it.shiftEnd,
                   }
                 : it
             )
           );
+
+          // 2. QUAN TRỌNG: lưu chỉnh sửa vào editedTimes
+          setEditedTimes((prev) => ({
+            ...prev,
+            [data.memberId]: data,
+          }));
 
           setManualPopupOpen(false);
         }}

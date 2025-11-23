@@ -181,7 +181,7 @@ export default function useOvertimeParser({
 }) {
   const isProcessing = useRef(false);
 
-  async function parseText(rawText, mode = "checkin") {
+  async function parseText(rawText, mode = "checkin", editedTimes = {}) {
     if (isProcessing.current) {
       console.warn("Parser busy");
       return;
@@ -293,6 +293,8 @@ export default function useOvertimeParser({
 
         // Prefer persisted shiftSchedule for this member/day (authoritative)
         const shiftRec = await getShiftSchedule(dateStr, member.id);
+        // thêm dòng này:
+        let newShiftRec = shiftRec;
 
         // Determine isNight:
         // 1) If shiftRec.shift exists -> use it (trust manual assignment).
@@ -309,15 +311,31 @@ export default function useOvertimeParser({
           // try day windows
           const inDay =
             (typeof dayWindows.som.checkin === "number" &&
-              inRangeWrap(minutesOfDay, dayWindows.som.checkin, dayWindows.som.checkinEnd)) ||
+              inRangeWrap(
+                minutesOfDay,
+                dayWindows.som.checkin,
+                dayWindows.som.checkinEnd
+              )) ||
             (typeof dayWindows.muon.checkin === "number" &&
-              inRangeWrap(minutesOfDay, dayWindows.muon.checkin, dayWindows.muon.checkinEnd));
+              inRangeWrap(
+                minutesOfDay,
+                dayWindows.muon.checkin,
+                dayWindows.muon.checkinEnd
+              ));
 
           const inNight =
             (typeof nightWindows.som.checkin === "number" &&
-              inRangeWrap(minutesOfDay, nightWindows.som.checkin, nightWindows.som.checkinEnd)) ||
+              inRangeWrap(
+                minutesOfDay,
+                nightWindows.som.checkin,
+                nightWindows.som.checkinEnd
+              )) ||
             (typeof nightWindows.muon.checkin === "number" &&
-              inRangeWrap(minutesOfDay, nightWindows.muon.checkin, nightWindows.muon.checkinEnd));
+              inRangeWrap(
+                minutesOfDay,
+                nightWindows.muon.checkin,
+                nightWindows.muon.checkinEnd
+              ));
 
           if (inDay && !inNight) isNight = false;
           else if (!inDay && inNight) isNight = true;
@@ -366,6 +384,54 @@ export default function useOvertimeParser({
         });
         updated++;
 
+        // ============================ HANDLE MANUAL EDIT ============================
+        // HANDLE MANUAL EDIT
+        const manual = editedTimes[member.id];
+        if (manual) {
+          // 1) nghỉ phép không OT
+          if (manual.leaveType && !manual.withOT) {
+            await upsertShiftSchedule(dateStr, member, {
+              note: manual.leaveType,
+              session: manual.session || null,
+              manualLeave: true,
+            });
+            continue;
+          }
+
+          // 2) load lại shift sau khi lưu phép
+          newShiftRec =
+            (await getShiftSchedule(dateStr, member.id)) || shiftRec;
+
+          // 3) OT thủ công
+          if (manual.withOT) {
+            const addHours = Number(manual.otHours || 0);
+
+            await updateMemberOvertimeWorked(member.id, addHours);
+
+            const otRef = doc(collection(db, "overtimes"));
+            await setDoc(otRef, {
+              userId: user.uid,
+              memberId: member.id,
+              realName: member.realName,
+              nickname: member.nickname || "",
+              date: dateStr,
+              checkIn: newShiftRec?.lenCa || null,
+              checkOut: null,
+              tangCaHomNay: addHours,
+              thuong: 0,
+              addedHours: addHours,
+              bonusGiven: 0,
+              shift: newShiftRec?.shift || member.shift || "",
+              manualEdit: true,
+              manualLeave: !!manual.leaveType,
+              session: manual.session || null,
+              createdAt: serverTimestamp(),
+            });
+
+            continue;
+          }
+        }
+
         // Determine checkinType: prefer stored checkinType in shiftRec, else infer from stored lenCa, else "other"
         let storedCheckinType = (shiftRec && shiftRec.checkinType) || null;
         if (!storedCheckinType && shiftRec && shiftRec.lenCa) {
@@ -401,8 +467,12 @@ export default function useOvertimeParser({
             officialEnd = timeToMinutes(cfg.tanCaMuonBatDau); // e.g., 17:00
           } else {
             // fallback: use muon window if available
-            officialStart = timeToMinutes(cfg.lenCaMuonKetThuc) ?? timeToMinutes(cfg.lenCaSomKetThuc);
-            officialEnd = timeToMinutes(cfg.tanCaMuonBatDau) ?? timeToMinutes(cfg.tanCaSomBatDau);
+            officialStart =
+              timeToMinutes(cfg.lenCaMuonKetThuc) ??
+              timeToMinutes(cfg.lenCaSomKetThuc);
+            officialEnd =
+              timeToMinutes(cfg.tanCaMuonBatDau) ??
+              timeToMinutes(cfg.tanCaSomBatDau);
           }
         } else {
           // night (may wrap)
@@ -413,8 +483,12 @@ export default function useOvertimeParser({
             officialStart = timeToMinutes(cfg.lenCaMuonKetThuc);
             officialEnd = timeToMinutes(cfg.tanCaMuonBatDau);
           } else {
-            officialStart = timeToMinutes(cfg.lenCaMuonKetThuc) ?? timeToMinutes(cfg.lenCaSomKetThuc);
-            officialEnd = timeToMinutes(cfg.tanCaMuonBatDau) ?? timeToMinutes(cfg.tanCaSomBatDau);
+            officialStart =
+              timeToMinutes(cfg.lenCaMuonKetThuc) ??
+              timeToMinutes(cfg.lenCaSomKetThuc);
+            officialEnd =
+              timeToMinutes(cfg.tanCaMuonBatDau) ??
+              timeToMinutes(cfg.tanCaSomBatDau);
           }
         }
 
@@ -446,7 +520,8 @@ export default function useOvertimeParser({
         const memberWorked = Number(member.overtimeLimit?.workedHours || 0);
         const memberRemaining = Math.max(memberLimit - memberWorked, 0);
 
-        const addHours = memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
+        const addHours =
+          memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
         if (addHours <= 0) continue;
 
         // Prevent double-count: if shiftRec.otCounted is true -> skip adding hours but still may write ot record
@@ -468,7 +543,9 @@ export default function useOvertimeParser({
           const bonusAmount = Number(bonus?.congThemBaoNhieuGio || 0);
           const selectedLimits = bonus?.cacNhanhDuocThuong || [];
 
-          const customNoBonus = (bonus?.cacMaKhongThuong || []).concat(LEAVE_CODES || []);
+          const customNoBonus = (bonus?.cacMaKhongThuong || []).concat(
+            LEAVE_CODES || []
+          );
           const nameNormalized = normalizeName(member.realName || "");
 
           const isNoBonus =
@@ -512,31 +589,57 @@ export default function useOvertimeParser({
         // Update overtimeLimits member entry and mark otCounted on shiftSchedules
         try {
           if (memberLimit && memberLimit > 0) {
-            const limitDocRef = doc(db, "overtimeLimits", `limit_${memberLimit}`);
+            const limitDocRef = doc(
+              db,
+              "overtimeLimits",
+              `limit_${memberLimit}`
+            );
             const limitSnap = await getDoc(limitDocRef);
             if (limitSnap.exists()) {
               const limitData = limitSnap.data();
-              const membersArr = Array.isArray(limitData.members) ? limitData.members : [];
-              const idx = membersArr.findIndex((mm) => String(mm.id) === String(member.id));
+              const membersArr = Array.isArray(limitData.members)
+                ? limitData.members
+                : [];
+              const idx = membersArr.findIndex(
+                (mm) => String(mm.id) === String(member.id)
+              );
               const existing = idx !== -1 ? membersArr[idx] : {};
 
-              const existedGioDaLam = Number(existing.gioDaLam || existing.worked || 0);
+              const existedGioDaLam = Number(
+                existing.gioDaLam || existing.worked || 0
+              );
               const existedSoNgay = Number(existing.soNgayDaLam || 0);
-              const existedGioThuongDaNhan = Number(existing.gioThuongDaNhan || 0);
-              const existedGioThuongConLai = Number(existing.gioThuongConLai || existing.tongGioThuong || 0);
+              const existedGioThuongDaNhan = Number(
+                existing.gioThuongDaNhan || 0
+              );
+              const existedGioThuongConLai = Number(
+                existing.gioThuongConLai || existing.tongGioThuong || 0
+              );
 
-              const newGioDaLam = existedGioDaLam + (alreadyCounted ? 0 : addHours);
+              const newGioDaLam =
+                existedGioDaLam + (alreadyCounted ? 0 : addHours);
               const incrementDay = alreadyCounted ? 0 : 1;
               const newSoNgay = existedSoNgay + incrementDay;
 
-              const totalPlan = Number(existing.tongGioKeHoach || limitData.limit || 0);
+              const totalPlan = Number(
+                existing.tongGioKeHoach || limitData.limit || 0
+              );
               const newGioConLai = Math.max(totalPlan - newGioDaLam, 0);
 
-              const newGioThuongDaNhan = existedGioThuongDaNhan + (bonusGiven || 0);
-              const newGioThuongConLai = Math.max(existedGioThuongConLai - (bonusGiven || 0), 0);
+              const newGioThuongDaNhan =
+                existedGioThuongDaNhan + (bonusGiven || 0);
+              const newGioThuongConLai = Math.max(
+                existedGioThuongConLai - (bonusGiven || 0),
+                0
+              );
 
-              const existedNgayConLai = Number(existing.ngayConLai ?? limitData.days ?? 0);
-              const newNgayConLai = Math.max(existedNgayConLai - incrementDay, 0);
+              const existedNgayConLai = Number(
+                existing.ngayConLai ?? limitData.days ?? 0
+              );
+              const newNgayConLai = Math.max(
+                existedNgayConLai - incrementDay,
+                0
+              );
 
               const patch = {
                 id: member.id,
@@ -564,19 +667,21 @@ export default function useOvertimeParser({
         // write overtime record (one per detection)
         try {
           const otRef = doc(collection(db, "overtimes"));
+          const finalShift = newShiftRec ||
+            shiftRec || { lenCa: null, shift: member.shift || "" };
           await setDoc(otRef, {
             userId: user.uid,
             memberId: member.id,
             realName: member.realName,
             nickname: member.nickname || "",
             date: dateStr,
-            checkIn: shiftRec?.lenCa || null,
+            checkIn: finalShift.lenCa,
             checkOut: minutesToHHMM(minutesOfDay),
             tangCaHomNay: alreadyCounted ? 0 : addHours,
             thuong: bonusGiven,
             addedHours: alreadyCounted ? 0 : addHours,
             bonusGiven,
-            shift: shiftRec?.shift || member.shift || "",
+            shift: finalShift.shift,
             createdAt: serverTimestamp(),
           });
         } catch (e) {
