@@ -7,7 +7,7 @@ import {
   updateDoc,
   setDoc,
   serverTimestamp,
-  deleteField
+  deleteField,
 } from "firebase/firestore";
 
 export default function TableRow({
@@ -60,75 +60,60 @@ export default function TableRow({
   const handleEarlyShiftToggle = async (checked) => {
     try {
       const isNight = (shiftName || "").toLowerCase().includes("đêm");
-      const cfg = isNight ? shiftConfig?.night : shiftConfig?.day;
+      const dateStr = currentDate;
+
+      // ƯU TIÊN LẤY DỮ LIỆU HIỆN CÓ TRONG shiftSchedules (đúng nhất)
+      const sched = shiftSchedules[dateStr]?.[m.id] || {};
 
       const newShiftStart = checked
         ? isNight
           ? "lên_ca_đêm_sớm"
           : "lên_ca_ngày_sớm"
         : isNight
-          ? "lên_ca_đêm_muộn"
-          : "lên_ca_ngày_muộn";
+        ? "lên_ca_đêm_muộn"
+        : "lên_ca_ngày_muộn";
 
-      const dateStr = currentDate;
-
-      // ===== BUILD FIELDS =====
       let fields = {};
       let clearFields = {};
 
       if (checked) {
+        // Lên ca sớm → dùng giờ từ shiftSchedules nếu có, fallback config
         fields = {
-          lenCaSomBatDau: cfg.lenCaSomBatDau,
-          lenCaSomKetThuc: cfg.lenCaSomKetThuc,
-          tanCaSomBatDau: cfg.tanCaSomBatDau,
-          tanCaSomKetThuc: cfg.tanCaSomKetThuc,
+          lenCaSomBatDau:
+            sched.lenCaSomBatDau || shiftConfig?.day?.lenCaSomBatDau,
+          lenCaSomKetThuc:
+            sched.lenCaSomKetThuc || shiftConfig?.day?.lenCaSomKetThuc,
         };
 
         clearFields = {
           lenCaMuonBatDau: deleteField(),
           lenCaMuonKetThuc: deleteField(),
-          tanCaMuonBatDau: deleteField(),
-          tanCaMuonKetThuc: deleteField(),
         };
       } else {
+        // Lên ca muộn → dùng giờ từ shiftSchedules nếu có, fallback config
         fields = {
-          lenCaMuonBatDau: cfg.lenCaMuonBatDau,
-          lenCaMuonKetThuc: cfg.lenCaMuonKetThuc,
-          tanCaMuonBatDau: cfg.tanCaMuonBatDau,
-          tanCaMuonKetThuc: cfg.tanCaMuonKetThuc,
+          lenCaMuonBatDau:
+            sched.lenCaMuonBatDau || shiftConfig?.day?.lenCaMuonBatDau,
+          lenCaMuonKetThuc:
+            sched.lenCaMuonKetThuc || shiftConfig?.day?.lenCaMuonKetThuc,
         };
 
         clearFields = {
           lenCaSomBatDau: deleteField(),
           lenCaSomKetThuc: deleteField(),
-          tanCaSomBatDau: deleteField(),
-          tanCaSomKetThuc: deleteField(),
         };
       }
 
-      // ===== UPDATE UI =====
+      // Update UI
       setMembers((prev) =>
         prev.map((mem) =>
           mem.id === m.id
-            ? {
-              ...mem,
-              earlyShift: checked,
-              shiftStart: newShiftStart,
-              shift: shiftName,
-            }
+            ? { ...mem, earlyShift: checked, shiftStart: newShiftStart }
             : mem
         )
       );
 
-      // ===== UPDATE members =====
-      await updateDoc(doc(db, "members", m.id), {
-        // earlyShift: checked,
-        shiftStart: newShiftStart,
-        shift: shiftName,
-        updatedAt: serverTimestamp(),
-      });
-
-      // ===== UPDATE shiftSchedules =====
+      // Update shiftSchedules
       await setDoc(
         doc(db, "shiftSchedules", `${dateStr}__${m.id}`),
         {
@@ -221,9 +206,22 @@ export default function TableRow({
       </td>
 
       <td className="p-2">
-        {m.earlyShift
-          ? cfg?.lenCaSomKetThuc || "--:--"
-          : cfg?.lenCaMuonKetThuc || "--:--"}
+        {(() => {
+          let endTime = null;
+
+          // Lấy từ shiftSchedules theo memberId (đúng)
+          const sched = shiftSchedules[currentDate]?.[m.id];
+          if (sched) {
+            endTime = isEarly ? sched.lenCaSomKetThuc : sched.lenCaMuonKetThuc;
+          }
+
+          // Fallback config
+          if (!endTime) {
+            endTime = isEarly ? cfg?.lenCaSomKetThuc : cfg?.lenCaMuonKetThuc;
+          }
+
+          return endTime || "--:--";
+        })()}
       </td>
 
       <td className="p-2 text-green-600 font-semibold">{fmt(limit)}</td>
