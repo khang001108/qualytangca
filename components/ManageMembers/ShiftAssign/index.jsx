@@ -10,7 +10,6 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  getDoc,
 } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { deleteField } from "firebase/firestore";
@@ -41,7 +40,7 @@ export default function ShiftAssign(props) {
   const [popupType, setPopupType] = useState("success");
   const [savingProgress, setSavingProgress] = useState(null);
 
-  // const [showSelectModal, setShowSelectModal] = useState(false);
+  // selectedMembersMap: { [memberId]: { include: boolean, earlyShift: boolean } }
   const [selectedMembersMap, setSelectedMembersMap] = useState({});
 
   const assignMapRef = useRef(assignMap);
@@ -66,6 +65,7 @@ export default function ShiftAssign(props) {
     setSelectedMembersMap({});
   }, [selectedMonth, selectedYear, user?.uid]);
 
+  // LOAD existing shiftSchedules for month
   useEffect(() => {
     if (!user?.uid || hasLoaded) return;
     (async () => {
@@ -89,6 +89,7 @@ export default function ShiftAssign(props) {
 
         const snap = await getDocs(qShift);
         const newMap = {};
+        const memberStates = {};
 
         snap.docs.forEach((d) => {
           const data = d.data();
@@ -102,22 +103,53 @@ export default function ShiftAssign(props) {
             data.shiftStart?.includes("sớm") ||
             data.shiftStart?.includes("som"); // phòng unicode lỗi
 
-          setSelectedMembersMap((prev) => ({
-            ...prev,
-            [data.memberId]: {
-              include: true,
-              earlyShift: isEarly,
-            },
-          }));
+          // ensure we set member default from DB (include true)
+          memberStates[data.memberId] = {
+            include: true,
+            earlyShift: !!isEarly,
+          };
         });
 
         setAssignMap(newMap);
+
+        // merge into selectedMembersMap (do not clobber if user already has some selections)
+        setSelectedMembersMap((prev) => {
+          // If prev already has entries, keep them and only add missing from memberStates
+          const merged = { ...prev };
+          Object.entries(memberStates).forEach(([id, st]) => {
+            merged[id] = { ...(merged[id] || {}), ...st };
+          });
+          return merged;
+        });
+
         setHasLoaded(true);
       } catch (err) {
         console.error("❌ Lỗi khi load phân ca:", err);
       }
     })();
   }, [user?.uid, selectedMonth, selectedYear, hasLoaded]);
+
+  // Ensure selectedMembersMap has defaults for members prop (only once when members change)
+  useEffect(() => {
+    if (!members || members.length === 0) return;
+
+    setSelectedMembersMap((prev) => {
+      // if already initialized for all members, skip
+      const missing = members.filter((m) => !(m.id in prev));
+      if (missing.length === 0) return prev;
+
+      const add = {};
+      for (const m of missing) {
+        // If member object contains an earlyShift flag in DB, use it; otherwise default false (Lên muộn)
+        add[m.id] = {
+          include: true, // default: selected
+          earlyShift: !!m.earlyShift,
+        };
+      }
+      return { ...prev, ...add };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members]);
 
   // --- MOUSE INTERACTIONS: FIX ngày khởi đầu không toggle (always set to selectingShift) ---
   const handleMouseDown = (day, e) => {
@@ -197,8 +229,7 @@ export default function ShiftAssign(props) {
       .map(([id, v]) => ({ id, earlyShift: !!v.earlyShift }));
 
     setLoading(true);
-    // onStatusChange?.({ loading: true });
-
+    onStatusChange?.({ loading: true });
 
     try {
       const configs = await loadShiftConfigs();
@@ -446,10 +477,11 @@ export default function ShiftAssign(props) {
             <div className="text-sm font-semibold mb-2">
               Danh sách nhân viên
             </div>
+
             {members.map((m) => {
-              const sel = selectedMembersMap[m.id] || {
-                include: false,
-                earlyShift: !!m.earlyShift ?? false,
+              const state = selectedMembersMap[m.id] || {
+                include: true,
+                earlyShift: !!m.earlyShift,
               };
 
               return (
@@ -457,30 +489,26 @@ export default function ShiftAssign(props) {
                   key={m.id}
                   className="flex items-center justify-between py-2 border-b last:border-b-0 select-none"
                 >
-                  {/* BẤM VÀO TÊN → BỎ CHỌN */}
                   <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
                     {m.realName} {m.nickname ? `(${m.nickname})` : ""}
                   </div>
 
-                  {/* CLICK VÀO CHỮ → SET include = true + đổi sớm/muộn */}
                   <span
                     onClick={() =>
                       setSelectedMembersMap((prev) => ({
                         ...prev,
                         [m.id]: {
-                          ...(prev[m.id] || sel),
-                          include: true, // TỰ ĐỘNG CHỌN NHÂN VIÊN
-                          // earlyShift: !sel.earlyShift, // ĐỔI SỚM↔MUỘN
-                          earlyShift: !old.earlyShift,
+                          ...(prev[m.id] || state),
+                          include: true,
+                          earlyShift: !(prev[m.id] || state).earlyShift,
                         },
                       }))
                     }
-                    className={`
-          text-xs font-semibold cursor-pointer px-2 py-1 rounded
-          ${sel.earlyShift ? "text-orange-500" : "text-gray-500"}
-        `}
+                    className={`text-xs font-semibold cursor-pointer px-2 py-1 rounded ${
+                      state.earlyShift ? "text-orange-500" : "text-gray-500"
+                    }`}
                   >
-                    {sel.earlyShift ? "Lên sớm" : "Lên muộn"}
+                    {state.earlyShift ? "Lên sớm" : "Lên muộn"}
                   </span>
                 </div>
               );
