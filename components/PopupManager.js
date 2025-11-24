@@ -12,38 +12,61 @@ export default function PopupManager({
   selectedYear,
   selectedDate,
   shiftSchedules = {},
-  handleDeleteAll,
+  handleDeleteAll,   // dùng đúng prop từ index.js
   setToast,
 }) {
   const [showAssign, setShowAssign] = useState(false);
 
-  // 🔥 Popup dành cho xóa dữ liệu tháng
   const [deletePopup, setDeletePopup] = useState({
     visible: false,
-    state: "confirm", // confirm | loading | success
+    state: "confirm",   // confirm | loading | success
+    current: "",
   });
 
-  // 🔒 Khóa scroll nền khi popup mở
+  // Lock scroll
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => (document.body.style.overflow = "");
   }, []);
 
-  // Khi user bấm "Xóa"
-  const handleConfirmDelete = async () => {
-    setDeletePopup({ visible: true, state: "loading" });
+  // -------------------------------
+  // 🔥 HÀM XÓA DỮ LIỆU — DÙNG PROP handleDeleteAll
+  // -------------------------------
+  const runDeleteProcess = async () => {
+    setDeletePopup({
+      visible: true,
+      state: "loading",
+      current: "Chuẩn bị...",
+    });
 
     try {
-      await handleDeleteAll(); // ← gọi hàm xóa từ index.js
-      setDeletePopup({ visible: true, state: "success" });
-    } catch (e) {
-      setDeletePopup({ visible: false, state: "confirm" });
+      await handleDeleteAll((current) => {
+        setDeletePopup({
+          visible: true,
+          state: "loading",
+          current,
+        });
+      });
+
+      setDeletePopup({
+        visible: true,
+        state: "success",
+        current: "",
+      });
+    } catch (err) {
+      console.error(err);
+      setDeletePopup({
+        visible: true,
+        state: "confirm",
+        current: "",
+      });
       setToast({ type: "error", msg: "❌ Lỗi khi xóa dữ liệu!" });
     }
   };
 
+  // -------------------------------
+  // SHOW SHIFT ASSIGN POPUP
+  // -------------------------------
   if (showAssign) {
     return (
       <ShiftAssign
@@ -81,31 +104,42 @@ export default function PopupManager({
     );
   }
 
+  // -------------------------------
+  // MAIN POPUP
+  // -------------------------------
   return (
     <>
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-        onClick={onClose}
+        onClick={(e) => {
+          // Chỉ đóng nếu popup Delete chưa mở
+          if (!deletePopup.visible && e.target === e.currentTarget) onClose();
+        }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
+          transition={{ duration: 0.25 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 
-                     rounded-2xl w-[95vw] max-w-[1600px] shadow-2xl border border-gray-200 
-                     dark:border-gray-700 flex flex-col overflow-visible"
+          className="relative bg-white dark:bg-gray-900 text-gray-800 
+                     dark:text-gray-200 rounded-2xl w-[95vw] max-w-[1600px] 
+                     shadow-2xl border border-gray-200 dark:border-gray-700 
+                     flex flex-col overflow-visible"
         >
+          {/* CLOSE BUTTON */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            className="absolute top-3 right-3 text-gray-500 
+                     dark:text-gray-400 hover:text-gray-800 
+                     dark:hover:text-gray-200"
           >
             <X className="w-5 h-5" />
           </button>
 
+          {/* HEADER */}
           <div className="flex-1 p-6">
-            <div className="flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400 font-semibold gap-2">
+            <div className="flex items-center justify-center mb-4 text-purple-600 
+                            dark:text-purple-400 font-semibold gap-2">
               <Users className="w-6 h-6" />
               <span className="text-xl">Quản lý nhân viên</span>
             </div>
@@ -117,10 +151,8 @@ export default function PopupManager({
               </span>
             </div>
 
-            <div
-              className="border border-zinc-300 dark:border-zinc-700 rounded-xl p-4 mb-4 
-                         hover:border-zinc-400 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-gray-800"
-            >
+            <div className="border border-zinc-300 dark:border-zinc-700 
+                            rounded-xl p-4 mb-4">
               <ManageMembers
                 user={user}
                 selectedMonth={selectedMonth}
@@ -132,26 +164,42 @@ export default function PopupManager({
             </div>
           </div>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-center">
+          {/* FOOTER */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 
+                          text-center bg-white dark:bg-gray-900">
             <button
               onClick={() =>
-                setDeletePopup({ visible: true, state: "confirm" })
+                setDeletePopup({ visible: true, state: "confirm", current: "" })
               }
-              className="w-full border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 
-                         hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-500 dark:hover:border-red-600 
-                         py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+              className="w-full border border-red-300 dark:border-red-700 
+                         text-red-600 dark:text-red-400 hover:bg-red-50 
+                         dark:hover:bg-red-900/20 py-2 rounded-lg 
+                         flex items-center justify-center gap-2"
             >
               <Trash2 className="w-4 h-4" />
-              Xóa toàn bộ dữ liệu trong tháng {selectedMonth}/{selectedYear}
+              Xóa toàn bộ dữ liệu tháng {selectedMonth}/{selectedYear}
             </button>
           </div>
         </motion.div>
       </div>
 
-      {/* ================= POPUP DELETE =================== */}
+      {/* ======================================== */}
+      {/* DELETE POPUP */}
+      {/* ======================================== */}
       {deletePopup.visible && (
-        <div className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl w-[350px] text-center shadow-xl">
+        <div
+          className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget)
+              setDeletePopup({ visible: false, state: "confirm", current: "" });
+          }}
+        >
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-900 p-6 rounded-2xl w-[350px] 
+                       text-center shadow-xl"
+          >
+            {/* CONFIRM */}
             {deletePopup.state === "confirm" && (
               <>
                 <div className="text-xl font-semibold text-red-600 mb-3">
@@ -164,14 +212,19 @@ export default function PopupManager({
                 <div className="flex gap-3">
                   <button
                     className="flex-1 py-2 rounded-lg bg-gray-200 dark:bg-gray-700"
-                    onClick={() => setDeletePopup({ visible: false })}
+                    onClick={() =>
+                      setDeletePopup({
+                        visible: false,
+                        state: "confirm",
+                        current: "",
+                      })
+                    }
                   >
                     Hủy
                   </button>
-
                   <button
                     className="flex-1 py-2 rounded-lg bg-red-600 text-white"
-                    onClick={handleConfirmDelete}
+                    onClick={runDeleteProcess}
                   >
                     Xóa
                   </button>
@@ -179,24 +232,38 @@ export default function PopupManager({
               </>
             )}
 
+            {/* LOADING */}
             {deletePopup.state === "loading" && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-10 h-10 border-4 border-gray-300 border-t-orange-500 rounded-full animate-spin"></div>
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="w-10 h-10 border-4 border-gray-300 
+                                border-t-orange-500 rounded-full animate-spin" />
                 <div className="text-gray-700 dark:text-gray-300 text-lg font-medium">
                   Đang xóa dữ liệu tháng {selectedMonth}/{selectedYear}...
                 </div>
+                {deletePopup.current && (
+                  <div className="text-sm text-gray-500">
+                    Đang xóa: <b>{deletePopup.current}</b>
+                  </div>
+                )}
               </div>
             )}
 
+            {/* SUCCESS */}
             {deletePopup.state === "success" && (
-              <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-4 py-4">
                 <div className="text-green-500 text-5xl">✓</div>
                 <div className="text-green-600 text-lg font-semibold">
                   Đã xóa sạch dữ liệu!
                 </div>
                 <button
                   className="mt-2 py-2 px-5 bg-green-600 text-white rounded-lg"
-                  onClick={() => setDeletePopup({ visible: false })}
+                  onClick={() =>
+                    setDeletePopup({
+                      visible: false,
+                      state: "confirm",
+                      current: "",
+                    })
+                  }
                 >
                   Đóng
                 </button>
