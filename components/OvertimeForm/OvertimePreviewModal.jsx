@@ -44,6 +44,13 @@ export default function OvertimePreviewModal({
     return "text-green-500 font-medium";
   };
 
+  // Làm tròn xuống giờ gần nhất — ví dụ 18:54 → 18:00
+  const roundDownToHour = (minutes) => {
+    if (!minutes && minutes !== 0) return "--:--";
+    const h = Math.floor(minutes / 60);
+    return `${String(h).padStart(2, "0")}:00`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
@@ -100,32 +107,33 @@ export default function OvertimePreviewModal({
                       )}
                     </div>
 
-                    {/* ICON CẢNH BÁO */}
                     {it.error === "fixed" && (
                       <button
                         onClick={() => onManualAdjust(it)}
                         className="text-green-600 hover:text-green-700 transition"
-                        title="Đã xử lý — bấm để sửa lại"
                       >
                         <AlertTriangle size={18} />
                       </button>
                     )}
 
-                    {/* if error khác fixed → icon đỏ */}
                     {it.error && it.error !== "fixed" && (
                       <button
                         onClick={() => onManualAdjust(it)}
                         className="text-red-600 hover:text-red-700 transition"
-                        title="Bấm để xử lý thủ công"
                       >
                         <AlertTriangle size={18} />
                       </button>
                     )}
                   </div>
 
-                  {/* OT hours */}
-                  <div className={`text-xl font-bold ${getOtColor(otH)}`}>
-                    {otH}h
+                  {/* OT + Checkout */}
+                  <div className="flex flex-col items-end">
+                    <div className={`text-xl font-bold ${getOtColor(otH)}`}>
+                      {otH}h
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Checkout: {roundDownToHour(it.checkoutMinutes)}
+                    </div>
                   </div>
                 </div>
 
