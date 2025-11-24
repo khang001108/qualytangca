@@ -114,16 +114,26 @@ export default function OverMember({
 
     // Nếu overtimes không có thì fallback sang shiftSchedules
     let checkIn = todayOvertime?.checkIn || todayOvertime?.lenCa || "";
-    let checkOut = todayOvertime?.checkOut || todayOvertime?.xuongCa || "";
+    let checkOut =
+      todayOvertime?.checkOut ||
+      todayOvertime?.xuongCa ||
+      shiftSchedules?.[dateStr]?.[member.realName]?.xuongCa ||
+      "";
     let note = todayOvertime?.note?.trim() || "";
 
     // ⬇️ PATCH QUAN TRỌNG
-    if (!todayOvertime && shiftSchedules?.[dateStr]?.[member.realName]) {
-      const s = shiftSchedules[dateStr][member.realName];
-      checkIn = s.lenCa || "";
-      checkOut = s.xuongCa || "";
-      note = s.note || "";
+    if (!todayOvertime && shiftSchedules?.[dateStr]) {
+      const dateData = shiftSchedules[dateStr];
+
+      const s = Object.values(dateData).find((x) => x.memberId === member.id);
+
+      if (s) {
+        checkIn = s.lenCa || "";
+        checkOut = s.xuongCa || "";
+        note = s.note || "";
+      }
     }
+
 
     const noteMap = {
       休: "nghỉ luân phiên",
