@@ -103,3 +103,24 @@ input[type="password"] {
 .animate-bounce-slow {
   animation: bounce-slow 2.5s infinite ease-in-out;
 }
+
+/* Custom cursor toàn trang */
+/* Cursor mặc định toàn trang */
+html, body, *, a, button, input, textarea {
+  cursor: url("/cursor.png") 0 0, auto !important;
+}
+
+/* html,
+body,
+* {
+  cursor: url("/cursor.png") 0 0, auto !important;
+} */
+
+/* Cursor khi hover vào các element có thể click */
+/* a:hover,
+button:hover,
+[role="button"]:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover {
+  cursor: url("/click.png") 0 0, pointer !important;
+} */
