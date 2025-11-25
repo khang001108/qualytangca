@@ -87,19 +87,31 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
   };
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center bg-black/60 z-50 p-3"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+
+      {/* SINGLE OVERLAY — chỉ 1 lớp, đúng chuẩn */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
-          onClick={(e) => e.stopPropagation()}
-          className="bg-white dark:bg-gray-900 w-full max-w-5xl rounded-2xl shadow-2xl border border-gray-300 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]"
+          transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1] }}
+          onClick={(e) => e.stopPropagation()}     // chặn click vào overlay
+          className="
+          relative z-10
+          bg-white dark:bg-gray-900
+          w-full max-w-5xl
+          rounded-2xl shadow-2xl
+          border border-gray-300 dark:border-gray-700
+          overflow-hidden flex flex-col max-h-[90vh]
+        "
         >
+          {/* HEADER */}
           <div className="flex justify-between items-center px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
             <h2 className="flex items-center gap-2 font-semibold text-lg">
               <Settings size={18} /> Cấu hình tăng ca
@@ -109,21 +121,19 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
             </button>
           </div>
 
+          {/* BODY */}
           <div className="flex justify-center gap-3 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
-            {[
-              { id: "formula", label: "Công thức" },
-              { id: "shift", label: "Giờ hành chính" },
-              { id: "limit", label: "Giờ tăng ca" },
-              { id: "bonus", label: "Thưởng tăng ca" },
-            ].map((tab) => (
+            {[{ id: "formula", label: "Công thức" },
+            { id: "shift", label: "Giờ hành chính" },
+            { id: "limit", label: "Giờ tăng ca" },
+            { id: "bonus", label: "Thưởng tăng ca" }].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-md font-medium transition-all duration-300 ${
-                  activeTab === tab.id
+                className={`px-4 py-2 rounded-md font-medium transition-all duration-300 ${activeTab === tab.id
                     ? "bg-indigo-600 text-white shadow-md scale-105"
                     : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -137,7 +147,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
                 initial={{ opacity: 0, x: 40 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -40 }}
-                transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
+                transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
                 className="min-h-full p-2"
               >
                 {renderTabContent()}
@@ -162,6 +172,8 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           </div>
         </motion.div>
       </AnimatePresence>
+
     </div>
   );
+
 }
