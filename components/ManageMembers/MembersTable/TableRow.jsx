@@ -52,7 +52,7 @@ export default function TableRow({
   // ===========================
   const limit = m.overtimeLimit?.monthlyLimit || 0;
   const worked = m.overtimeLimit?.workedHours || 0;
-  const total = limit + worked;
+  const remainingHours = (m.overtimeLimit?.monthlyLimit || 0) - (m.overtimeLimit?.workedHours || 0);
 
   // ===========================
   // LÊN CA SỚM
@@ -70,8 +70,8 @@ export default function TableRow({
           ? "lên_ca_đêm_sớm"
           : "lên_ca_ngày_sớm"
         : isNight
-        ? "lên_ca_đêm_muộn"
-        : "lên_ca_ngày_muộn";
+          ? "lên_ca_đêm_muộn"
+          : "lên_ca_ngày_muộn";
 
       let fields = {};
       let clearFields = {};
@@ -153,17 +153,18 @@ export default function TableRow({
   // TÍNH NGÀY CÒN LẠI
   // ===========================
   const getRemainingDays = () => {
-    const limitDoc = m.limitInfo;
+    const hoursPerDay =
+      shiftConfig?.day?.perDay || 2;   // số giờ tăng ca mỗi ngày
 
-    if (limitDoc?.days) return limitDoc.days;
-
-    const remaining =
+    const remainingHours =
       (m.overtimeLimit?.monthlyLimit || 0) -
       (m.overtimeLimit?.workedHours || 0);
 
-    const perDay = shiftConfig?.day?.perDay || 2;
-    return Math.floor(remaining / perDay);
+    if (remainingHours <= 0) return 0;
+
+    return Math.ceil(remainingHours / hoursPerDay);
   };
+
 
   // ===========================
   // RENDER
@@ -226,7 +227,9 @@ export default function TableRow({
 
       <td className="p-2 text-green-600 font-semibold">{fmt(limit)}</td>
       <td className="p-2 text-yellow-600 font-semibold">{fmt(worked)}</td>
-      <td className="p-2 text-indigo-700 font-semibold">{fmt(total)}</td>
+      <td className="p-2 text-indigo-700 font-semibold">
+        {fmt(remainingHours)}
+      </td>
       <td className="p-2 text-orange-500 font-semibold">
         {getRemainingDays()}
       </td>
