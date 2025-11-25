@@ -177,9 +177,9 @@ export default function Home() {
     state: "confirm", // confirm | loading | success
   });
 
-  const handleDeleteAll = async () => {
+  const handleDeleteAll = async (updateProgress) => {
     try {
-      setDeletePopup({ visible: true, state: "loading" });
+      setDeletePopup({ visible: true, state: "loading", current: "Chuẩn bị..." });
 
       const yyyy = selectedYear;
       const mm = String(selectedMonth).padStart(2, "0");
@@ -194,7 +194,14 @@ export default function Home() {
         where("userId", "==", user.uid)
       );
       const otSnap = await getDocs(otQ);
-      for (const d of otSnap.docs) await deleteDoc(doc(db, "overtimes", d.id));
+
+      let i = 0;
+      for (const d of otSnap.docs) {
+        i++;
+        updateProgress?.(`overtimes → ${d.id} (${i}/${otSnap.docs.length})`);
+        await deleteDoc(doc(db, "overtimes", d.id));
+        await new Promise((r) => setTimeout(r, 50)); // cho UI kịp render
+      }
 
       // ========== XÓA SHIFT SCHEDULES ==========
       const ssQ = query(
@@ -204,12 +211,22 @@ export default function Home() {
         where("userId", "==", user.uid)
       );
       const ssSnap = await getDocs(ssQ);
-      for (const d of ssSnap.docs)
+
+      let j = 0;
+      for (const d of ssSnap.docs) {
+        j++;
+        updateProgress?.(`shiftSchedules → ${d.id} (${j}/${ssSnap.docs.length})`);
         await deleteDoc(doc(db, "shiftSchedules", d.id));
+        await new Promise((r) => setTimeout(r, 30));
+      }
 
       // ========== RESET OVERTIME LIMIT ==========
       const limitSnap = await getDocs(collection(db, "overtimeLimits"));
+      let k = 0;
       for (const docLimit of limitSnap.docs) {
+        k++;
+        updateProgress?.(`overtimeLimits → ${docLimit.id} (${k}/${limitSnap.docs.length})`);
+
         const data = docLimit.data();
         const reset = (data.members || []).map((m) => ({
           ...m,
@@ -221,14 +238,17 @@ export default function Home() {
           ngayConLai: data.days || 0,
         }));
 
-        await updateDoc(doc(db, "overtimeLimits", docLimit.id), {
-          members: reset,
-        });
+        await updateDoc(doc(db, "overtimeLimits", docLimit.id), { members: reset });
+        await new Promise((r) => setTimeout(r, 30));
       }
 
       // ========== RESET MEMBERS ==========
       const membersSnap = await getDocs(collection(db, "members"));
+      let z = 0;
       for (const m of membersSnap.docs) {
+        z++;
+        updateProgress?.(`members → ${m.id} (${z}/${membersSnap.docs.length})`);
+
         const data = m.data();
         const isNight = data.shift?.includes("đêm");
         const defaultStart = isNight ? "20:00" : "08:00";
@@ -245,33 +265,18 @@ export default function Home() {
             remaining: data.overtimeLimit?.monthlyLimit ?? 0,
           },
         });
+
+        await new Promise((r) => setTimeout(r, 20));
       }
 
-      // ========== UPDATE UI ==========
-      setOvertimeItems([]);
-      setMembers((prev) =>
-        prev.map((m) => ({
-          ...m,
-          lastCheckInDate: "",
-          lastCheckInTime: "",
-          lastCheckOutTime: "",
-          earlyShift: false,
-          shiftStart: m.shift?.includes("đêm") ? "20:00" : "08:00",
-          overtimeLimit: {
-            ...m.overtimeLimit,
-            workedHours: 0,
-            remaining: m.overtimeLimit?.monthlyLimit || 0,
-          },
-        }))
-      );
-
-      // ==> báo thành công
-      setDeletePopup({ visible: true, state: "success" });
+      // Update UI
+      setDeletePopup({ visible: true, state: "success", current: "" });
     } catch (err) {
       console.error("Delete error:", err);
-      setDeletePopup({ visible: true, state: "error" });
+      setDeletePopup({ visible: true, state: "error", current: "" });
     }
   };
+
 
   if (!user)
     return (
@@ -393,13 +398,12 @@ export default function Home() {
       {/* ✅ Toast duy nhất */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
-            toast.type === "error"
-              ? "bg-red-500"
-              : toast.type === "loading"
+          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
+            ? "bg-red-500"
+            : toast.type === "loading"
               ? "bg-blue-500"
               : "bg-green-500"
-          }`}
+            }`}
         >
           {toast.type === "loading" && (
             <Hourglass className="w-4 h-4 animate-spin" />
