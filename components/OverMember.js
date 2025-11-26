@@ -1,7 +1,6 @@
 // components/OverMember.js
 // Hiển thị thông tin tăng ca của một nhân viên trong danh sách
 
-
 import { useState, useEffect } from "react";
 import PopupCalendar from "./PopupCalendar";
 import PopupSettings from "./PopupSettings";
@@ -23,17 +22,6 @@ import { Trash2, User, IdCard, CalendarCheck } from "lucide-react";
 function formatHours(n) {
   return `${Number(n || 0).toLocaleString()} giờ`;
 }
-
-// function calcOvertimeHours(shiftStart, checkOut) {
-//   if (!checkOut) return 0;
-//   const [sH, sM] = shiftStart.split(":").map(Number);
-//   const endAdminMinutes = (sH + 9) * 60 + (sM || 0);
-//   const [oH, oM] = checkOut.split(":").map(Number);
-//   const outMinutes = oH * 60 + (oM || 0);
-//   const diff = outMinutes - endAdminMinutes;
-//   if (diff < 60) return 0;
-//   return Math.floor(diff / 60);
-// }
 
 export default function OverMember({
   user = null,
@@ -90,9 +78,10 @@ export default function OverMember({
           memberId: item.memberId,
           lenCa: item.lenCa || "",
           xuongCa: item.xuongCa || "",
+          tangCaHomNay: item.tangCaHomNay || 0,
+          thuong: item.thuong || 0,
           note: item.note || "",
         };
-
       });
       setShiftSchedules(data);
     });
@@ -121,19 +110,16 @@ export default function OverMember({
       "";
     let note = todayOvertime?.note?.trim() || "";
 
-    // ⬇️ PATCH QUAN TRỌNG
+    // ⬇️ PATCH QUAN TRỌNG: fallback chi tiết từ shiftSchedules nếu overtimes thiếu
     if (!todayOvertime && shiftSchedules?.[dateStr]) {
       const dateData = shiftSchedules[dateStr];
-
       const s = Object.values(dateData).find((x) => x.memberId === member.id);
-
       if (s) {
         checkIn = s.lenCa || "";
         checkOut = s.xuongCa || "";
         note = s.note || "";
       }
     }
-
 
     const noteMap = {
       休: "nghỉ luân phiên",
@@ -163,28 +149,20 @@ export default function OverMember({
 
     if (checkIn || checkOut) {
       const checkOutDisplay = checkOut || "__";
-      // const hours = calcOvertimeHours(member.shiftStart || "07:00", checkOut);
-      const hours = todayOvertime?.tangCaHomNay || 0;
-      const bonus = todayOvertime?.thuong || 0;
-
-
+      const hours = todayOvertime?.tangCaHomNay || shiftSchedules?.[dateStr]?.[member.realName]?.tangCaHomNay || 0;
+      const bonus = todayOvertime?.thuong || shiftSchedules?.[dateStr]?.[member.realName]?.thuong || 0;
 
       const node = (
         <span className="text-gray-800 dark:text-gray-200">
           Check-in:{" "}
-          <span className="text-green-600">
-            {checkIn || "__"}
-          </span>
-
-          {" • "}Check-out: {" "}
-          <span className="text-green-600">
-            {checkOut || "__"}
-          </span>
-
+          <span className="text-green-600">{checkIn || "__"}</span>
+          {" • "}Check-out:{" "}
+          <span className="text-green-600">{checkOut || "__"}</span>
           {hours > 0 && (
             <>
               {" • "}
-              <span className="text-emerald-600">+{hours}h</span><span className="text-yellow-600">+{bonus}</span>
+              <span className="text-emerald-600">+{hours}h</span>
+              <span className="text-yellow-600">+{bonus}</span>
             </>
           )}
         </span>
@@ -197,7 +175,6 @@ export default function OverMember({
       return { node, color };
     }
 
-
     return {
       text: "chưa có dữ liệu chấm công",
       color: "text-gray-400 dark:text-gray-500",
@@ -205,8 +182,7 @@ export default function OverMember({
   };
 
   const removeOvertimeOfDay = async (realName) => {
-    if (!confirm(`Xóa toàn bộ dữ liệu tăng ca ngày này của "${realName}"?`))
-      return;
+    if (!confirm(`Xóa toàn bộ dữ liệu tăng ca ngày này của "${realName}"?`)) return;
     try {
       const currentDate = dayjs(selectedDate).format("YYYY-MM-DD");
       const q = query(
@@ -216,12 +192,9 @@ export default function OverMember({
         where("currentDate", "==", currentDate)
       );
       const snap = await getDocs(q);
-      if (snap.empty)
-        return alert(`Không có dữ liệu tăng ca ngày ${currentDate}.`);
+      if (snap.empty) return alert(`Không có dữ liệu tăng ca ngày ${currentDate}.`);
 
-      await Promise.all(
-        snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
-      );
+      await Promise.all(snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id))));
 
       const mQuery = query(
         collection(db, "members"),
@@ -268,9 +241,7 @@ export default function OverMember({
             let shiftData = null;
             if (shiftSchedules?.[dateStr]) {
               const dateData = shiftSchedules[dateStr];
-              shiftData = Object.values(dateData).find(
-                (s) => s.memberId === m.id
-              );
+              shiftData = Object.values(dateData).find((s) => s.memberId === m.id);
               if (!shiftData) shiftData = dateData[m.realName];
             }
 
@@ -279,10 +250,10 @@ export default function OverMember({
 
             const shiftStartLabel =
               {
-                "lên_ca_ngày_sớm": "Sáng sớm",
-                "lên_ca_ngày_muộn": "Sáng muộn",
-                "lên_ca_đêm_sớm": "Tối sớm",
-                "lên_ca_đêm_muộn": "Tối muộn",
+                lên_ca_ngày_sớm: "Sáng sớm",
+                lên_ca_ngày_muộn: "Sáng muộn",
+                lên_ca_đêm_sớm: "Tối sớm",
+                lên_ca_đêm_muộn: "Tối muộn",
               }[shiftStart] || shiftStart;
 
             return (
@@ -313,9 +284,7 @@ export default function OverMember({
                         {m.realName}
                       </div>
                       {m.nickname && (
-                        <div className="text-[12px] text-gray-500 dark:text-gray-400">
-                          “{m.nickname}”
-                        </div>
+                        <div className="text-[12px] text-gray-500 dark:text-gray-400">“{m.nickname}”</div>
                       )}
                     </div>
                   </div>
@@ -355,31 +324,18 @@ export default function OverMember({
 
                 <div className="text-[11px] text-gray-400 dark:text-gray-500">
                   Ngày:{" "}
-                  {selectedDate
-                    ? new Date(selectedDate).toLocaleDateString("vi-VN")
-                    : new Date().toLocaleDateString("vi-VN")}
+                  {selectedDate ? new Date(selectedDate).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN")}
                 </div>
-                <div className={`text-sm font-medium mt-1 ${status.color}`}>
-                  {status.node || status.text}
-                </div>
+                <div className={`text-sm font-medium mt-1 ${status.color}`}>{status.node || status.text}</div>
 
                 <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
                   {shift} • {shiftStartLabel}
                 </div>
 
                 <div className="flex justify-between mt-3 text-[12px]">
-                  <span className="text-orange-500 dark:text-orange-400">
-                    Giới hạn: <b>{formatHours(limit)}</b>
-                  </span>
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    Đã tăng: <b>{formatHours(done)}</b>
-                  </span>
-                  <span
-                    className={`font-semibold ${remaining === 0
-                      ? "text-red-500 dark:text-red-400"
-                      : "text-sky-600 dark:text-sky-400"
-                      }`}
-                  >
+                  <span className="text-orange-500 dark:text-orange-400">Giới hạn: <b>{formatHours(limit)}</b></span>
+                  <span className="text-emerald-600 dark:text-emerald-400">Đã tăng: <b>{formatHours(done)}</b></span>
+                  <span className={`font-semibold ${remaining === 0 ? "text-red-500 dark:text-red-400" : "text-sky-600 dark:text-sky-400"}`}>
                     Còn: {formatHours(remaining)}
                   </span>
                 </div>
@@ -399,8 +355,10 @@ export default function OverMember({
               o.realName === selectedMember.realName &&
               o.userId === selectedMember.userId
           )}
+          shiftSchedules={shiftSchedules}
           onClose={() => setShowCalendar(false)}
         />
+
       )}
 
       {showSettings && selectedMember && (
