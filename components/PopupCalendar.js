@@ -1,21 +1,18 @@
 // components/PopupCalendar.js
-// Popup hiển thị lịch tăng ca theo ngày — dùng cả overtimeItems (ưu tiên) và shiftSchedules (fallback)
-// + hỗ trợ điều hướng tháng nội bộ (prev/next)
-
 import React, { useMemo, useState, useEffect } from "react";
 import dayjs from "dayjs";
 
 export default function PopupCalendar({
   member = {},
   selectedMonth, // 1-12 (optional)
-  selectedYear,  // number (optional)
+  selectedYear, // number (optional)
   overtimeItems = [], // all overtimes for this member (recommended)
   shiftSchedules = {}, // fallback schedule map: { "YYYY-MM-DD": { ... } }
   onClose = () => {},
 }) {
   // init view state from props (if provided) or today
   const initYear = Number(selectedYear) || dayjs().year();
-  const initMonth = Number(selectedMonth) || (dayjs().month() + 1);
+  const initMonth = Number(selectedMonth) || dayjs().month() + 1;
   const [viewYear, setViewYear] = useState(initYear);
   const [viewMonth, setViewMonth] = useState(initMonth); // 1..12
 
@@ -62,11 +59,12 @@ export default function PopupCalendar({
   // Normalize overtime items (only once per change)
   const normalizedOvertimes = useMemo(() => {
     return (overtimeItems || []).map((o) => {
-      // try various date fields & types
       let parsed;
       if (o.currentDate) {
-        // Firestore Timestamp?
-        if (typeof o.currentDate === "object" && typeof o.currentDate.toDate === "function") {
+        if (
+          typeof o.currentDate === "object" &&
+          typeof o.currentDate.toDate === "function"
+        ) {
           parsed = dayjs(o.currentDate.toDate());
         } else {
           parsed = dayjs(o.currentDate);
@@ -81,32 +79,56 @@ export default function PopupCalendar({
         parsed = dayjs.invalid();
       }
 
+      // ensure consistent key (if dayjs parsed badly try common pattern)
+      const _dateKey = parsed.isValid()
+        ? parsed.format("YYYY-MM-DD")
+        : (o.currentDate && String(o.currentDate).slice(0, 10)) ||
+          (o.date && String(o.date).slice(0, 10)) ||
+          null;
+
       return {
         ...o,
-        _dateKey: parsed.isValid() ? parsed.format("YYYY-MM-DD") : null,
+        _dateKey,
       };
     });
   }, [overtimeItems]);
 
   // get record for day (uses viewMonth/viewYear)
   function getRecordForDay(day) {
-    const key = dayjs(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`).format("YYYY-MM-DD");
+    const key = dayjs(
+      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
+        2,
+        "0"
+      )}`
+    ).format("YYYY-MM-DD");
 
     // 1) tìm trong overtimeItems
     let record = normalizedOvertimes.find((o) => {
       if (!o._dateKey) return false;
       if (o._dateKey !== key) return false;
 
-      // prefer match by memberId if available in both sides
-      if (member?.id && o.memberId) {
-        return String(o.memberId) === String(member.id);
+      // try realName first (DB often stores realName)
+      if (
+        o.realName &&
+        member?.realName &&
+        String(o.realName) === String(member.realName)
+      ) {
+        return true;
       }
-      // fallback match by realName
-      if (o.realName && member?.realName) {
-        return String(o.realName) === String(member.realName);
+
+      // then try memberId
+      if (
+        o.memberId &&
+        member?.id &&
+        String(o.memberId) === String(member.id)
+      ) {
+        return true;
       }
-      // if neither key available, accept (best-effort)
-      return true;
+
+      // if neither field exist, accept (best-effort)
+      if (!o.memberId && !o.realName) return true;
+
+      return false;
     });
 
     // 2) fallback shiftSchedules
@@ -135,7 +157,9 @@ export default function PopupCalendar({
         };
       } else {
         // search values
-        const found = Object.values(dateData).find((v) => String(v.memberId) === String(member?.id));
+        const found = Object.values(dateData).find(
+          (v) => String(v.memberId) === String(member?.id)
+        );
         if (found) {
           record = {
             _fromShift: true,
@@ -162,7 +186,35 @@ export default function PopupCalendar({
       }
     }
     return total;
-  }, [daysInMonth, viewMonth, viewYear, normalizedOvertimes, shiftSchedules, member]);
+  }, [
+    daysInMonth,
+    viewMonth,
+    viewYear,
+    normalizedOvertimes,
+    shiftSchedules,
+    member,
+  ]);
+
+  // --- Debug effects: đặt sau khi mọi thứ đã được khai báo ---
+  // Bật console.log để debug khi cần, tắt khi ổn định.
+  useEffect(() => {
+    console.log("normalizedOvertimes:", normalizedOvertimes);
+  }, [normalizedOvertimes]);
+
+  useEffect(() => {
+    // chạy debug cho từng ngày trong tháng
+    console.group(`PopupCalendar debug ${year}-${String(month).padStart(2,"0")}`);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = dayjs(
+        `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(
+          2,
+          "0"
+        )}`
+      ).format("YYYY-MM-DD");
+      console.log("day", d, "key", key, "record", getRecordForDay(d));
+    }
+    console.groupEnd();
+  }, [normalizedOvertimes, shiftSchedules, daysInMonth, year, month]);
 
   // render day cell
   function renderDayCell(day) {
@@ -173,13 +225,17 @@ export default function PopupCalendar({
 
     let bg = "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500";
     if (total > 0) {
-      bg = "bg-green-200 dark:bg-green-700/50 text-green-900 dark:text-green-200 font-semibold";
+      bg =
+        "bg-green-200 dark:bg-green-700/50 text-green-900 dark:text-green-200 font-semibold";
     } else if (record?.lenCa) {
-      bg = "bg-blue-200 dark:bg-blue-700/50 text-blue-900 dark:text-blue-200 font-semibold";
+      bg =
+        "bg-blue-200 dark:bg-blue-700/50 text-blue-900 dark:text-blue-200 font-semibold";
     }
 
     const title = record
-      ? `Tăng ca: ${tang || 0}h\nThưởng: ${thuong || 0}h${record?.note ? `\nGhi chú: ${record.note}` : ""}`
+      ? `Tăng ca: ${tang || 0}h\nThưởng: ${thuong || 0}h${
+          record?.note ? `\nGhi chú: ${record.note}` : ""
+        }`
       : "Không có dữ liệu";
 
     return (
@@ -213,13 +269,24 @@ export default function PopupCalendar({
         onClick={stop}
       >
         <h2 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mb-3 text-center">
-          📅 Lịch tăng ca - {member?.nickname || member?.realName || "Nhân viên"}
+          📅 Lịch tăng ca -{" "}
+          {member?.nickname || member?.realName || "Nhân viên"}
         </h2>
 
         <div className="flex items-center justify-center gap-3 mb-2">
           <div className="flex items-center gap-2">
-            <button onClick={prevYear} className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800">{"<<"}</button>
-            <button onClick={prevMonth} className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800">{"<"}</button>
+            <button
+              onClick={prevYear}
+              className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+            >
+              {"<<"}
+            </button>
+            <button
+              onClick={prevMonth}
+              className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+            >
+              {"<"}
+            </button>
           </div>
 
           <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -227,14 +294,27 @@ export default function PopupCalendar({
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={nextMonth} className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800">{">"}</button>
-            <button onClick={nextYear} className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800">{">>"}</button>
+            <button
+              onClick={nextMonth}
+              className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+            >
+              {">"}
+            </button>
+            <button
+              onClick={nextYear}
+              className="px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800"
+            >
+              {">>"}
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 text-xs text-center mb-3">
           {weekdays.map((d) => (
-            <div key={d} className="font-semibold text-gray-500 dark:text-gray-400 py-1">
+            <div
+              key={d}
+              className="font-semibold text-gray-500 dark:text-gray-400 py-1"
+            >
               {d}
             </div>
           ))}
@@ -251,14 +331,21 @@ export default function PopupCalendar({
         <div className="flex items-center justify-between text-[12px] mb-3">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-700/50 border border-gray-300" />
-            <div className="text-[12px] text-gray-600 dark:text-gray-300">Có tăng ca</div>
+            <div className="text-[12px] text-gray-600 dark:text-gray-300">
+              Có tăng ca
+            </div>
 
             <div className="w-3 h-3 rounded-sm bg-blue-200 dark:bg-blue-700/50 border border-gray-300 ml-3" />
-            <div className="text-[12px] text-gray-600 dark:text-gray-300">Chỉ có ca (lenCa)</div>
+            <div className="text-[12px] text-gray-600 dark:text-gray-300">
+              Chỉ có ca (lenCa)
+            </div>
           </div>
 
           <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            Tổng: <span className="text-emerald-600">{Number(totalHours).toFixed(1)}h</span>
+            Tổng:{" "}
+            <span className="text-emerald-600">
+              {Number(totalHours).toFixed(1)}h
+            </span>
           </div>
         </div>
 

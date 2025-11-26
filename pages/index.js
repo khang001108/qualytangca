@@ -72,14 +72,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!user?.uid || !selectedDate) return;
+    if (!user?.uid) return;
 
-    const dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
+    const startStr = `${selectedYear}-${String(selectedMonth).padStart(
+      2,
+      "0"
+    )}-01`;
+    const endStr = dayjs(startStr).endOf("month").format("YYYY-MM-DD");
 
     const q = query(
       collection(db, "overtimes"),
       where("userId", "==", user.uid),
-      where("date", "==", dateStr)
+      where("date", ">=", startStr),
+      where("date", "<=", endStr)
     );
 
     const unsub = onSnapshot(q, (snap) => {
@@ -87,7 +92,7 @@ export default function Home() {
     });
 
     return () => unsub();
-  }, [user?.uid, selectedDate]);
+  }, [user?.uid, selectedMonth, selectedYear]);
 
   useEffect(() => {
     if (!user) return;
@@ -179,7 +184,11 @@ export default function Home() {
 
   const handleDeleteAll = async (updateProgress) => {
     try {
-      setDeletePopup({ visible: true, state: "loading", current: "Chuẩn bị..." });
+      setDeletePopup({
+        visible: true,
+        state: "loading",
+        current: "Chuẩn bị...",
+      });
 
       const yyyy = selectedYear;
       const mm = String(selectedMonth).padStart(2, "0");
@@ -215,7 +224,9 @@ export default function Home() {
       let j = 0;
       for (const d of ssSnap.docs) {
         j++;
-        updateProgress?.(`shiftSchedules → ${d.id} (${j}/${ssSnap.docs.length})`);
+        updateProgress?.(
+          `shiftSchedules → ${d.id} (${j}/${ssSnap.docs.length})`
+        );
         await deleteDoc(doc(db, "shiftSchedules", d.id));
         await new Promise((r) => setTimeout(r, 30));
       }
@@ -225,7 +236,9 @@ export default function Home() {
       let k = 0;
       for (const docLimit of limitSnap.docs) {
         k++;
-        updateProgress?.(`overtimeLimits → ${docLimit.id} (${k}/${limitSnap.docs.length})`);
+        updateProgress?.(
+          `overtimeLimits → ${docLimit.id} (${k}/${limitSnap.docs.length})`
+        );
 
         const data = docLimit.data();
         const reset = (data.members || []).map((m) => ({
@@ -238,7 +251,9 @@ export default function Home() {
           ngayConLai: data.days || 0,
         }));
 
-        await updateDoc(doc(db, "overtimeLimits", docLimit.id), { members: reset });
+        await updateDoc(doc(db, "overtimeLimits", docLimit.id), {
+          members: reset,
+        });
         await new Promise((r) => setTimeout(r, 30));
       }
 
@@ -276,7 +291,6 @@ export default function Home() {
       setDeletePopup({ visible: true, state: "error", current: "" });
     }
   };
-
 
   if (!user)
     return (
@@ -398,12 +412,13 @@ export default function Home() {
       {/* ✅ Toast duy nhất */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
-            ? "bg-red-500"
-            : toast.type === "loading"
+          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
+            toast.type === "error"
+              ? "bg-red-500"
+              : toast.type === "loading"
               ? "bg-blue-500"
               : "bg-green-500"
-            }`}
+          }`}
         >
           {toast.type === "loading" && (
             <Hourglass className="w-4 h-4 animate-spin" />
