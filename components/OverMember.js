@@ -186,43 +186,136 @@ export default function OverMember({
     };
   };
 
-  const removeOvertimeOfDay = async (realName) => {
-    if (!confirm(`Xóa toàn bộ dữ liệu tăng ca ngày này của "${realName}"?`))
+  const removeOvertimeOfDay = async (realName, memberId) => {
+    const currentDate = dayjs(selectedDate).format("YYYY-MM-DD");
+
+    if (
+      !confirm(
+        `Xóa dữ liệu tăng ca + ca làm ngày ${currentDate} của "${realName}"?`
+      )
+    )
       return;
+
     try {
-      const currentDate = dayjs(selectedDate).format("YYYY-MM-DD");
+      // ======================================
+      // 1) LẤY OVERTIME CẦN XÓA (HỖ TRỢ 3 KIỂU DATE)
+      // ======================================
       const q = query(
         collection(db, "overtimes"),
         where("userId", "==", user.uid),
-        where("realName", "==", realName),
-        where("currentDate", "==", currentDate)
+        where("realName", "==", realName)
       );
+
       const snap = await getDocs(q);
-      if (snap.empty)
-        return alert(`Không có dữ liệu tăng ca ngày ${currentDate}.`);
 
+      const needDelete = snap.docs.filter((d) => {
+        const data = d.data();
+
+        let dateKey = null;
+
+        // 1) currentDate là Timestamp
+        if (data.currentDate?.toDate) {
+          dateKey = dayjs(data.currentDate.toDate()).format("YYYY-MM-DD");
+        }
+
+        // 2) currentDate là string
+        else if (typeof data.currentDate === "string") {
+          dateKey = data.currentDate.slice(0, 10);
+        }
+
+        // 3) date là string
+        else if (typeof data.date === "string") {
+          dateKey = data.date.slice(0, 10);
+        }
+
+        return dateKey === currentDate;
+      });
+
+      // XÓA OVERTIME
       await Promise.all(
-        snap.docs.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
+        needDelete.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
       );
 
+      // ======================================
+      // 2) RESET SHIFT SCHEDULE (LENCA/XUONGCA)
+      // ======================================
+      const shiftQuery = query(
+        collection(db, "shiftSchedules"),
+        where("userId", "==", user.uid),
+        where("realName", "==", realName),
+        where("date", "==", currentDate)
+      );
+
+      const shiftSnap = await getDocs(shiftQuery);
+
+      for (const d of shiftSnap.docs) {
+        await updateDoc(doc(db, "shiftSchedules", d.id), {
+          lenCa: "",
+          xuongCa: "",
+          tangCaHomNay: 0,
+          thuong: 0,
+          note: "",
+        });
+      }
+
+      // ======================================
+      // 3) TÍNH LẠI workedHours TRONG THÁNG
+      // ======================================
+      const monthStart = dayjs(selectedDate)
+        .startOf("month")
+        .format("YYYY-MM-DD");
+      const monthEnd = dayjs(selectedDate).endOf("month").format("YYYY-MM-DD");
+
+      const otMonthQuery = query(
+        collection(db, "overtimes"),
+        where("userId", "==", user.uid),
+        where("realName", "==", realName)
+      );
+
+      const monthSnap = await getDocs(otMonthQuery);
+
+      let total = 0;
+
+      monthSnap.forEach((d) => {
+        const data = d.data();
+
+        let dateKey = null;
+        if (data.currentDate?.toDate)
+          dateKey = dayjs(data.currentDate.toDate()).format("YYYY-MM-DD");
+        else if (typeof data.currentDate === "string")
+          dateKey = data.currentDate.slice(0, 10);
+        else if (typeof data.date === "string")
+          dateKey = data.date.slice(0, 10);
+
+        if (!dateKey) return;
+
+        // chỉ tính trong tháng
+        if (dateKey >= monthStart && dateKey <= monthEnd) {
+          total += Number(data.tangCaHomNay || 0) + Number(data.thuong || 0);
+        }
+      });
+
+      // ======================================
+      // 4) UPDATE workedHours TRONG members
+      // ======================================
       const mQuery = query(
         collection(db, "members"),
         where("userId", "==", user.uid),
         where("realName", "==", realName)
       );
       const mSnap = await getDocs(mQuery);
+
       if (!mSnap.empty) {
         const mDoc = mSnap.docs[0];
         await updateDoc(doc(db, "members", mDoc.id), {
-          lastCheckInDate: "",
-          lastCheckInTime: "",
-          lastCheckOutTime: "",
+          "overtimeLimit.workedHours": total,
         });
       }
 
-      alert(`✅ Đã xóa dữ liệu tăng ca ngày ${currentDate} của ${realName}`);
+      alert(`Đã xóa dữ liệu ngày ${currentDate} & cập nhật lại tổng tăng ca.`);
     } catch (err) {
-      console.error("Lỗi xóa dữ liệu tăng ca:", err);
+      console.error("🔥 FIREBASE ERROR:", err);
+      alert("Có lỗi xảy ra khi xóa dữ liệu — mở console để xem chi tiết.");
     }
   };
 
