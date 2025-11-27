@@ -664,3 +664,8 @@ tính từ 00h -> 6h sáng == 6 *60 = 360
 lấy tính từ (00h -> 6h) - (00h -> tanCaSomBatDau "04:00") == 360 - 240 = 120 ( 120/60 = 2 tiếng tăng ca) nhưng ko áp dụng thưởng
 
 ca muộn tương tự
+
+
+
+thêm 1 combobox kiểu xem
+theo ngày
