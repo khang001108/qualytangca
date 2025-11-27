@@ -12,7 +12,11 @@ export default function MyApp({ Component, pageProps }) {
     <>
       <Head>
         {/* Set favicon */}
-        <link rel="icon" href="/favicon (2).ico" />
+        {/* <link rel="icon" href="/favicon (2).ico" /> */}
+        {/* <link rel="icon" href="/check-work.ico" /> */}
+        {/* <link rel="icon" href="/electric-card-recharge-64.ico" /> */}
+        {/* <link rel="icon" href="/business-card-40-64.ico" /> */}
+        <link rel="icon" href="/check-work-attendance-36-32.ico" />
 
         {/* Nếu muốn PNG thì bật dòng này */}
         {/* <link rel="icon" type="image/png" href="/favicon.png" /> */}

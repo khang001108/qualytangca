@@ -47,6 +47,18 @@ export default function AddMemberForm({
     applyLimit: false,
   });
 
+  // chuyển dạng chữ sang số
+  const restDayMap = {
+    "Thứ 2": 1,
+    "Thứ 3": 2,
+    "Thứ 4": 3,
+    "Thứ 5": 4,
+    "Thứ 6": 5,
+    "Thứ 7": 6,
+    "Chủ nhật": 7,
+  };
+
+
   useEffect(() => {
     const fetchTree = async () => {
       setLoadingTree(true);
@@ -120,7 +132,7 @@ export default function AddMemberForm({
         }
       }
 
-      const restDayToSave = form.restDay;
+      const restDayToSave = restDayMap[form.restDay] ?? 7;
 
       const today = dayjs().format("YYYY-MM-DD");
 
