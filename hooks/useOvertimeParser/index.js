@@ -563,22 +563,17 @@ export default function useOvertimeParser({
             bonusEvery > 0 &&
             bonusAmount > 0
           ) {
+            // CÁCH 3 — Thưởng theo số ngày OT thực tế
             const bonusUnits = Math.floor(addHours / bonusEvery);
-            bonusGiven = bonusUnits * bonusAmount;
 
-            if (limitDoc && Array.isArray(limitDoc.members)) {
-              const memberInLimit = (limitDoc.members || []).find(
-                (mm) => String(mm.id) === String(member.id)
-              );
-              if (memberInLimit) {
-                const remainBonus =
-                  (memberInLimit.gioThuongConLai ||
-                    memberInLimit.tongGioThuong ||
-                    0) - (memberInLimit.gioThuongDaNhan || 0);
-                if (remainBonus <= 0) bonusGiven = 0;
-                else bonusGiven = Math.min(bonusGiven, remainBonus);
-              }
-            }
+            // Thưởng theo số ngày OT thực tế
+            // bonusGiven = bonusUnits * bonusAmount;
+            // Bạn có thể nâng cấp logic để chỉ thưởng 1 lần mỗi ngày (nếu OT >= 2h):
+            bonusGiven = addHours >= bonusEvery ? bonusAmount : 0;
+
+            // Nếu muốn thưởng theo từng 2 giờ 1 lần:
+            // bonusGiven = Math.floor(addHours / bonusEvery) * bonusAmount;
+
           }
         } catch (e) {
           console.warn("Bonus calc failed", e);
@@ -626,12 +621,12 @@ export default function useOvertimeParser({
               );
               const newGioConLai = Math.max(totalPlan - newGioDaLam, 0);
 
-              const newGioThuongDaNhan =
-                existedGioThuongDaNhan + (bonusGiven || 0);
-              const newGioThuongConLai = Math.max(
-                existedGioThuongConLai - (bonusGiven || 0),
-                0
-              );
+              // const newGioThuongDaNhan =
+              //   existedGioThuongDaNhan + (bonusGiven || 0);
+              // const newGioThuongConLai = Math.max(
+              //   existedGioThuongConLai - (bonusGiven || 0),
+              //   0
+              // );
 
               const existedNgayConLai = Number(
                 existing.ngayConLai ?? limitData.days ?? 0
@@ -648,8 +643,8 @@ export default function useOvertimeParser({
                 gioConLai: newGioConLai,
                 soNgayDaLam: newSoNgay,
                 ngayConLai: newNgayConLai,
-                gioThuongDaNhan: newGioThuongDaNhan,
-                gioThuongConLai: newGioThuongConLai,
+                // gioThuongDaNhan: newGioThuongDaNhan,
+                // gioThuongConLai: newGioThuongConLai,
               };
 
               await updateOvertimeLimitsMember(memberLimit, member.id, patch);

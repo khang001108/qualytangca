@@ -112,7 +112,7 @@ t nhầm dữ liệu checkin vào checkout hay là nhầm ca ngày sang ca đêm
 3.谭文越/ 19:48
 4.裴泰南/18:54
 5.陈文雄/19:46
-6.吴维康/休
+6.吴维康/19:46
 
     11/04上下班打卡记录：
     1.陈明壯/6:01
@@ -120,7 +120,7 @@ t nhầm dữ liệu checkin vào checkout hay là nhầm ca ngày sang ca đêm
     3.谭文越/ 7:01
     4.裴泰南/6:01
     5.陈文雄/7:01
-    6.吴维康/休
+    6.吴维康/7:01
 
 11/04上下班打卡记录：
 1.陈明壯/4:01
