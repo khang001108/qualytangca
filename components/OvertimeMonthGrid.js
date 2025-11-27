@@ -4,11 +4,12 @@ import dayjs from "dayjs";
 
 /**
  * Props:
- * - members: array of member objects (id, realName, nickname, shift, shiftStart, restDay, ...)
- * - shiftSchedules: map { "YYYY-MM-DD": { memberId/realName: { ... } } }
- * - overtimes: array of OT records
- * - selectedMonth: 1..12
- * - selectedYear: number
+ * - members
+ * - shiftSchedules
+ * - overtimes
+ * - selectedMonth
+ * - selectedYear
+ * - onCellClick
  */
 
 // ------------------ REST DAY PARSER ------------------
@@ -20,27 +21,20 @@ function parseRestDay(restDay) {
   const map = {
     "chủ nhật": 7,
     "cn": 7,
-
     "thứ 2": 1,
     "t2": 1,
-
     "thứ 3": 2,
     "t3": 2,
-
     "thứ 4": 3,
     "t4": 3,
-
     "thứ 5": 4,
     "t5": 4,
-
     "thứ 6": 5,
     "t6": 5,
-
     "thứ 7": 6,
     "t7": 6,
   };
 
-  // Người dùng nhập số vẫn hỗ trợ: 1..7
   const n = Number(restDay);
   if (!isNaN(n) && n >= 1 && n <= 7) return n;
 
@@ -89,6 +83,8 @@ export default function OvertimeMonthGrid({
   selectedYear = new Date().getFullYear(),
   onCellClick = null,
 }) {
+  const [viewMode, setViewMode] = React.useState("rest"); // normal | rest | otAsc | otDesc
+
   const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`).daysInMonth();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -113,7 +109,7 @@ export default function OvertimeMonthGrid({
     return found || null;
   };
 
-  // Weekday headers
+  // ------------------ WEEKDAYS ------------------
   const weekdayLabels = days.map((d) => {
     const key = formatDateKey(selectedYear, selectedMonth, d);
     const weekday = dayjs(key).day(); // 0 = CN .. 6 = Thứ 7
@@ -123,32 +119,60 @@ export default function OvertimeMonthGrid({
   });
 
   // ------------------ STYLES ------------------
-  const leftColClass =
-    "sticky left-0 z-20 bg-white dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700";
-
   const cellBaseClass =
     "w-10 h-10 flex items-center justify-center text-xs rounded-md select-none border border-gray-300 dark:border-gray-700";
 
-  const sundayHeaderBg =
-    "bg-orange-300 text-white dark:bg-orange-400";
+  const sundayHeaderBg = "bg-orange-300 text-white dark:bg-orange-400";
+  const leaveBg = "bg-blue-500 text-white dark:bg-blue-600";
+  const otBg = "bg-emerald-500 text-white dark:bg-emerald-600";
+  const workBg = "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 border border-gray-300 dark:border-gray-700";
+  const cnStripe = "bg-orange-200 dark:bg-orange-700";
 
-  const leaveBg =
-    "bg-blue-500 text-white dark:bg-blue-600";  // 休 (light sáng hơn)
-
-  const otBg =
-    "bg-emerald-500 text-white dark:bg-emerald-600"; // OT mạnh hơn
-
-  const workBg =
-    "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 border border-gray-300 dark:border-gray-700";
-
-  const cnStripe =
-    "bg-orange-200 dark:bg-orange-700";
-
-  // --- Sticky columns ---
+  // Sticky columns
   const colCA = "sticky left-0 z-30 bg-white dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700";
   const colName = "sticky left-[80px] z-30 bg-white dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700";
   const colID = "sticky left-[240px] z-30 bg-white dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700";
   const colShift = "sticky left-[360px] z-30 bg-white dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700";
+
+  // ------------------ CALC TOTAL OT ------------------
+  function getTotalOT(member) {
+    let total = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = formatDateKey(selectedYear, selectedMonth, d);
+
+      const otRec = getOvertimeForDay(overtimes, key, member);
+      const shiftRec = getShiftRec(key, member);
+
+      const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
+      const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
+
+      total += tang + thuong;
+    }
+    return total;
+  }
+
+  // ------------------ SORT MEMBERS ------------------
+  function sortMembers(list) {
+    let result = [...list];
+
+    if (viewMode === "rest") {
+      result.sort((a, b) => Number(parseRestDay(a.restDay)) - Number(parseRestDay(b.restDay)));
+    }
+
+    if (viewMode === "otAsc") {
+      result.sort((a, b) => getTotalOT(a) - getTotalOT(b));
+    }
+
+    if (viewMode === "otDesc") {
+      result.sort((a, b) => getTotalOT(b) - getTotalOT(a));
+    }
+
+    return result;
+  }
+
+  const sortedDayMembers = sortMembers(dayMembers);
+  const sortedNightMembers = sortMembers(nightMembers);
 
   // ------------------ RENDER ------------------
   return (
@@ -157,10 +181,23 @@ export default function OvertimeMonthGrid({
      text-gray-900 dark:text-gray-200
      shadow-gray-300 dark:shadow-black/40
      p-3">
+
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/{selectedYear}
         </h3>
+
+        <select
+          value={viewMode}
+          onChange={(e) => setViewMode(e.target.value)}
+          className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 
+                     bg-white dark:bg-gray-800 text-sm"
+        >
+          <option value="normal">Mặc định</option>
+          <option value="rest">Theo ngày nghỉ luân phiên</option>
+          <option value="otAsc">Giờ tăng ca ít nhất</option>
+          <option value="otDesc">Giờ tăng ca nhiều nhất</option>
+        </select>
       </div>
 
       <table className="min-w-max border-separate [border-spacing:4px]">
@@ -175,13 +212,12 @@ export default function OvertimeMonthGrid({
               <th
                 key={`h-${day}`}
                 className={`
-  text-xs font-semibold 
-  text-gray-800 dark:text-gray-200 
-  bg-gray-100 dark:bg-transparent
-  px-2 py-1 text-center 
-  ${weekday === 0 ? sundayHeaderBg : ""}
-`}
-
+                  text-xs font-semibold 
+                  text-gray-800 dark:text-gray-200 
+                  bg-gray-100 dark:bg-transparent
+                  px-2 py-1 text-center 
+                  ${weekday === 0 ? sundayHeaderBg : ""}
+                `}
               >
                 <div>{label}</div>
                 <div className="text-sm font-bold">{day}</div>
@@ -193,38 +229,31 @@ export default function OvertimeMonthGrid({
         <tbody>
           {/* ================= CA NGÀY ================= */}
           <tr>
-            <td className={`${leftColClass} px-4 py-2 font-semibold text-sm`} colSpan={4}>
+            <td className={`${colCA} px-4 py-2 font-semibold text-sm`} colSpan={4}>
               CA NGÀY
             </td>
-            {days.map((d) => (
-              <td key={`gap-day-${d}`} />
-            ))}
+            {days.map((d) => <td key={`gap-day-${d}`} />)}
           </tr>
 
-          {/** ---- Day members ---- */}
-          {dayMembers.map((m) => (
+          {sortedDayMembers.map((m) => (
             <tr key={`day-${m.id}`}>
-              <td className={`${colCA} w-20 px-4 py-2 text-sm`}>Ngày</td>
-              <td className={`${colName} w-40 px-6 py-2 text-sm font-medium`}>{m.realName}</td>
-              <td className={`${colID} w-32 px-4 py-2 text-sm`}>{m.id}</td>
-              <td className={`${colShift} w-28 px-4 py-2 text-sm`}>{m.shiftStart || "--"}</td>
+              <td className={`${colCA} px-4 py-2 text-sm`}>Ngày</td>
+              <td className={`${colName} px-6 py-2 text-sm font-medium`}>{m.realName}</td>
+              <td className={`${colID} px-4 py-2 text-sm`}>{m.id}</td>
+              <td className={`${colShift} px-4 py-2 text-sm`}>{m.shiftStart || "--"}</td>
 
               {days.map((d) => {
                 const key = formatDateKey(selectedYear, selectedMonth, d);
                 const shiftRec = getShiftRec(key, m);
                 const otRec = getOvertimeForDay(overtimes, key, m);
-                const note = shiftRec?.note || "";
 
-                const weekday = dayjs(key).day(); // 0..6
+                const weekday = dayjs(key).day();
                 const isCn = weekday === 0;
-
-                // → convert về hệ 1..7
                 const dayNum = weekday === 0 ? 7 : weekday;
 
                 const restNum = parseRestDay(m.restDay);
                 const isRest = restNum === dayNum;
 
-                // NGHỈ (休)
                 if (isRest) {
                   let classes = `${cellBaseClass} ${leaveBg}`;
                   if (isCn) classes += ` ${cnStripe}`;
@@ -238,13 +267,11 @@ export default function OvertimeMonthGrid({
                   );
                 }
 
-                // NORMAL
                 const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
                 const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
 
                 let classes = `${cellBaseClass} ${workBg}`;
                 let content = "";
-                let title = `${m.realName} — ${key}`;
 
                 if (otRec && (tang > 0 || thuong > 0)) {
                   classes = `${cellBaseClass} ${otBg}`;
@@ -258,7 +285,6 @@ export default function OvertimeMonthGrid({
                     <div
                       className={`${classes} m-1 cursor-pointer`}
                       onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
-                      title={title}
                     >
                       <div className="text-[11px]">{content}</div>
                     </div>
@@ -270,21 +296,18 @@ export default function OvertimeMonthGrid({
 
           {/* ================= CA ĐÊM ================= */}
           <tr>
-            <td className={`${leftColClass} px-4 py-2 font-semibold text-sm`} colSpan={4}>
+            <td className={`${colCA} px-4 py-2 font-semibold text-sm`} colSpan={4}>
               CA ĐÊM
             </td>
-            {days.map((d) => (
-              <td key={`gap-night-${d}`} />
-            ))}
+            {days.map((d) => <td key={`gap-night-${d}`} />)}
           </tr>
 
-          {/** ---- Night members ---- */}
-          {nightMembers.map((m) => (
+          {sortedNightMembers.map((m) => (
             <tr key={`night-${m.id}`}>
-              <td className={`${colCA} w-20 px-4 py-2 text-sm`}>Đêm</td>
-              <td className={`${colName} w-40 px-6 py-2 text-sm font-medium`}>{m.realName}</td>
-              <td className={`${colID} w-32 px-4 py-2 text-sm`}>{m.id}</td>
-              <td className={`${colShift} w-28 px-4 py-2 text-sm`}>{m.shiftStart || "--"}</td>
+              <td className={`${colCA} px-4 py-2 text-sm`}>Đêm</td>
+              <td className={`${colName} px-6 py-2 text-sm font-medium`}>{m.realName}</td>
+              <td className={`${colID} px-4 py-2 text-sm`}>{m.id}</td>
+              <td className={`${colShift} px-4 py-2 text-sm`}>{m.shiftStart || "--"}</td>
 
               {days.map((d) => {
                 const key = formatDateKey(selectedYear, selectedMonth, d);
@@ -293,7 +316,6 @@ export default function OvertimeMonthGrid({
 
                 const weekday = dayjs(key).day();
                 const isCn = weekday === 0;
-
                 const dayNum = weekday === 0 ? 7 : weekday;
                 const restNum = parseRestDay(m.restDay);
                 const isRest = restNum === dayNum;

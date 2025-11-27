@@ -70,6 +70,7 @@ export default function OvertimeForm({
       setOtPreviewOpen(false);
       setFormOpen(false);
       setTextInput("");
+      setEditedTimes({});
     } catch (e) {
       showToast("error", "Lỗi khi xử lý tăng ca!");
     }
@@ -246,7 +247,7 @@ export default function OvertimeForm({
             name: namePart,
             nickname: member.nickname || "",
             checkout: timeString,
-            checkoutMinutes: minutesOfDay, 
+            checkoutMinutes: minutesOfDay,
             otMinutes: 0,
             shiftEnd: null,
             ca: null,
@@ -394,11 +395,13 @@ export default function OvertimeForm({
 
       setPendingShiftUpdates(dedup);
       setPreviewOpen(true);
+      setEditedTimes({});
       return;
     }
 
     try {
-      await parseText(textInput, mode);
+      await parseText(textInput, mode, editedTimes);
+      setEditedTimes({});
       showToast("success", "✔ Xử lý chấm công thành công!");
       setTextInput("");
       setFormOpen(false);
@@ -409,11 +412,13 @@ export default function OvertimeForm({
   const handleSkipUpdates = async () => {
     setPreviewOpen(false);
     try {
-      await parseText(textInput, mode);
+      await parseText(textInput, mode, editedTimes);
+      setEditedTimes({});
       showToast("success", "✅ Đã xử lý chấm công (không cập nhật phân ca).");
       setTextInput("");
       setFormOpen(false);
       setPendingShiftUpdates([]);
+      setEditedTimes({});
     } catch (err) {
       showToast("error", "❌ Lỗi khi xử lý chấm công!");
     }
@@ -444,11 +449,13 @@ export default function OvertimeForm({
     setPreviewOpen(false);
 
     try {
-      await parseText(textInput, mode);
+      await parseText(textInput, mode, editedTimes);
+      setEditedTimes({});
       showToast("success", "✅ Đã cập nhật phân ca & xử lý chấm công!");
       setTextInput("");
       setFormOpen(false);
       setPendingShiftUpdates([]);
+      setEditedTimes({});
     } catch (e) {
       showToast("error", "❌ Lỗi final parse!");
     } finally {
@@ -625,7 +632,10 @@ export default function OvertimeForm({
         visible={manualPopupOpen}
         item={manualItem}
         leaveMap={LEAVE_MAP}
-        onClose={() => setManualPopupOpen(false)}
+        onClose={() => {
+          setManualPopupOpen(false);
+          setManualItem(null); // <--- FIX
+        }}
         onSave={(data) => {
           // 1. update preview UI
           setOtPreview((prev) =>

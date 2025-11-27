@@ -15,6 +15,7 @@ export default function ManualAttendanceAdjust({
   const [withOT, setWithOT] = useState(false);
   const [otHours, setOtHours] = useState(0);
 
+  // --- RESET khi item thay đổi ---
   useEffect(() => {
     if (!item) return;
 
@@ -26,6 +27,16 @@ export default function ManualAttendanceAdjust({
     setWithOT(minutes > 0);
     setOtHours(minutes > 0 ? minutes / 60 : 0);
   }, [item]);
+
+  // --- RESET hoàn toàn khi popup đóng ---
+  useEffect(() => {
+    if (!visible) {
+      setLeaveType("");
+      setSession("none");
+      setWithOT(false);
+      setOtHours(0);
+    }
+  }, [visible]);
 
   const handleSubmit = () => {
     onSave({
