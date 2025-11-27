@@ -11,10 +11,13 @@ import {
   where,
   onSnapshot,
   getDocs,
+  getDoc,
   deleteDoc,
   doc,
   updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
+
 import { db } from "../lib/firebase";
 import dayjs from "dayjs";
 import { Trash2, User, IdCard, CalendarCheck } from "lucide-react";
@@ -197,107 +200,7 @@ export default function OverMember({
       return;
 
     try {
-      // ======================================
-      // 1) LẤY OVERTIME CẦN XÓA (HỖ TRỢ 3 KIỂU DATE)
-      // ======================================
-      const q = query(
-        collection(db, "overtimes"),
-        where("userId", "==", user.uid),
-        where("realName", "==", realName)
-      );
-
-      const snap = await getDocs(q);
-
-      const needDelete = snap.docs.filter((d) => {
-        const data = d.data();
-
-        let dateKey = null;
-
-        // 1) currentDate là Timestamp
-        if (data.currentDate?.toDate) {
-          dateKey = dayjs(data.currentDate.toDate()).format("YYYY-MM-DD");
-        }
-
-        // 2) currentDate là string
-        else if (typeof data.currentDate === "string") {
-          dateKey = data.currentDate.slice(0, 10);
-        }
-
-        // 3) date là string
-        else if (typeof data.date === "string") {
-          dateKey = data.date.slice(0, 10);
-        }
-
-        return dateKey === currentDate;
-      });
-
-      // XÓA OVERTIME
-      await Promise.all(
-        needDelete.map((d) => deleteDoc(doc(db, "overtimes", d.id)))
-      );
-
-      // ======================================
-      // 2) RESET SHIFT SCHEDULE (LENCA/XUONGCA)
-      // ======================================
-      const shiftQuery = query(
-        collection(db, "shiftSchedules"),
-        where("userId", "==", user.uid),
-        where("realName", "==", realName),
-        where("date", "==", currentDate)
-      );
-
-      const shiftSnap = await getDocs(shiftQuery);
-
-      for (const d of shiftSnap.docs) {
-        await updateDoc(doc(db, "shiftSchedules", d.id), {
-          lenCa: "",
-          xuongCa: "",
-          tangCaHomNay: 0,
-          thuong: 0,
-          note: "",
-        });
-      }
-
-      // ======================================
-      // 3) TÍNH LẠI workedHours TRONG THÁNG
-      // ======================================
-      const monthStart = dayjs(selectedDate)
-        .startOf("month")
-        .format("YYYY-MM-DD");
-      const monthEnd = dayjs(selectedDate).endOf("month").format("YYYY-MM-DD");
-
-      const otMonthQuery = query(
-        collection(db, "overtimes"),
-        where("userId", "==", user.uid),
-        where("realName", "==", realName)
-      );
-
-      const monthSnap = await getDocs(otMonthQuery);
-
-      let total = 0;
-
-      monthSnap.forEach((d) => {
-        const data = d.data();
-
-        let dateKey = null;
-        if (data.currentDate?.toDate)
-          dateKey = dayjs(data.currentDate.toDate()).format("YYYY-MM-DD");
-        else if (typeof data.currentDate === "string")
-          dateKey = data.currentDate.slice(0, 10);
-        else if (typeof data.date === "string")
-          dateKey = data.date.slice(0, 10);
-
-        if (!dateKey) return;
-
-        // chỉ tính trong tháng
-        if (dateKey >= monthStart && dateKey <= monthEnd) {
-          total += Number(data.tangCaHomNay || 0) + Number(data.thuong || 0);
-        }
-      });
-
-      // ======================================
-      // 4) UPDATE workedHours TRONG members
-      // ======================================
+      // ========================= 1) LẤY MEMBER =========================
       const mQuery = query(
         collection(db, "members"),
         where("userId", "==", user.uid),
@@ -305,17 +208,155 @@ export default function OverMember({
       );
       const mSnap = await getDocs(mQuery);
 
-      if (!mSnap.empty) {
-        const mDoc = mSnap.docs[0];
-        await updateDoc(doc(db, "members", mDoc.id), {
-          "overtimeLimit.workedHours": total,
-        });
+      if (mSnap.empty) return alert("Không tìm thấy nhân viên!");
+
+      const mDoc = mSnap.docs[0];
+      const member = mDoc.data();
+
+      let oldWorked = Number(member.overtimeLimit?.workedHours || 0);
+      const monthlyLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
+
+      // ========================= 2) LẤY OVERTIME CỦA NGÀY =========================
+      const q = query(
+        collection(db, "overtimes"),
+        where("userId", "==", user.uid),
+        where("realName", "==", realName)
+      );
+      const snap = await getDocs(q);
+
+      const needDelete = [];
+      let totalRemovedHours = 0;
+      let totalRemovedBonus = 0;
+
+      snap.forEach((d) => {
+        const data = d.data();
+        let dateKey = null;
+
+        if (data.currentDate?.toDate) {
+          dateKey = dayjs(data.currentDate.toDate()).format("YYYY-MM-DD");
+        } else if (typeof data.currentDate === "string") {
+          dateKey = data.currentDate.slice(0, 10);
+        } else if (typeof data.date === "string") {
+          dateKey = data.date.slice(0, 10);
+        }
+
+        if (dateKey === currentDate) {
+          needDelete.push(d.id);
+          totalRemovedHours += Number(data.addedHours || 0);
+          totalRemovedBonus += Number(data.bonusGiven || 0);
+        }
+      });
+
+      // XOÁ OT
+      await Promise.all(
+        needDelete.map((id) => deleteDoc(doc(db, "overtimes", id)))
+      );
+
+      // ========================= 3) RESET shiftSchedules =========================
+      const shiftQuery = query(
+        collection(db, "shiftSchedules"),
+        where("userId", "==", user.uid),
+        where("realName", "==", realName),
+        where("date", "==", currentDate)
+      );
+      const shiftSnap = await getDocs(shiftQuery);
+
+      await Promise.all(
+        shiftSnap.docs.map((d) =>
+          updateDoc(doc(db, "shiftSchedules", d.id), {
+            lenCa: "",
+            xuongCa: "",
+            tangCaHomNay: 0,
+            thuong: 0,
+            note: "",
+            otCounted: false,
+            checkinType: "",
+            session: "",
+            manualLeave: false,
+          })
+        )
+      );
+
+      // ========================= 4) UPDATE workedHours =========================
+      const newWorked = Math.max(oldWorked - totalRemovedHours, 0);
+      const newRemaining = Math.max(monthlyLimit - newWorked, 0);
+
+      await updateDoc(doc(db, "members", mDoc.id), {
+        "overtimeLimit.workedHours": newWorked,
+        "overtimeLimit.remaining": newRemaining,
+      });
+
+      // ========================= 5) UPDATE limit_xx =========================
+      try {
+        if (monthlyLimit > 0) {
+          const limitRef = doc(db, "overtimeLimits", `limit_${monthlyLimit}`);
+          const limitSnap = await getDoc(limitRef);
+
+          if (limitSnap.exists()) {
+            const limitData = limitSnap.data();
+            const membersArr = Array.isArray(limitData.members)
+              ? limitData.members
+              : [];
+
+            const idx = membersArr.findIndex(
+              (mm) => String(mm.id) === String(memberId)
+            );
+
+            if (idx !== -1) {
+              let mm = membersArr[idx];
+
+              // ===== TRỪ GIỜ =====
+              mm.gioDaLam = Math.max((mm.gioDaLam || 0) - totalRemovedHours, 0);
+              mm.gioConLai = Math.max(
+                (mm.tongGioKeHoach || 0) - mm.gioDaLam,
+                0
+              );
+
+              // ===== TRỪ GIỜ THƯỞNG =====
+              mm.gioThuongDaNhan = Math.max(
+                (mm.gioThuongDaNhan || 0) - totalRemovedBonus,
+                0
+              );
+              mm.gioThuongConLai = Math.max(
+                (mm.tongGioThuong || 0) - mm.gioThuongDaNhan,
+                0
+              );
+
+              // ===== TRỪ NGÀY — CHỈ TRỪ SỐ RECORD TRONG NGÀY =====
+              mm.soNgayDaLam = Math.max(
+                (mm.soNgayDaLam || 0) - needDelete.length,
+                0
+              );
+
+              mm.ngayConLai = Math.max(
+                (limitData.days || 0) - mm.soNgayDaLam,
+                0
+              );
+
+              membersArr[idx] = mm;
+
+              await updateDoc(limitRef, {
+                members: membersArr,
+                updatedAt: serverTimestamp(),
+              });
+
+              console.log("⭐ updated limit_xx cho:", realName);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("🔥 Lỗi update overtimeLimits:", err);
       }
 
-      alert(`Đã xóa dữ liệu ngày ${currentDate} & cập nhật lại tổng tăng ca.`);
+      // ========================= DONE =========================
+      alert(
+        `Đã xóa ${needDelete.length} bản ghi.\n` +
+          `Giảm ${totalRemovedHours} giờ & ${totalRemovedBonus} thưởng.\n` +
+          `WorkedHours: ${oldWorked} → ${newWorked}`
+      );
     } catch (err) {
       console.error("🔥 FIREBASE ERROR:", err);
-      alert("Có lỗi xảy ra khi xóa dữ liệu — mở console để xem chi tiết.");
+      alert("Có lỗi xảy ra khi xóa dữ liệu!");
     }
   };
 
@@ -420,7 +461,7 @@ export default function OverMember({
                     </button>
 
                     <button
-                      onClick={() => removeOvertimeOfDay(m.realName)}
+                      onClick={() => removeOvertimeOfDay(m.realName, m.id)}
                       className="p-1.5 rounded-md bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/40 dark:hover:bg-red-800/40 dark:text-red-400"
                       title="Xóa dữ liệu hôm nay"
                     >
