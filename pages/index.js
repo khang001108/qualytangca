@@ -4,7 +4,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import OverMember from "../components/OverMember";
-import OvertimeMonthGrid from "../components/OvertimeMonthGrid";
+import OvertimeMonthGrid from "../components/OvertimeMonthGrid/OvertimeMonthGrid";
 import OvertimeSummary from "../components/OvertimeSummary";
 import OvertimeChart from "../components/OvertimeChart";
 import OvertimeMonth from "../components/OvertimeMonth";
