@@ -5,122 +5,70 @@ import { CSS } from "./styles";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
-// ===================================================================================
-// PARSE REST DAY
-// ===================================================================================
+/* ========================= HELPERS ========================= */
+
 function parseRestDay(restDay) {
   if (!restDay) return null;
-  const s = String(restDay).trim().toLowerCase();
-
   const map = {
-    "chủ nhật": 7,
-    cn: 7,
-    "thứ 2": 1,
-    t2: 1,
-    "thứ 3": 2,
-    t3: 2,
-    "thứ 4": 3,
-    t4: 3,
-    "thứ 5": 4,
-    t5: 4,
-    "thứ 6": 5,
-    t6: 5,
-    "thứ 7": 6,
-    t7: 6,
+    "chủ nhật": 7, cn: 7,
+    "thứ 2": 1, t2: 1,
+    "thứ 3": 2, t3: 2,
+    "thứ 4": 3, t4: 3,
+    "thứ 5": 4, t5: 4,
+    "thứ 6": 5, t6: 5,
+    "thứ 7": 6, t7: 6,
   };
-
+  const s = String(restDay).trim().toLowerCase();
   const n = Number(restDay);
   if (!isNaN(n) && n >= 1 && n <= 7) return n;
-
   return map[s] ?? null;
 }
 
-// ===================================================================================
-// HIỂN THỊ GIỜ TAN CA — MATCH 100% TableRow
-// ===================================================================================
 function getShiftDisplayReal(m, shiftCfg, shiftRec) {
   if (!shiftCfg?.day || !shiftCfg?.night) return "--";
 
-  // 1) shiftName + shiftStart chính xác
-  let shiftName = m.shift;
-  let shiftStart = m.shiftStart;
+  const shiftName = shiftRec?.shift || m.shift || "";
+  const shiftStart = shiftRec?.shiftStart || m.shiftStart || "08:00";
 
-  if (shiftRec) {
-    shiftName = shiftRec.shift || shiftName;
-    shiftStart = shiftRec.shiftStart || shiftStart;
-  }
+  const isNight = shiftName.toLowerCase().includes("đêm");
+  const cfg = isNight ? shiftCfg.night : shiftCfg.day;
 
-  shiftStart = shiftStart || "08:00";
+  const isEarly = ["sớm", "som", "early"].some((x) =>
+    shiftStart.toLowerCase().includes(x)
+  );
 
-  // 2) xác định ca đêm
-  const isNightShift =
-    (shiftName || "").toLowerCase().includes("đêm") ||
-    shiftStart.includes("đêm") ||
-    shiftStart.includes("night");
+  const end = isEarly
+    ? shiftRec?.lenCaSomKetThuc || cfg?.lenCaSomKetThuc
+    : shiftRec?.lenCaMuonKetThuc || cfg?.lenCaMuonKetThuc;
 
-  const cfg = isNightShift ? shiftCfg.night : shiftCfg.day;
-
-  // 3) xác định ca sớm / muộn
-  const isEarly =
-    shiftStart.includes("sớm") ||
-    shiftStart.includes("som") ||
-    shiftStart.includes("early");
-
-  // 4) ưu tiên shiftSchedules
-  if (shiftRec) {
-    const endTime = isEarly
-      ? shiftRec.lenCaSomKetThuc
-      : shiftRec.lenCaMuonKetThuc;
-
-    if (endTime) return endTime;
-  }
-
-  // 5) fallback config
-  const endTime = isEarly
-    ? cfg?.lenCaSomKetThuc
-    : cfg?.lenCaMuonKetThuc;
-
-  return endTime || "--";
+  return end || "--";
 }
 
-// ===================================================================================
-// FORMAT DATE KEY
-// ===================================================================================
-function formatDateKey(year, month, day) {
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
-    2,
-    "0"
-  )}`;
+function formatDateKey(y, m, d) {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-// ===================================================================================
-// GET OT RECORD
-// ===================================================================================
 function getOvertimeForDay(overtimes, key, member) {
-  if (!Array.isArray(overtimes)) return null;
-
-  return overtimes.find((o) => {
-    const oKey =
-      (o.date && String(o.date).slice(0, 10)) ||
-      (o.currentDate &&
-        (typeof o.currentDate === "object" && o.currentDate.toDate
+  return (
+    overtimes.find((o) => {
+      const oKey =
+        (o.date && String(o.date).slice(0, 10)) ||
+        (o.currentDate?.toDate
           ? o.currentDate.toDate().toISOString().slice(0, 10)
-          : String(o.currentDate).slice(0, 10)));
+          : String(o.currentDate).slice(0, 10));
 
-    if (!oKey || oKey !== key) return false;
+      if (oKey !== key) return false;
 
-    if (o.memberId && member?.id)
-      return String(o.memberId) === String(member.id);
-    if (o.realName && member?.realName)
-      return String(o.realName) === String(member.realName);
-
-    return false;
-  });
+      return (
+        (o.memberId && String(o.memberId) === String(member.id)) ||
+        (o.realName && String(o.realName) === String(member.realName))
+      );
+    }) || null
+  );
 }
 
-// ===================================================================================
-// MAIN COMPONENT
-// ===================================================================================
+/* ========================= COMPONENT ========================= */
+
 export default function OvertimeMonthGrid({
   members = [],
   shiftSchedules = {},
@@ -132,125 +80,158 @@ export default function OvertimeMonthGrid({
   const [viewMode, setViewMode] = useState("rest");
   const [shiftCfg, setShiftCfg] = useState({ day: null, night: null });
 
-  // ===================================================================================
-  // LOAD shiftConfig/day và shiftConfig/night
-  // ===================================================================================
+  /* ----- Load shiftConfig ----- */
   useEffect(() => {
-    const fetchShift = async () => {
+    const load = async () => {
       try {
-        const daySnap = await getDoc(doc(db, "shiftConfig", "day"));
-        const nightSnap = await getDoc(doc(db, "shiftConfig", "night"));
-
+        const [daySnap, nightSnap] = await Promise.all([
+          getDoc(doc(db, "shiftConfig", "day")),
+          getDoc(doc(db, "shiftConfig", "night")),
+        ]);
         setShiftCfg({
           day: daySnap.exists() ? daySnap.data() : {},
           night: nightSnap.exists() ? nightSnap.data() : {},
         });
-
-        console.log("Loaded shiftConfig:", {
-          day: daySnap.data(),
-          night: nightSnap.data(),
-        });
       } catch (err) {
-        console.error("Lỗi tải shiftConfig:", err);
+        console.error("Lỗi shiftConfig:", err);
       }
     };
-
-    fetchShift();
+    load();
   }, []);
 
-  // =============================================
-  // MONTH DAYS
-  // =============================================
+  /* ----- Days ----- */
   const daysInMonth = dayjs(
     `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`
   ).daysInMonth();
 
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const days = [...Array(daysInMonth)].map((_, i) => i + 1);
 
+  /* ----- Tách ca ----- */
   const dayMembers = members.filter(
-    (m) => !String(m.shift || "").toLowerCase().includes("đêm")
+    (m) => !String(m.shift).toLowerCase().includes("đêm")
   );
   const nightMembers = members.filter((m) =>
-    String(m.shift || "").toLowerCase().includes("đêm")
+    String(m.shift).toLowerCase().includes("đêm")
   );
 
-  // =============================================
-  // SHIFT REC (từ shiftSchedules)
-  // =============================================
-  const getShiftRec = (dateKey, member) => {
-    if (!shiftSchedules || !shiftSchedules[dateKey]) return null;
+  /* ----- shift rec ----- */
+  const getShiftRec = (key, m) => {
+    const data = shiftSchedules[key];
+    if (!data) return null;
 
-    const dateData = shiftSchedules[dateKey];
-
-    if (member?.id && dateData[member.id]) return dateData[member.id];
-    if (member?.realName && dateData[member.realName])
-      return dateData[member.realName];
-
-    return Object.values(dateData).find(
-      (v) =>
-        String(v.memberId) === String(member.id) ||
-        (v.realName &&
-          member.realName &&
-          String(v.realName) === String(member.realName))
+    return (
+      data[m.id] ||
+      data[m.realName] ||
+      Object.values(data).find(
+        (v) =>
+          String(v.memberId) === String(m.id) ||
+          String(v.realName) === String(m.realName)
+      ) ||
+      null
     );
   };
 
-  // =============================================
-  // WEEKDAY LABELS
-  // =============================================
+  /* ----- Weekday labels ----- */
   const weekdayLabels = days.map((d) => {
     const key = formatDateKey(selectedYear, selectedMonth, d);
-    const weekday = dayjs(key).day();
-    const label = weekday === 0 ? "CN" : `T${weekday + 1}`;
-    return { day: d, weekday, label };
+    const w = dayjs(key).day();
+    return { day: d, label: w === 0 ? "CN" : `T${w + 1}`, weekday: w };
   });
 
-  // =============================================
-  // TOTAL OT
-  // =============================================
-  function getTotalOT(member) {
-    let total = 0;
-    for (let d = 1; d <= daysInMonth; d++) {
+  /* ----- Total OT ----- */
+  const getTotalOT = (m) =>
+    days.reduce((sum, d) => {
       const key = formatDateKey(selectedYear, selectedMonth, d);
-      const otRec = getOvertimeForDay(overtimes, key, member);
-      const shiftRec = getShiftRec(key, member);
+      const ot = getOvertimeForDay(overtimes, key, m);
+      const sr = getShiftRec(key, m);
+      return (
+        sum +
+        Number(ot?.tangCaHomNay ?? sr?.tangCaHomNay ?? 0) +
+        Number(ot?.thuong ?? sr?.thuong ?? 0)
+      );
+    }, 0);
 
-      const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
-      const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
-
-      total += tang + thuong;
-    }
-    return total;
-  }
-
-  function sortMembers(list) {
-    let result = [...list];
-
+  /* ----- Sort members ----- */
+  const sortMembers = (list) => {
+    const arr = [...list];
     if (viewMode === "rest")
-      result.sort((a, b) => parseRestDay(a.restDay) - parseRestDay(b.restDay));
-
-    if (viewMode === "otAsc")
-      result.sort((a, b) => getTotalOT(a) - getTotalOT(b));
-
-    if (viewMode === "otDesc")
-      result.sort((a, b) => getTotalOT(b) - getTotalOT(a));
-
-    return result;
-  }
+      return arr.sort(
+        (a, b) => parseRestDay(a.restDay) - parseRestDay(b.restDay)
+      );
+    if (viewMode === "otAsc") return arr.sort((a, b) => getTotalOT(a) - getTotalOT(b));
+    if (viewMode === "otDesc") return arr.sort((a, b) => getTotalOT(b) - getTotalOT(a));
+    return arr;
+  };
 
   const sortedDay = sortMembers(dayMembers);
   const sortedNight = sortMembers(nightMembers);
 
-  // ===================================================================================
-  // RENDER
-  // ===================================================================================
+  /* ========================= RENDER BLOCK ========================= */
+  const renderShiftGroup = (label, list) => (
+    <>
+      <tr className="h-9">
+        <td className={`${CSS.stickyCA} font-semibold text-[13px]`} colSpan={4}>
+          {label}
+        </td>
+      </tr>
+
+      {list.map((m) => (
+        <tr
+          key={m.id}
+          className="hover:bg-gray-100/60 dark:hover:bg-gray-800/40 transition"
+        >
+          <td className={CSS.stickyCA}>
+            {m.shift?.toLowerCase().includes("đêm") ? "Ca đêm" : "Ca ngày"}
+          </td>
+
+          <td className={CSS.stickyName}>{m.realName}</td>
+          <td className={CSS.stickyNick}>{m.nickname || "--"}</td>
+
+          <td className={CSS.stickyShift}>
+            {getShiftDisplayReal(
+              m,
+              shiftCfg,
+              getShiftRec(
+                formatDateKey(selectedYear, selectedMonth, dayjs().date()),
+                m
+              )
+            )}
+          </td>
+
+          {days.map((d) => {
+            const key = formatDateKey(selectedYear, selectedMonth, d);
+            const shiftRec = getShiftRec(key, m);
+            const otRec = getOvertimeForDay(overtimes, key, m);
+
+            const w = dayjs(key).day();
+            const isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
+
+            const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
+            const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
+
+            return (
+              <td key={d}>
+                <DayCell
+                  isRest={isRest}
+                  isCn={w === 0}
+                  tang={tang}
+                  thuong={thuong}
+                  onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
+                />
+              </td>
+            );
+          })}
+        </tr>
+      ))}
+    </>
+  );
+
+  /* ========================= UI ========================= */
   return (
     <div className={CSS.container}>
-      {/* HEADER */}
       <div className={CSS.headerBox}>
         <h3 className={CSS.headerTitle}>
-          Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/
-          {selectedYear}
+          Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/{selectedYear}
         </h3>
 
         <select
@@ -265,19 +246,14 @@ export default function OvertimeMonthGrid({
         </select>
       </div>
 
-      {/* TABLE */}
       <div className={CSS.scrollArea}>
         <table className={CSS.table}>
           <thead>
             <tr>
               <th className={`${CSS.headerCell} ${CSS.stickyCA}`}>CA</th>
               <th className={`${CSS.headerCell} ${CSS.stickyName}`}>HỌ TÊN</th>
-              <th className={`${CSS.headerCell} ${CSS.stickyNick}`}>
-                Nickname
-              </th>
-              <th className={`${CSS.headerCell} ${CSS.stickyShift}`}>
-                Giờ Lên Ca
-              </th>
+              <th className={`${CSS.headerCell} ${CSS.stickyNick}`}>Nickname</th>
+              <th className={`${CSS.headerCell} ${CSS.stickyShift}`}>Giờ Lên Ca</th>
 
               {weekdayLabels.map(({ day, label }) => (
                 <th key={day} className={`${CSS.headerCell} w-[48px]`}>
@@ -289,133 +265,8 @@ export default function OvertimeMonthGrid({
           </thead>
 
           <tbody>
-            {/* =============== CA NGÀY =============== */}
-            <tr className="h-9">
-              <td
-                className={`${CSS.stickyCA} font-semibold text-[13px]`}
-                colSpan={4}
-              >
-                CA NGÀY
-              </td>
-            </tr>
-
-            {sortedDay.map((m) => (
-              <tr
-                key={m.id}
-                className="hover:bg-gray-100/60 dark:hover:bg-gray-800/40 transition"
-              >
-                <td className={`${CSS.stickyCA}`}>Ngày</td>
-                <td className={`${CSS.stickyName}`}>{m.realName}</td>
-                <td className={`${CSS.stickyNick}`}>{m.nickname || "--"}</td>
-
-                <td className={`${CSS.stickyShift}`}>
-                  {getShiftDisplayReal(
-                    m,
-                    shiftCfg,
-                    getShiftRec(
-                      formatDateKey(selectedYear, selectedMonth, dayjs().date()),
-                      m
-                    )
-                  )}
-                </td>
-
-                {days.map((d) => {
-                  const key = formatDateKey(selectedYear, selectedMonth, d);
-                  const shiftRec = getShiftRec(key, m);
-                  const otRec = getOvertimeForDay(overtimes, key, m);
-
-                  const weekday = dayjs(key).day();
-                  const isCn = weekday === 0;
-                  const restNum = parseRestDay(m.restDay);
-                  const isRest = restNum === (weekday === 0 ? 7 : weekday);
-
-                  const tang = Number(
-                    otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0
-                  );
-                  const thuong = Number(
-                    otRec?.thuong ?? shiftRec?.thuong ?? 0
-                  );
-
-                  return (
-                    <td key={d}>
-                      <DayCell
-                        isRest={isRest}
-                        isCn={isCn}
-                        tang={tang}
-                        thuong={thuong}
-                        onClick={() =>
-                          onCellClick?.(key, m, { shiftRec, otRec })
-                        }
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-
-            {/* =============== CA ĐÊM =============== */}
-            <tr className="h-9">
-              <td
-                className={`${CSS.stickyCA} font-semibold text-[13px]`}
-                colSpan={4}
-              >
-                CA ĐÊM
-              </td>
-            </tr>
-
-            {sortedNight.map((m) => (
-              <tr
-                key={m.id}
-                className="hover:bg-gray-100/60 dark:hover:bg-gray-800/40 transition"
-              >
-                <td className={`${CSS.stickyCA}`}>Đêm</td>
-                <td className={`${CSS.stickyName}`}>{m.realName}</td>
-                <td className={`${CSS.stickyNick}`}>{m.nickname || "--"}</td>
-
-                <td className={`${CSS.stickyShift}`}>
-                  {getShiftDisplayReal(
-                    m,
-                    shiftCfg,
-                    getShiftRec(
-                      formatDateKey(selectedYear, selectedMonth, dayjs().date()),
-                      m
-                    )
-                  )}
-                </td>
-
-                {days.map((d) => {
-                  const key = formatDateKey(selectedYear, selectedMonth, d);
-                  const shiftRec = getShiftRec(key, m);
-                  const otRec = getOvertimeForDay(overtimes, key, m);
-
-                  const weekday = dayjs(key).day();
-                  const isCn = weekday === 0;
-                  const restNum = parseRestDay(m.restDay);
-                  const isRest = restNum === (weekday === 0 ? 7 : weekday);
-
-                  const tang = Number(
-                    otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0
-                  );
-                  const thuong = Number(
-                    otRec?.thuong ?? shiftRec?.thuong ?? 0
-                  );
-
-                  return (
-                    <td key={d}>
-                      <DayCell
-                        isRest={isRest}
-                        isCn={isCn}
-                        tang={tang}
-                        thuong={thuong}
-                        onClick={() =>
-                          onCellClick?.(key, m, { shiftRec, otRec })
-                        }
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {renderShiftGroup("CA NGÀY", sortedDay)}
+            {renderShiftGroup("CA ĐÊM", sortedNight)}
           </tbody>
         </table>
       </div>
