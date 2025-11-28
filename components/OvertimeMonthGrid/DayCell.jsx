@@ -7,11 +7,11 @@ export default function DayCell({ isRest, isCn, tang, thuong, onClick }) {
 
   if (isRest) {
     classes += ` ${CSS.rest}`;
-    content = "休";
+    content = "休"; // material error chip
   } else if (tang + thuong > 0) {
     classes += ` ${CSS.ot}`;
     const total = tang + thuong;
-    content = Number(total % 1 === 0 ? total : total.toFixed(1));
+    content = Number(total % 1 === 0 ? total : total.toFixed(1)); // 2.5 style
   } else {
     classes += ` ${CSS.work}`;
   }
@@ -20,10 +20,12 @@ export default function DayCell({ isRest, isCn, tang, thuong, onClick }) {
 
   return (
     <div
-      className={`${classes} w-[48px] cursor-pointer`}
+      className={`${classes} w-[48px] cursor-pointer hover:bg-gray-200/60 dark:hover:bg-gray-700/40`}
       onClick={() => !isRest && onClick?.()}
     >
-      <span className="px-2 py-[2px] rounded-md">{content}</span>
+      <span className="px-2 py-[3px] rounded-md">
+        {content}
+      </span>
     </div>
   );
 }
