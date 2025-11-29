@@ -1,53 +1,73 @@
 export const CSS = {
+  /* ===== CONTAINER ===== */
   container:
-    "rounded-xl bg-white dark:bg-[#121212] text-gray-900 dark:text-gray-100 p-4 shadow-sm",
+    "rounded-xl bg-white dark:bg-[#1E1E2E] text-gray-900 dark:text-gray-100 p-4 shadow-sm",
 
   scrollArea: "overflow-auto max-w-full mt-3 rounded-xl",
 
-  // ---------- HEADER ----------
+  /* ===== HEADER ===== */
   headerBox:
-    "flex items-center justify-between mb-4 px-5 py-3 rounded-xl bg-[#F7F8FA] dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-800 shadow-sm",
-
-  headerTitle: "text-xl font-bold tracking-wide",
+    "flex items-center justify-between mb-4 px-5 py-3 rounded-xl " +
+    "bg-[#F7F8FA] border border-gray-200 text-gray-900 shadow-sm " +
+    "dark:bg-[#2F3145] dark:border-[#3A3B54] dark:text-gray-100",
 
   headerSelect:
-    "px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#2A2A2A] text-sm shadow-sm",
+    "px-3 py-2 rounded-lg text-sm border outline-none cursor-pointer " +
+    "bg-white text-gray-700 border-gray-300 " +
+    "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] " +
+    "transition",
 
-  // ---------- TABLE ----------
-  table:
-    "table-fixed w-max border-separate border-spacing-0 text-center",
+  headerTitle: "text-lg font-bold tracking-wide",
+
+  table: "table-fixed w-max border-separate border-spacing-0 text-center",
 
   headerCell:
-    "text-xs font-semibold py-3 px-3 sticky top-0 z-20 bg-[#F4F5F7] dark:bg-[#1F1F1F] shadow-sm border-b border-gray-300 dark:border-gray-700",
+    "text-[11px] font-semibold py-2 px-2 sticky top-0 z-20 " +
+    "bg-gray-100 text-gray-800 border-b border-gray-300 shadow-sm " +
+    "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54]",
 
-  // ---------- STICKY ----------
-  stickyCA:
-    "sticky left-0 w-[70px] z-30 bg-[#F4F5F7] dark:bg-[#1F1F1F] shadow-sm border-r border-gray-300 dark:border-gray-700",
+  /* ===== STICKY LEFT COLUMNS ===== */
+  stickySTT:
+    "sticky left-0 w-[40px] z-30 " +
+    "bg-gray-100 text-gray-800 border-r border-gray-300 " +
+    "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] text-[11px]",
 
   stickyName:
-    "sticky left-[70px] w-[120px] z-30 bg-[#F4F5F7] dark:bg-[#1F1F1F] shadow-sm border-r border-gray-300 dark:border-gray-700",
+    "sticky left-[40px] w-[90px] z-30 " +
+    "bg-gray-100 text-gray-800 border-r border-gray-300 " +
+    "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] text-[12px]",
 
   stickyNick:
-    "sticky left-[190px] w-[180px] z-30 bg-[#F4F5F7] dark:bg-[#1F1F1F] shadow-sm border-r border-gray-300 dark:border-gray-700",
+    "sticky left-[130px] w-[110px] z-30 " +
+    "bg-gray-100 text-gray-800 border-r border-gray-300 " +
+    "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] text-[12px]",
 
   stickyShift:
-    "sticky left-[370px] w-[90px] z-30 bg-[#F4F5F7] dark:bg-[#1F1F1F] shadow-sm border-r border-gray-300 dark:border-gray-700",
+    "sticky left-[240px] w-[70px] z-30 " +
+    "bg-gray-100 text-gray-800 border-r border-gray-300 " +
+    "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] text-[11px]",
 
-  // ---------- CELL ----------
+  /* ===== CELL BASE ===== */
   baseCell:
-    "min-w-[45px] h-9 flex items-center justify-center text-[13px] rounded-lg border border-gray-200 dark:border-gray-700 transition",
+    "min-w-[32px] h-8 flex items-center justify-center text-[11px] rounded-md " +
+    "border border-gray-300 text-gray-800 bg-white transition " +
+    "dark:border-[#3A3B54] dark:text-[#D7DAE6] dark:bg-[#2A2B3C]",
 
-  // ---------- COLORS ----------
+  /* ===== CELL COLORS ===== */
+
+  // OT cell
   ot:
-    "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200 font-semibold rounded-lg",
+    "bg-emerald-100 text-emerald-800 font-semibold " +
+    "dark:bg-[#0F3B37] dark:text-[#5FF8D5]",
 
+  // Rest cell
   rest:
-    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 font-semibold rounded-lg",
+    "bg-red-100 text-red-600 font-semibold " +
+    "dark:bg-[#442529] dark:text-[#FF7A7A]",
 
-  work:
-    "bg-white dark:bg-transparent text-gray-800 dark:text-gray-300",
+  // Normal day
+  work: "bg-white text-gray-800 " + "dark:bg-[#2A2B3C] dark:text-[#D7DAE6]",
 
-  // Chủ nhật stripe
-  sundayStripe:
-    "bg-orange-50 dark:bg-orange-900/20",
+  // Sunday highlight
+  sundayStripe: "bg-orange-50 " + "dark:bg-[#2E2A40]",
 };

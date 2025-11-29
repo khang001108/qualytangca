@@ -24,6 +24,26 @@ function parseRestDay(restDay) {
   return map[s] ?? null;
 }
 
+function getShiftDisplayReal(m, shiftCfg, shiftRec) {
+  if (!shiftCfg?.day || !shiftCfg?.night) return "--";
+
+  const shiftName = shiftRec?.shift || m.shift || "";
+  const shiftStart = shiftRec?.shiftStart || m.shiftStart || "08:00";
+
+  const isNight = shiftName.toLowerCase().includes("đêm");
+  const cfg = isNight ? shiftCfg.night : shiftCfg.day;
+
+  const isEarly = ["sớm", "som", "early"].some((x) =>
+    shiftStart.toLowerCase().includes(x)
+  );
+
+  const end = isEarly
+    ? shiftRec?.lenCaSomKetThuc || cfg?.lenCaSomKetThuc
+    : shiftRec?.lenCaMuonKetThuc || cfg?.lenCaMuonKetThuc;
+
+  return end || "--";
+}
+
 function formatDateKey(y, m, d) {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
@@ -47,26 +67,6 @@ function getOvertimeForDay(overtimes, key, member) {
   );
 }
 
-function getShiftDisplay(m, shiftCfg, shiftRec) {
-  if (!shiftCfg?.day || !shiftCfg?.night) return "--";
-
-  const shiftName = shiftRec?.shift || m.shift || "";
-  const shiftStart = shiftRec?.shiftStart || m.shiftStart || "08:00";
-
-  const isNight = shiftName.toLowerCase().includes("đêm");
-  const cfg = isNight ? shiftCfg.night : shiftCfg.day;
-
-  const isEarly = ["sớm", "som", "early"].some((x) =>
-    shiftStart.toLowerCase().includes(x)
-  );
-
-  const end = isEarly
-    ? shiftRec?.lenCaSomKetThuc || cfg?.lenCaSomKetThuc
-    : shiftRec?.lenCaMuonKetThuc || cfg?.lenCaMuonKetThuc;
-
-  return end || "--";
-}
-
 /* ========================= COMPONENT ========================= */
 
 export default function OvertimeMonthGrid({
@@ -77,7 +77,7 @@ export default function OvertimeMonthGrid({
   selectedYear,
   onCellClick,
 }) {
-  const [viewMode, setViewMode] = useState("normal");
+  const [viewMode, setViewMode] = useState("rest");
   const [shiftCfg, setShiftCfg] = useState({ day: null, night: null });
 
   /* ----- Load shiftConfig ----- */
@@ -114,7 +114,7 @@ export default function OvertimeMonthGrid({
     String(m.shift).toLowerCase().includes("đêm")
   );
 
-  /* ----- shiftRec ----- */
+  /* ----- shift rec ----- */
   const getShiftRec = (key, m) => {
     const data = shiftSchedules[key];
     if (!data) return null;
@@ -151,8 +151,8 @@ export default function OvertimeMonthGrid({
       );
     }, 0);
 
-  /* ----- Sorting ----- */
-  const getSorted = (list) => {
+  /* ----- Sort members ----- */
+  const sortMembers = (list) => {
     const arr = [...list];
     if (viewMode === "rest")
       return arr.sort(
@@ -163,70 +163,70 @@ export default function OvertimeMonthGrid({
     return arr;
   };
 
-  const sortedDay = getSorted(dayMembers);
-  const sortedNight = getSorted(nightMembers);
+  const sortedDay = sortMembers(dayMembers);
+  const sortedNight = sortMembers(nightMembers);
 
-  /* ========================= RENDER GROUP ========================= */
-
-  const renderShiftGroup = (label, list, startIndex) => (
+  /* ========================= RENDER BLOCK ========================= */
+  const renderShiftGroup = (label, list) => (
     <>
-      {/* GROUP LABEL */}
-      <tr className="h-8">
-        <td
-          className="font-semibold text-[13px] bg-[#EEF2FF] dark:bg-[#1C1F2A] text-indigo-700 dark:text-indigo-300 border-y border-gray-300 dark:border-gray-700"
-          colSpan={4 + days.length}
-        >
+      <tr className="h-9">
+        <td className={`${CSS.stickyCA} font-semibold text-[13px]`} colSpan={4}>
           {label}
         </td>
       </tr>
 
-      {list.map((m, idx) => {
-        const stt = startIndex + idx + 1;
+      {list.map((m) => (
+        <tr
+          key={m.id}
+          className="hover:bg-gray-100/60 dark:hover:bg-gray-800/40 transition"
+        >
+          <td className={CSS.stickyCA}>
+            {m.shift?.toLowerCase().includes("đêm") ? "Ca đêm" : "Ca ngày"}
+          </td>
 
-        return (
-          <tr key={m.id} className="transition">
-            {/* STT */}
-            <td className={`${CSS.stickyCA} bg-transparent`}>{stt}</td>
+          <td className={CSS.stickyName}>{m.realName}</td>
+          <td className={CSS.stickyNick}>{m.nickname || "--"}</td>
 
-            <td className={`${CSS.stickyName} bg-transparent`}>{m.realName}</td>
-            <td className={`${CSS.stickyNick} bg-transparent`}>{m.nickname || "--"}</td>
+          <td className={CSS.stickyShift}>
+            {getShiftDisplayReal(
+              m,
+              shiftCfg,
+              getShiftRec(
+                formatDateKey(selectedYear, selectedMonth, dayjs().date()),
+                m
+              )
+            )}
+          </td>
 
-            <td className={`${CSS.stickyShift} bg-transparent`}>
-              {getShiftDisplay(m, shiftCfg, getShiftRec(formatDateKey(selectedYear, selectedMonth, dayjs().date()), m))}
-            </td>
+          {days.map((d) => {
+            const key = formatDateKey(selectedYear, selectedMonth, d);
+            const shiftRec = getShiftRec(key, m);
+            const otRec = getOvertimeForDay(overtimes, key, m);
 
-            {/* ==== DAY CELLS ==== */}
-            {days.map((d) => {
-              const key = formatDateKey(selectedYear, selectedMonth, d);
-              const shiftRec = getShiftRec(key, m);
-              const otRec = getOvertimeForDay(overtimes, key, m);
+            const w = dayjs(key).day();
+            const isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
 
-              const w = dayjs(key).day();
-              const isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
+            const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
+            const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
 
-              const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
-              const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
-
-              return (
-                <td key={d} className="p-0 bg-transparent">
-                  <DayCell
-                    isRest={isRest}
-                    isCn={w === 0}
-                    tang={tang}
-                    thuong={thuong}
-                    onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
-                  />
-                </td>
-              );
-            })}
-          </tr>
-        );
-      })}
+            return (
+              <td key={d}>
+                <DayCell
+                  isRest={isRest}
+                  isCn={w === 0}
+                  tang={tang}
+                  thuong={thuong}
+                  onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
+                />
+              </td>
+            );
+          })}
+        </tr>
+      ))}
     </>
   );
 
   /* ========================= UI ========================= */
-
   return (
     <div className={CSS.container}>
       <div className={CSS.headerBox}>
@@ -250,7 +250,7 @@ export default function OvertimeMonthGrid({
         <table className={CSS.table}>
           <thead>
             <tr>
-              <th className={`${CSS.headerCell} ${CSS.stickyCA}`}>STT</th>
+              <th className={`${CSS.headerCell} ${CSS.stickyCA}`}>CA</th>
               <th className={`${CSS.headerCell} ${CSS.stickyName}`}>HỌ TÊN</th>
               <th className={`${CSS.headerCell} ${CSS.stickyNick}`}>Nickname</th>
               <th className={`${CSS.headerCell} ${CSS.stickyShift}`}>Giờ Lên Ca</th>
@@ -265,8 +265,8 @@ export default function OvertimeMonthGrid({
           </thead>
 
           <tbody>
-            {renderShiftGroup("CA NGÀY", sortedDay, 0)}
-            {renderShiftGroup("CA ĐÊM", sortedNight, sortedDay.length)}
+            {renderShiftGroup("CA NGÀY", sortedDay)}
+            {renderShiftGroup("CA ĐÊM", sortedNight)}
           </tbody>
         </table>
       </div>
