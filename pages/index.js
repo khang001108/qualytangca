@@ -340,6 +340,14 @@ export default function Home() {
           </div>
         </div>
 
+        <OvertimeSummary
+          members={members}
+          overtimes={overtimeItems}
+          shiftSchedules={shiftSchedules}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+        />
+
         {/* Main Components */}
         <OvertimeForm
           user={user}
@@ -372,14 +380,6 @@ export default function Home() {
           selectedYear={selectedYear}
           selectedDate={selectedDate}
           shiftSchedules={shiftSchedules}
-        />
-
-        <OvertimeSummary
-          members={members}
-          overtimes={overtimeItems}
-          shiftSchedules={shiftSchedules}
-          selectedMonth={selectedMonth}
-          selectedYear={selectedYear}
         />
 
         <OvertimeMonthGrid
