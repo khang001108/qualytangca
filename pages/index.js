@@ -375,9 +375,9 @@ export default function Home() {
         />
 
         <OvertimeSummary
-          user={user}
+          members={members}
           overtimes={overtimeItems}
-          overtimeLimit={overtimeLimit}
+          shiftSchedules={shiftSchedules}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
         />
@@ -393,7 +393,7 @@ export default function Home() {
         <div ref={chartRef}>
           <OvertimeChart
             members={members}
-            overtimes={overtimeItems} 
+            overtimes={overtimeItems}
             shiftSchedules={shiftSchedules}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
