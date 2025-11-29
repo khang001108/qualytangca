@@ -477,6 +477,30 @@ export default function ShiftAssign(props) {
             <div className="text-sm font-semibold mb-2">
               Danh sách nhân viên
             </div>
+            {/* SELECT ALL */}
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b dark:border-gray-700 select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={members.every(
+                  (m) => selectedMembersMap[m.id]?.include
+                )}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSelectedMembersMap((prev) => {
+                    const updated = { ...prev };
+                    for (const m of members) {
+                      updated[m.id] = {
+                        ...(updated[m.id] || { earlyShift: !!m.earlyShift }),
+                        include: checked,
+                      };
+                    }
+                    return updated;
+                  });
+                }}
+              />
+              <span className="text-sm font-semibold">Chọn tất cả</span>
+            </div>
 
             {members.map((m) => {
               const state = selectedMembersMap[m.id] || {
@@ -487,19 +511,50 @@ export default function ShiftAssign(props) {
               return (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between py-2 border-b last:border-b-0 select-none"
+                  className={`flex items-center justify-between py-2 border-b last:border-b-0 select-none 
+                  ${state.include ? "" : "opacity-40"}`}
                 >
-                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                    {m.realName} {m.nickname ? `(${m.nickname})` : ""}
+                  {/* LEFT: checkbox + tên */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={state.include}
+                      onChange={(e) =>
+                        setSelectedMembersMap((prev) => ({
+                          ...prev,
+                          [m.id]: {
+                            ...(prev[m.id] || state),
+                            include: e.target.checked,
+                          },
+                        }))
+                      }
+                    />
+
+                    <span
+                      onClick={() =>
+                        setSelectedMembersMap((prev) => ({
+                          ...prev,
+                          [m.id]: {
+                            ...(prev[m.id] || state),
+                            include: !state.include, // toggle checkbox
+                          },
+                        }))
+                      }
+                      className="text-sm font-medium text-gray-800 dark:text-gray-200 cursor-pointer"
+                    >
+                      {m.realName} {m.nickname ? `(${m.nickname})` : ""}
+                    </span>
                   </div>
 
+                  {/* RIGHT: sớm / muộn */}
                   <span
                     onClick={() =>
                       setSelectedMembersMap((prev) => ({
                         ...prev,
                         [m.id]: {
                           ...(prev[m.id] || state),
-                          include: true,
+                          include: true, // bật lại auto nếu họ click
                           earlyShift: !(prev[m.id] || state).earlyShift,
                         },
                       }))

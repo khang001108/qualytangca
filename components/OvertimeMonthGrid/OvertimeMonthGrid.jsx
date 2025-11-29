@@ -175,54 +175,59 @@ export default function OvertimeMonthGrid({
         </td>
       </tr>
 
-      {list.map((m) => (
-        <tr
-          key={m.id}
-          className="hover:bg-gray-100/60 dark:hover:bg-gray-800/40 transition"
-        >
-          <td className={CSS.stickyCA}>
-            {m.shift?.toLowerCase().includes("đêm") ? "Ca đêm" : "Ca ngày"}
-          </td>
+      {list.map((m, i) => (
+  <tr
+    key={m.id}
+    className="hover:bg-gray-100/60 dark:hover:bg-gray-800/40 transition"
+  >
+    {i === 0 && (
+      <td
+        className={CSS.stickyCA}
+        rowSpan={list.length}       // GỘP NHÓM TẠI ĐÂY
+      >
+        {label}  {/* "CA NGÀY" hoặc "CA ĐÊM" */}
+      </td>
+    )}
 
-          <td className={CSS.stickyName}>{m.realName}</td>
-          <td className={CSS.stickyNick}>{m.nickname || "--"}</td>
+    <td className={CSS.stickyName}>{m.realName}</td>
+    <td className={CSS.stickyNick}>{m.nickname || "--"}</td>
+    <td className={CSS.stickyShift}>
+      {getShiftDisplayReal(
+        m,
+        shiftCfg,
+        getShiftRec(
+          formatDateKey(selectedYear, selectedMonth, dayjs().date()),
+          m
+        )
+      )}
+    </td>
 
-          <td className={CSS.stickyShift}>
-            {getShiftDisplayReal(
-              m,
-              shiftCfg,
-              getShiftRec(
-                formatDateKey(selectedYear, selectedMonth, dayjs().date()),
-                m
-              )
-            )}
-          </td>
+    {days.map((d) => {
+      const key = formatDateKey(selectedYear, selectedMonth, d);
+      const shiftRec = getShiftRec(key, m);
+      const otRec = getOvertimeForDay(overtimes, key, m);
 
-          {days.map((d) => {
-            const key = formatDateKey(selectedYear, selectedMonth, d);
-            const shiftRec = getShiftRec(key, m);
-            const otRec = getOvertimeForDay(overtimes, key, m);
+      const w = dayjs(key).day();
+      const isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
 
-            const w = dayjs(key).day();
-            const isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
+      const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
+      const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
 
-            const tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
-            const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
+      return (
+        <td key={d}>
+          <DayCell
+            isRest={isRest}
+            isCn={w === 0}
+            tang={tang}
+            thuong={thuong}
+            onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
+          />
+        </td>
+      );
+    })}
+  </tr>
+))}
 
-            return (
-              <td key={d}>
-                <DayCell
-                  isRest={isRest}
-                  isCn={w === 0}
-                  tang={tang}
-                  thuong={thuong}
-                  onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
-                />
-              </td>
-            );
-          })}
-        </tr>
-      ))}
     </>
   );
 
