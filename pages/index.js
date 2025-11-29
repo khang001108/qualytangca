@@ -390,10 +390,12 @@ export default function Home() {
           selectedYear={selectedYear}
         />
 
-
         <div ref={chartRef}>
           <OvertimeChart
-            overtimes={overtimeItems}
+            members={members}
+            overtimes={overtimeItems} 
+            shiftSchedules={shiftSchedules}
+            selectedMonth={selectedMonth}
             selectedYear={selectedYear}
           />
         </div>
@@ -413,12 +415,13 @@ export default function Home() {
       {/* ✅ Toast duy nhất */}
       {toast && (
         <div
-          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
+          className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${
+            toast.type === "error"
               ? "bg-red-500"
               : toast.type === "loading"
-                ? "bg-blue-500"
-                : "bg-green-500"
-            }`}
+              ? "bg-blue-500"
+              : "bg-green-500"
+          }`}
         >
           {toast.type === "loading" && (
             <Hourglass className="w-4 h-4 animate-spin" />
