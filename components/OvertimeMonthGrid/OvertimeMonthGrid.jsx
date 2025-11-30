@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import dayjs from "dayjs";
 import DayCell from "./DayCell";
 import { CSS } from "./styles";
@@ -79,6 +79,22 @@ export default function OvertimeMonthGrid({
 }) {
   const [viewMode, setViewMode] = useState("normal");
   const [shiftCfg, setShiftCfg] = useState({ day: null, night: null });
+
+  // State ghim cột
+  const [stickyCols, setStickyCols] = useState({
+    stt: false,
+    name: false,
+    nick: false,
+    shift: false,
+  });
+
+  // Width Option A
+  const COL_WIDTHS = useMemo(
+    () => ({ stt: 55, name: 160, nick: 140, shift: 100 }),
+    []
+  );
+
+  const COL_ORDER = useMemo(() => ["stt", "name", "nick", "shift"], []);
 
   /* ----- Load shiftConfig ----- */
   useEffect(() => {
@@ -166,11 +182,31 @@ export default function OvertimeMonthGrid({
   const sortedDay = getSorted(dayMembers);
   const sortedNight = getSorted(nightMembers);
 
+  /* ========== STICKY HELPERS ========== */
+
+  const activeStickyCols = useMemo(
+    () => COL_ORDER.filter((k) => stickyCols[k]),
+    [stickyCols, COL_ORDER]
+  );
+
+  const calcLeftFor = (key) => {
+    const idx = activeStickyCols.indexOf(key);
+    if (idx === -1) return null;
+
+    let sum = 0;
+    for (let i = 0; i < idx; i++) {
+      sum += COL_WIDTHS[activeStickyCols[i]];
+    }
+    return sum;
+  };
+
+  const toggleSticky = (key) =>
+    setStickyCols((prev) => ({ ...prev, [key]: !prev[key] }));
+
   /* ========================= RENDER GROUP ========================= */
 
   const renderShiftGroup = (label, list, startIndex) => (
     <>
-      {/* GROUP LABEL */}
       <tr className="h-8">
         <td
           className="font-semibold text-[13px] bg-[#EEF2FF] dark:bg-[#1C1F2A] text-indigo-700 dark:text-indigo-300 border-y border-gray-300 dark:border-gray-700"
@@ -186,16 +222,62 @@ export default function OvertimeMonthGrid({
         return (
           <tr key={m.id} className="transition">
             {/* STT */}
-            <td className={`${CSS.stickyCA} bg-transparent`}>{stt}</td>
-
-            <td className={`${CSS.stickyName} bg-transparent`}>{m.realName}</td>
-            <td className={`${CSS.stickyNick} bg-transparent`}>{m.nickname || "--"}</td>
-
-            <td className={`${CSS.stickyShift} bg-transparent`}>
-              {getShiftDisplay(m, shiftCfg, getShiftRec(formatDateKey(selectedYear, selectedMonth, dayjs().date()), m))}
+            <td
+              className={`${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+                }`}
+              style={
+                stickyCols.stt
+                  ? { position: "sticky", left: calcLeftFor("stt"), zIndex: 30 }
+                  : undefined
+              }
+            >
+              {stt}
             </td>
 
-            {/* ==== DAY CELLS ==== */}
+            {/* Name */}
+            <td
+              className={`${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+                }`}
+              style={
+                stickyCols.name
+                  ? { position: "sticky", left: calcLeftFor("name"), zIndex: 30 }
+                  : undefined
+              }
+            >
+              {m.realName}
+            </td>
+
+            {/* Nick */}
+            <td
+              className={`${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+                }`}
+              style={
+                stickyCols.nick
+                  ? { position: "sticky", left: calcLeftFor("nick"), zIndex: 30 }
+                  : undefined
+              }
+            >
+              {m.nickname || "--"}
+            </td>
+
+            {/* Shift */}
+            <td
+              className={`${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+                }`}
+              style={
+                stickyCols.shift
+                  ? { position: "sticky", left: calcLeftFor("shift"), zIndex: 30 }
+                  : undefined
+              }
+            >
+              {getShiftDisplay(
+                m,
+                shiftCfg,
+                getShiftRec(formatDateKey(selectedYear, selectedMonth, dayjs().date()), m)
+              )}
+            </td>
+
+            {/* Days */}
             {days.map((d) => {
               const key = formatDateKey(selectedYear, selectedMonth, d);
               const shiftRec = getShiftRec(key, m);
@@ -208,7 +290,11 @@ export default function OvertimeMonthGrid({
               const thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
 
               return (
-                <td key={d} className="p-0 bg-transparent">
+                <td
+                  key={d}
+                  className={`p-0 ${w === 0 ? "bg-orange-50 dark:bg-orange-900/20" : "bg-transparent"
+                    }`}
+                >
                   <DayCell
                     isRest={isRest}
                     isCn={w === 0}
@@ -250,13 +336,103 @@ export default function OvertimeMonthGrid({
         <table className={CSS.table}>
           <thead>
             <tr>
-              <th className={`${CSS.headerCell} ${CSS.stickyCA}`}>STT</th>
-              <th className={`${CSS.headerCell} ${CSS.stickyName}`}>HỌ TÊN</th>
-              <th className={`${CSS.headerCell} ${CSS.stickyNick}`}>Nickname</th>
-              <th className={`${CSS.headerCell} ${CSS.stickyShift}`}>Giờ Lên Ca</th>
+              {/* STT header */}
+              <th
+                className={`${CSS.headerCell} ${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                  }`}
+                style={
+                  stickyCols.stt
+                    ? { position: "sticky", left: calcLeftFor("stt"), zIndex: 40 }
+                    : undefined
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <span>STT</span>
+                  <button
+                    onClick={() => toggleSticky("stt")}
+                    className={`text-xs p-1 ${stickyCols.stt ? "text-yellow-500" : "text-gray-400 dark:text-gray-300"
+                      }`}
+                  >
+                    📌
+                  </button>
+                </div>
+              </th>
 
-              {weekdayLabels.map(({ day, label }) => (
-                <th key={day} className={`${CSS.headerCell} w-[48px]`}>
+              {/* Name */}
+              <th
+                className={`${CSS.headerCell} ${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                  }`}
+                style={
+                  stickyCols.name
+                    ? { position: "sticky", left: calcLeftFor("name"), zIndex: 40 }
+                    : undefined
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <span>HỌ TÊN</span>
+                  <button
+                    onClick={() => toggleSticky("name")}
+                    className={`text-xs p-1 ${stickyCols.name ? "text-yellow-500" : "text-gray-400 dark:text-gray-300"
+                      }`}
+                  >
+                    📌
+                  </button>
+                </div>
+              </th>
+
+              {/* Nick */}
+              <th
+                className={`${CSS.headerCell} ${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                  }`}
+                style={
+                  stickyCols.nick
+                    ? { position: "sticky", left: calcLeftFor("nick"), zIndex: 40 }
+                    : undefined
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <span>Nickname</span>
+                  <button
+                    onClick={() => toggleSticky("nick")}
+                    className={`text-xs p-1 ${stickyCols.nick ? "text-yellow-500" : "text-gray-400 dark:text-gray-300"
+                      }`}
+                  >
+                    📌
+                  </button>
+                </div>
+              </th>
+
+              {/* Shift */}
+              <th
+                className={`${CSS.headerCell} ${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                  }`}
+                style={
+                  stickyCols.shift
+                    ? { position: "sticky", left: calcLeftFor("shift"), zIndex: 40 }
+                    : undefined
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <span>Giờ Lên Ca</span>
+                  <button
+                    onClick={() => toggleSticky("shift")}
+                    className={`text-xs p-1 ${stickyCols.shift ? "text-yellow-500" : "text-gray-400 dark:text-gray-300"
+                      }`}
+                  >
+                    📌
+                  </button>
+                </div>
+              </th>
+
+              {/* Day headers */}
+              {weekdayLabels.map(({ day, label, weekday }) => (
+                <th
+                  key={day}
+                  className={`${CSS.headerCell} ${weekday === 0 ? "bg-orange-100 dark:bg-orange-900/100" : ""
+                    }`}
+                  style={{ width: "36px" }}
+                >
+
                   <div>{label}</div>
                   <div className="font-bold">{day}</div>
                 </th>
