@@ -223,7 +223,7 @@ export default function OvertimeMonthGrid({
           <tr key={m.id} className="transition">
             {/* STT */}
             <td
-              className={`${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+              className={`${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/100" : "bg-transparent"
                 }`}
               style={
                 stickyCols.stt
@@ -236,7 +236,7 @@ export default function OvertimeMonthGrid({
 
             {/* Name */}
             <td
-              className={`${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+              className={`${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/100" : "bg-transparent"
                 }`}
               style={
                 stickyCols.name
@@ -249,7 +249,7 @@ export default function OvertimeMonthGrid({
 
             {/* Nick */}
             <td
-              className={`${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+              className={`${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/100" : "bg-transparent"
                 }`}
               style={
                 stickyCols.nick
@@ -262,7 +262,7 @@ export default function OvertimeMonthGrid({
 
             {/* Shift */}
             <td
-              className={`${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-transparent"
+              className={`${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/100" : "bg-transparent"
                 }`}
               style={
                 stickyCols.shift
@@ -338,7 +338,7 @@ export default function OvertimeMonthGrid({
             <tr>
               {/* STT header */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                className={`${CSS.headerCell} ${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
                   }`}
                 style={
                   stickyCols.stt
@@ -360,7 +360,7 @@ export default function OvertimeMonthGrid({
 
               {/* Name */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                className={`${CSS.headerCell} ${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
                   }`}
                 style={
                   stickyCols.name
@@ -382,7 +382,7 @@ export default function OvertimeMonthGrid({
 
               {/* Nick */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                className={`${CSS.headerCell} ${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
                   }`}
                 style={
                   stickyCols.nick
@@ -404,7 +404,7 @@ export default function OvertimeMonthGrid({
 
               {/* Shift */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/30" : ""
+                className={`${CSS.headerCell} ${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
                   }`}
                 style={
                   stickyCols.shift
