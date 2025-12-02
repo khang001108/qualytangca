@@ -77,14 +77,14 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
     }
   };
 
-  const handleSave = async () => {
-    try {
-      showToast("Đã lưu toàn bộ cấu hình tăng ca", "success");
-    } catch (err) {
-      console.error(err);
-      showToast("Lỗi khi lưu cấu hình", "error");
-    }
-  };
+  // const handleSave = async () => {
+  //   try {
+  //     showToast("Đã lưu toàn bộ cấu hình tăng ca", "success");
+  //   } catch (err) {
+  //     console.error(err);
+  //     showToast("Lỗi khi lưu cấu hình", "error");
+  //   }
+  // };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
@@ -162,13 +162,13 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
             >
               Hủy
             </button>
-            <button
+            {/* <button
               onClick={handleSave}
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white shadow transition-all duration-300"
             >
               <Save className="w-4 h-4" />
               Lưu toàn bộ
-            </button>
+            </button> */}
           </div>
         </motion.div>
       </AnimatePresence>
