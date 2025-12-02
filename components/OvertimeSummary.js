@@ -105,7 +105,22 @@ export default function OvertimeSummary({
     { total: Infinity }
   );
 
-  const presentCount = data.filter((d) => d.total > 0).length;
+  const todayKey = dayjs().format("YYYY-MM-DD");
+
+  const presentCount = members.filter((m) => {
+    const rec =
+      shiftSchedules[todayKey]?.[m.realName] ||
+      Object.values(shiftSchedules[todayKey] || {}).find(
+        (v) =>
+          v.realName === m.realName ||
+          String(v.memberId) === String(m.id)
+      );
+
+    if (!rec) return false;
+    if (rec.type === "leave") return false;
+    return rec.type === "work";
+  }).length;
+
   const totalMembers = members.length;
 
   const monthLimit = Math.max(...data.map((d) => d.limit || 0), 0);
@@ -117,11 +132,10 @@ export default function OvertimeSummary({
     return (
       <div
         className={`p-4 rounded-2xl shadow-md border backdrop-blur-sm cursor-pointer
-        ${
-          highlight
+        ${highlight
             ? "bg-gradient-to-br from-orange-500/40 to-red-500/20 border-orange-400/50"
             : "bg-indigo-900/40 border-indigo-600/50"
-        }`}
+          }`}
       >
         <div className="flex items-center gap-3">
           <Icon className={`w-7 h-7 ${color}`} />
@@ -142,7 +156,9 @@ export default function OvertimeSummary({
   return (
     <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 p-6 rounded-2xl shadow-xl border border-indigo-700/60">
       <div className="flex items-center justify-center mb-5 relative">
-        <h2 className="text-xl font-bold text-indigo-100">Tổng hợp</h2>
+        <h2 className="text-xl font-bold text-indigo-100">
+          🗓Trạng thái — {dayjs().format("DD/MM/YYYY")}
+        </h2>
 
         <button
           onClick={() => setShowValues((v) => !v)}
@@ -189,9 +205,8 @@ export default function OvertimeSummary({
 
         <SummaryItem
           label="Sĩ số"
-          value={`${presentCount}/${totalMembers} (nghỉ ${
-            totalMembers - presentCount
-          })`}
+          value={`${presentCount}/${totalMembers} (nghỉ ${totalMembers - presentCount
+            })`}
           color="text-cyan-300"
           icon={Users}
         />

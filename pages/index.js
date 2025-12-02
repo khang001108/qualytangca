@@ -117,10 +117,7 @@ export default function Home() {
       snap.docs.forEach((d) => {
         const data = d.data();
         if (!map[data.date]) map[data.date] = {};
-        map[data.date][data.realName] = {
-          shift: data.shift,
-          shiftStart: data.shiftStart,
-        };
+        map[data.date][data.realName] = data;   // 👈 GIỮ NGUYÊN FULL DATA
       });
       setShiftSchedules(map);
     });
@@ -407,10 +404,10 @@ export default function Home() {
       {toast && (
         <div
           className={`fixed bottom-6 left-6 px-4 py-2 rounded-xl shadow-lg text-white text-sm flex items-center gap-2 z-[100] ${toast.type === "error"
-              ? "bg-red-500"
-              : toast.type === "loading"
-                ? "bg-blue-500"
-                : "bg-green-500"
+            ? "bg-red-500"
+            : toast.type === "loading"
+              ? "bg-blue-500"
+              : "bg-green-500"
             }`}
         >
           {toast.type === "loading" && (

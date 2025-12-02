@@ -173,8 +173,8 @@ async function updateOvertimeLimitsMember(limitKey, memberId, patch) {
 export default function useOvertimeParser({
   user,
   members = [],
-  setMembers = () => {},
-  setItems = () => {},
+  setMembers = () => { },
+  setItems = () => { },
   selectedMonth,
   selectedYear,
   selectedDate,
@@ -371,6 +371,7 @@ export default function useOvertimeParser({
           await upsertShiftSchedule(dateStr, member, {
             lenCa: minutesToHHMM(minutesOfDay),
             checkinType,
+            type: "work",
             // do not overwrite shift/shiftStart here (we respect manual assignments)
           });
           updated++;
@@ -381,6 +382,7 @@ export default function useOvertimeParser({
         // persist xuongCa immediately
         await upsertShiftSchedule(dateStr, member, {
           xuongCa: minutesToHHMM(minutesOfDay),
+          type: "work",
         });
         updated++;
 
@@ -394,8 +396,15 @@ export default function useOvertimeParser({
               note: manual.leaveType,
               session: manual.session || null,
               manualLeave: true,
+              type: "leave",
             });
             continue;
+          }
+
+          if (!manual.leaveType) {
+            await upsertShiftSchedule(dateStr, member, {
+              type: "work",
+            });
           }
 
           // 2) load lại shift sau khi lưu phép
