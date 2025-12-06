@@ -334,6 +334,7 @@ export default function Home() {
           shiftSchedules={shiftSchedules}
           selectedMonth={selectedMonth}
           selectedYear={selectedYear}
+          selectedDate={selectedDate} 
         />
 
         {/* Main Components */}

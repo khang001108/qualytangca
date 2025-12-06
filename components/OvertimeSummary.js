@@ -18,11 +18,12 @@ export default function OvertimeSummary({
   shiftSchedules = {},
   selectedMonth,
   selectedYear,
+  selectedDate,
 }) {
   const [showValues, setShowValues] = useState(true);
 
   // ============================================================
-  // 🔥 TÍNH TỔNG OT TỪNG NHÂN VIÊN — LOGIC ĐỒNG BỘ VỚI BIỂU ĐỒ CHART
+  // 🔥 TÍNH OT
   // ============================================================
   const data = useMemo(() => {
     return members.map((m) => {
@@ -39,9 +40,6 @@ export default function OvertimeSummary({
           ).padStart(2, "0")}`
         ).format("YYYY-MM-DD");
 
-        // =====================================================
-        // 1) Ưu tiên lấy từ bảng OVERTIMES
-        // =====================================================
         const ot = overtimes.find((o) => {
           const dk =
             o.date?.slice(0, 10) ||
@@ -50,11 +48,8 @@ export default function OvertimeSummary({
               : null);
 
           if (!dk || dk !== dateKey) return false;
-
-          // Match theo memberId hoặc realName
           return (
-            String(o.memberId) === String(m.id) ||
-            o.realName === m.realName
+            String(o.memberId) === String(m.id) || o.realName === m.realName
           );
         });
 
@@ -63,10 +58,6 @@ export default function OvertimeSummary({
           continue;
         }
 
-        // =====================================================
-        // 2) Nếu không có → Fallback SHIFT SCHEDULES
-        //    (match theo realName hoặc memberId)
-        // =====================================================
         let rec = null;
 
         if (shiftSchedules[dateKey]) {
@@ -74,8 +65,7 @@ export default function OvertimeSummary({
             shiftSchedules[dateKey][m.realName] ||
             Object.values(shiftSchedules[dateKey]).find(
               (s) =>
-                String(s.memberId) === String(m.id) ||
-                s.realName === m.realName
+                String(s.memberId) === String(m.id) || s.realName === m.realName
             );
         }
 
@@ -93,76 +83,94 @@ export default function OvertimeSummary({
   }, [members, overtimes, shiftSchedules, selectedMonth, selectedYear]);
 
   // ============================================================
-  // 🔍 FIND MAX / MIN / SĨ SỐ
+  // TRÍCH THÔNG TIN
   // ============================================================
-  const maxData = data.reduce(
-    (a, b) => (b.total > a.total ? b : a),
-    { total: -1 }
-  );
+  const maxData = data.reduce((a, b) => (b.total > a.total ? b : a), {
+    total: -1,
+  });
 
-  const minData = data.reduce(
-    (a, b) => (b.total < a.total ? b : a),
-    { total: Infinity }
-  );
+  const minData = data.reduce((a, b) => (b.total < a.total ? b : a), {
+    total: Infinity,
+  });
 
-  const todayKey = dayjs().format("YYYY-MM-DD");
+  const currentKey = dayjs(selectedDate || new Date()).format("YYYY-MM-DD");
 
   const presentCount = members.filter((m) => {
     const rec =
-      shiftSchedules[todayKey]?.[m.realName] ||
-      Object.values(shiftSchedules[todayKey] || {}).find(
+      shiftSchedules[currentKey]?.[m.realName] ||
+      Object.values(shiftSchedules[currentKey] || {}).find(
         (v) =>
           v.realName === m.realName ||
           String(v.memberId) === String(m.id)
       );
-
+  
     if (!rec) return false;
     if (rec.type === "leave") return false;
     return rec.type === "work";
   }).length;
+  
 
   const totalMembers = members.length;
-
   const monthLimit = Math.max(...data.map((d) => d.limit || 0), 0);
 
   // ============================================================
-  // UI TEMPLATE
+  // COMPONENT ITEM
   // ============================================================
-  const SummaryItem = ({ label, value, color, icon: Icon, highlight }) => {
-    return (
-      <div
-        className={`p-4 rounded-2xl shadow-md border backdrop-blur-sm cursor-pointer
-        ${highlight
-            ? "bg-gradient-to-br from-orange-500/40 to-red-500/20 border-orange-400/50"
-            : "bg-indigo-900/40 border-indigo-600/50"
-          }`}
-      >
-        <div className="flex items-center gap-3">
-          <Icon className={`w-7 h-7 ${color}`} />
-          <div>
-            <p className="text-sm text-indigo-200 font-medium">{label}</p>
-            <p className={`text-lg font-semibold ${color}`}>
-              {showValues ? value : "••••"}
-            </p>
-          </div>
+  const SummaryItem = ({ label, value, color, icon: Icon, highlight }) => (
+    <div
+      className={`
+        p-4 rounded-xl shadow border transition-all duration-200
+        ${
+          highlight
+            ? `
+            bg-orange-50 dark:bg-orange-900/30 
+            border-orange-300 dark:border-orange-700
+          `
+            : `
+            bg-white dark:bg-gray-800
+            border-gray-200 dark:border-gray-700
+          `
+        }
+      `}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className={`w-7 h-7 ${color}`} />
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+            {label}
+          </p>
+          <p className={`text-lg font-semibold ${color}`}>
+            {showValues ? value : "••••"}
+          </p>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   // ============================================================
   // RENDER
   // ============================================================
   return (
-    <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 p-6 rounded-2xl shadow-xl border border-indigo-700/60">
+    <div
+      className="
+        bg-white dark:bg-gray-900
+        border border-gray-200 dark:border-gray-700
+        p-6 rounded-2xl shadow-md
+      "
+    >
       <div className="flex items-center justify-center mb-5 relative">
-        <h2 className="text-xl font-bold text-indigo-100">
-          🗓Trạng thái — {dayjs().format("DD/MM/YYYY")}
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+          🗓 Trạng thái — {dayjs(selectedDate || new Date()).format("DD/MM/YYYY")}
         </h2>
 
         <button
           onClick={() => setShowValues((v) => !v)}
-          className="absolute right-0 text-indigo-300 hover:text-white transition"
+          className="
+            absolute right-0 
+            text-gray-600 hover:text-black 
+            dark:text-gray-300 dark:hover:text-white
+            transition
+          "
         >
           {showValues ? (
             <EyeOff className="w-6 h-6" />
@@ -180,7 +188,7 @@ export default function OvertimeSummary({
               ? `${maxData.name} – ${formatHours(maxData.total)}`
               : "Không có dữ liệu"
           }
-          color="text-yellow-300"
+          color="text-yellow-600 dark:text-yellow-400"
           icon={Trophy}
           highlight
         />
@@ -192,22 +200,23 @@ export default function OvertimeSummary({
               ? `${minData.name} – ${formatHours(minData.total)}`
               : "Không có dữ liệu"
           }
-          color="text-green-300"
+          color="text-green-600 dark:text-green-400"
           icon={ArrowDownCircle}
         />
 
         <SummaryItem
           label="Giới hạn tháng"
           value={formatHours(monthLimit)}
-          color="text-blue-300"
+          color="text-blue-600 dark:text-blue-400"
           icon={ShieldCheck}
         />
 
         <SummaryItem
           label="Sĩ số"
-          value={`${presentCount}/${totalMembers} (nghỉ ${totalMembers - presentCount
-            })`}
-          color="text-cyan-300"
+          value={`${presentCount}/${totalMembers} (nghỉ ${
+            totalMembers - presentCount
+          })`}
+          color="text-cyan-600 dark:text-cyan-400"
           icon={Users}
         />
       </div>
