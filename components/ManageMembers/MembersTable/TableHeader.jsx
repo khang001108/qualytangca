@@ -35,8 +35,8 @@ export default function TableHeader() {
         <Col icon={ClockArrowUp} text="Lên ca" color="text-blue-500" />
         <Col icon={Hourglass} text="Giới hạn" color="text-green-500" />
         <Col icon={ClockFading} text="Đã tăng" color="text-yellow-500" />
-        <Col icon={CalendarClock} text="Tổng" color="text-indigo-500" />
-        <Col icon={CalendarDays} text="Ngày " color="text-teal-500" />
+        <Col icon={CalendarClock} text="Giờ còn" color="text-indigo-500" />
+        <Col icon={CalendarDays} text="Ngày còn" color="text-teal-500" />
         <Col icon={Timer} text="Lên ca sớm" color="text-purple-500" />
       </tr>
     </thead>
