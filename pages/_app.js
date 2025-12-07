@@ -141,32 +141,17 @@ export default function MyApp({ Component, pageProps }) {
               )}
             </button>
 
-            {/* Cài App */}
-            <button
-              onClick={installApp}
-              className="
-        p-2 rounded-xl
-        bg-white/30 dark:bg-gray-700/30
-        backdrop-blur-xl border border-white/10 dark:border-gray-600/10
-        text-gray-700 dark:text-gray-200
-        hover:bg-white/50 dark:hover:bg-gray-700/50
-        transition-all shadow
-      "
-            >
-              <Download className="w-5 h-5" />
-            </button>
-
             {/* Reload */}
             <button
               onClick={() => window.location.reload()}
               className="
-        p-2 rounded-xl
-        bg-white/30 dark:bg-gray-700/30
-        backdrop-blur-xl border border-white/10 dark:border-gray-600/10
-        text-gray-700 dark:text-gray-200
-        hover:bg-white/50 dark:hover:bg-gray-700/50
-        transition-all shadow
-      "
+                p-2 rounded-xl
+                bg-white/30 dark:bg-gray-700/30
+                backdrop-blur-xl border border-white/10 dark:border-gray-600/10
+                text-gray-700 dark:text-gray-200
+                hover:bg-white/50 dark:hover:bg-gray-700/50
+                transition-all shadow
+              "
             >
               <RefreshCcw className="w-5 h-5" />
             </button>
@@ -175,16 +160,32 @@ export default function MyApp({ Component, pageProps }) {
             <button
               onClick={() => setShowAccount(true)}
               className="
-        p-2 rounded-xl
-        bg-white/30 dark:bg-gray-700/30
-        backdrop-blur-xl border border-white/10 dark:border-gray-600/10
-        text-gray-700 dark:text-gray-200
-        hover:bg-white/50 dark:hover:bg-gray-700/50
-        transition-all shadow
-      "
+                p-2 rounded-xl
+                bg-white/30 dark:bg-gray-700/30
+                backdrop-blur-xl border border-white/10 dark:border-gray-600/10
+                text-gray-700 dark:text-gray-200
+                hover:bg-white/50 dark:hover:bg-gray-700/50
+                transition-all shadow
+              "
             >
               <UserCog className="w-5 h-5" />
             </button>
+            
+            {/* Cài App */}
+            <button
+              onClick={installApp}
+              className="
+                p-2 rounded-xl
+                bg-white/30 dark:bg-gray-700/30
+                backdrop-blur-xl border border-white/10 dark:border-gray-600/10
+                text-gray-700 dark:text-gray-200
+                hover:bg-white/50 dark:hover:bg-gray-700/50
+                transition-all shadow
+              "
+            >
+              <Download className="w-5 h-5" />
+            </button>
+
           </div>
         )}
 
