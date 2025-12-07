@@ -195,47 +195,86 @@ export default function MyApp({ Component, pageProps }) {
   );
 }
 
+import { auth } from "../lib/firebase";
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+} from "firebase/auth";
+
 function AccountPopup({ onClose }) {
   const [oldPass, setOldPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [message, setMessage] = useState("");
 
+  const handleChangePassword = async () => {
+    setMessage("");
+
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        setMessage("Bạn cần đăng nhập lại.");
+        return;
+      }
+
+      // Tạo credential từ mật khẩu cũ
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        oldPass
+      );
+
+      // Yêu cầu xác thực lại
+      await reauthenticateWithCredential(user, credential);
+
+      // Cập nhật mật khẩu mới
+      await updatePassword(user, newPass);
+
+      setMessage("Đổi mật khẩu thành công!");
+    } catch (err) {
+      console.error("PASSWORD ERROR:", err);
+
+      if (err.code === "auth/wrong-password") {
+        setMessage("❌ Sai mật khẩu cũ!");
+      } else if (err.code === "auth/requires-recent-login") {
+        setMessage("⚠️ Phiên đăng nhập đã quá hạn. Vui lòng đăng nhập lại.");
+      } else {
+        setMessage("Lỗi: " + err.code);
+      }
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm("Bạn chắc chắn muốn xóa tài khoản?")) return;
+
+    try {
+      await auth.currentUser.delete();
+      alert("Tài khoản đã bị xóa!");
+      window.location.href = "/login";
+    } catch (err) {
+      console.error("DELETE ERROR:", err);
+      setMessage("⚠️ Phiên đăng nhập hết hạn. Hãy đăng nhập lại rồi thử xóa.");
+    }
+  };
+
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center 
-        bg-black/40 backdrop-blur-sm z-[99999] p-4 animate-fadeIn"
-    >
-      {/* BONG BÓNG MỜ */}
-      <div
-        className="
-          w-full max-w-md p-6 rounded-3xl shadow-2xl
-          bg-white/20 dark:bg-gray-800/30
-          backdrop-blur-2xl border border-white/30 dark:border-gray-600/30
-          text-gray-900 dark:text-gray-100
-          animate-scaleIn
-        "
-      >
-        <h2 className="text-2xl font-bold text-center mb-6 drop-shadow-sm">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[99999] p-4">
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md p-6 rounded-2xl shadow-xl border border-gray-300 dark:border-gray-700">
+        
+        <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
           ⚙️ Thông Tin Tài Khoản
         </h2>
 
         {/* Đổi mật khẩu */}
-        <div className="mb-8">
-          <p className="font-semibold mb-3 text-gray-800 dark:text-gray-200">
-            Đổi mật khẩu
-          </p>
+        <div className="space-y-3 mb-6">
+          <p className="font-semibold text-gray-700 dark:text-gray-300">Đổi mật khẩu</p>
 
           <input
             type="password"
             placeholder="Mật khẩu cũ"
             value={oldPass}
             onChange={(e) => setOldPass(e.target.value)}
-            className="
-              w-full px-4 py-2 rounded-xl 
-              bg-white/40 dark:bg-gray-700/40
-              border border-gray-300/20 dark:border-gray-600/20 
-              outline-none focus:ring-2 focus:ring-indigo-400
-            "
+            className="w-full p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-none"
           />
 
           <input
@@ -243,54 +282,37 @@ function AccountPopup({ onClose }) {
             placeholder="Mật khẩu mới"
             value={newPass}
             onChange={(e) => setNewPass(e.target.value)}
-            className="
-              w-full px-4 py-2 mt-3 rounded-xl 
-              bg-white/40 dark:bg-gray-700/40
-              border border-gray-300/20 dark:border-gray-600/20 
-              outline-none focus:ring-2 focus:ring-indigo-400
-            "
+            className="w-full p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-none"
           />
 
           <button
-            className="
-              w-full mt-4 py-2 
-              bg-indigo-600 hover:bg-indigo-700 
-              text-white rounded-xl font-semibold shadow
-            "
+            onClick={handleChangePassword}
+            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition"
           >
             Đổi mật khẩu
           </button>
         </div>
 
         {/* Xóa tài khoản */}
-        <div className="mb-3">
-          <p className="font-semibold text-red-400 dark:text-red-300 mb-2">
-            Xóa tài khoản
-          </p>
-
+        <div className="mb-4">
+          <p className="font-semibold text-red-500 mb-2">Xóa tài khoản</p>
           <button
-            className="
-              w-full py-2 
-              bg-red-600 hover:bg-red-700 
-              text-white rounded-xl font-semibold shadow
-            "
+            onClick={handleDeleteAccount}
+            className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
           >
             Xóa tài khoản
           </button>
         </div>
 
         {message && (
-          <p className="text-center text-sm text-yellow-200 mt-2">{message}</p>
+          <p className="text-center text-sm mt-2 text-gray-800 dark:text-gray-200">
+            {message}
+          </p>
         )}
 
         <button
           onClick={onClose}
-          className="
-            w-full mt-5 py-2
-            bg-gray-300 hover:bg-gray-400 
-            dark:bg-gray-700 dark:hover:bg-gray-600 
-            rounded-xl font-semibold
-          "
+          className="mt-4 w-full py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg"
         >
           Đóng
         </button>
