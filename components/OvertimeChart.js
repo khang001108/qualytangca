@@ -51,6 +51,61 @@ const CustomDotAvatar = ({ cx, cy, payload, members }) => {
   );
 };
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  // mapping màu + icon + label tiếng Việt
+  const styles = {
+    Limit: { color: "#ef4444", icon: "●", label: "Giới hạn" },
+    OT: { color: "#16a34a", icon: "■", label: "OT tiếng thực" },
+    OT_NoBonus: { color: "#3b82f6", icon: "●", label: "OT tiếng nhảy" },
+  };
+
+  // Lọc trùng do Bar + Line
+  const filtered = payload.filter(
+    (item, idx, arr) => idx === arr.findIndex((x) => x.dataKey === item.dataKey)
+  );
+
+  return (
+    <div
+      style={{
+        background: "white",
+        padding: "12px 15px",
+        borderRadius: 12,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+      }}
+      className="dark:bg-gray-800 dark:border-gray-600"
+    >
+      {/* Name */}
+      <p className="font-semibold text-gray-800 dark:text-gray-200 mb-2">
+        {label}
+      </p>
+
+      {/* Rows */}
+      {filtered.map((item, index) => {
+        const style = styles[item.dataKey];
+
+        return (
+          <p
+            key={index}
+            className="text-sm flex items-center gap-2"
+            style={{ color: style.color }}
+          >
+            {/* icon */}
+            <span style={{ color: style.color }}>{style.icon}</span>
+
+            {/* text */}
+            <span>
+              {style.label}: {item.value} giờ
+            </span>
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function OvertimeChartByMember({
   members = [],
   overtimes = [],
@@ -166,18 +221,18 @@ export default function OvertimeChartByMember({
 
             <YAxis tick={{ fontSize: 12, fill: axisColor }} />
 
-            <Tooltip
-              contentStyle={{
-                backgroundColor: tooltipBg,
-                borderRadius: "10px",
-                border: `1px solid ${tooltipBorder}`,
-              }}
-              labelStyle={{ color: tooltipText }}
-              itemStyle={{ color: tooltipText }}
-              formatter={(v) => `${v} giờ`}
-            />
+            <Tooltip content={<CustomTooltip />} />
 
-            <Legend wrapperStyle={{ color: axisColor, fontSize: 13 }} />
+            <Legend
+              verticalAlign="top"
+              align="center"
+              wrapperStyle={{
+                paddingTop: 10,
+                paddingBottom: 20,
+                color: axisColor,
+                fontSize: 13,
+              }}
+            />
 
             {hoverIndex != null && (
               <ReferenceLine
@@ -201,9 +256,7 @@ export default function OvertimeChartByMember({
               dataKey="OT"
               stroke="#16a34a"
               strokeWidth={3}
-              dot={(props) => (
-                <CustomDotAvatar {...props} members={members} />
-              )}
+              dot={(props) => <CustomDotAvatar {...props} members={members} />}
               activeDot={false}
             />
 
