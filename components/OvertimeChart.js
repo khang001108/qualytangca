@@ -51,14 +51,28 @@ const CustomDotAvatar = ({ cx, cy, payload, members }) => {
   );
 };
 
+const LegendIcon = ({ color }) => (
+  <svg width="26" height="10" viewBox="0 0 26 10">
+    <line x1="1" y1="5" x2="25" y2="5" stroke={color} strokeWidth="2" />
+    <circle cx="13" cy="5" r="4" fill={color} />
+    <circle cx="13" cy="5" r="2" fill="white" />
+  </svg>
+);
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
 
   // mapping màu + icon + label tiếng Việt
+  // const styles = {
+  //   Limit: { color: "#ef4444", icon: "●", label: "Giới hạn" },
+  //   OT: { color: "#16a34a", icon: "■", label: "OT tiếng thực" },
+  //   OT_NoBonus: { color: "#3b82f6", icon: "●", label: "OT tiếng nhảy" },
+  // };
+
   const styles = {
-    Limit: { color: "#ef4444", icon: "●", label: "Giới hạn" },
-    OT: { color: "#16a34a", icon: "■", label: "OT tiếng thực" },
-    OT_NoBonus: { color: "#3b82f6", icon: "●", label: "OT tiếng nhảy" },
+    Limit: { color: "#ef4444", label: "Limit" },
+    OT: { color: "#16a34a", label: "OT" },
+    OT_NoBonus: { color: "#3b82f6", label: "OT_NoBonus" },
   };
 
   // Lọc trùng do Bar + Line
@@ -92,13 +106,12 @@ const CustomTooltip = ({ active, payload, label }) => {
             className="text-sm flex items-center gap-2"
             style={{ color: style.color }}
           >
-            {/* icon */}
-            <span style={{ color: style.color }}>{style.icon}</span>
-
-            {/* text */}
-            <span>
-              {style.label}: {item.value} giờ
-            </span>
+            <div key={index} className="flex items-center gap-2 text-sm">
+              <LegendIcon color={style.color} />
+              <span className="text-gray-700 dark:text-gray-300">
+                {style.label}: {item.value} giờ
+              </span>
+            </div>
           </p>
         );
       })}
