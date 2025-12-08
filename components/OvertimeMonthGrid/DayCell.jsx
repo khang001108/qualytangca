@@ -7,9 +7,10 @@ export default function DayCell({ isRest, isBlocked, isCn, tang, thuong, onClick
 
   // 1️⃣ BLOCK — ô TRỐNG màu xám
   if (isBlocked) {
-    classes += ` ${CSS.blocked}`;   // bạn tự thêm class CSS.blocked trong styles
-    content = "";
+    classes += ` ${CSS.blocked}`;
+    content = "B";   // đổi ký hiệu tại đây
   }
+
 
   // 2️⃣ NGHỈ THẬT — hiện chữ 休
   else if (isRest) {

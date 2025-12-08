@@ -315,7 +315,8 @@ export default function OvertimeMonthGrid({
         /* =========================
            PLAN MODE: TÍNH NGÀY CẦN TĂNG CA
         ============================ */
-        let requiredDays = planMode ? getRequiredDays(m) : 0;
+        let originalRequired = planMode ? getRequiredDays(m) : 0;
+        let requiredDays = originalRequired;
         let perDayPlan = 2;
         let daysToAssign = new Set();
 
@@ -345,16 +346,19 @@ export default function OvertimeMonthGrid({
               return false;
             }
 
-            // ✔️ ĐÚNG: check block ở đây
             if (manualBlockDays[blockKey]?.includes(day)) return false;
 
             return true;
           });
 
+          // 🔥 GIẢM SỐ NGÀY CẦN TĂNG CA SAU KHI BLOCK
+          requiredDays = Math.min(originalRequired, validDays.length);
+
           validDays.slice(0, requiredDays).forEach((d) => {
             daysToAssign.add(d);
           });
         }
+
 
 
         return (
@@ -420,23 +424,22 @@ export default function OvertimeMonthGrid({
                 }`}
               style={
                 stickyCols.shift
-                  ? {
-                    position: "sticky",
-                    left: calcLeftFor("shift"),
-                    zIndex: 30,
-                  }
+                  ? { position: "sticky", left: calcLeftFor("shift"), zIndex: 30 }
                   : undefined
               }
             >
-              {getShiftDisplay(
-                m,
-                shiftCfg,
-                getShiftRec(
-                  formatDateKey(selectedYear, selectedMonth, dayjs().date()),
-                  m
-                )
-              )}
+              {planMode
+                ? requiredDays + " ngày"
+                : getShiftDisplay(
+                  m,
+                  shiftCfg,
+                  getShiftRec(
+                    formatDateKey(selectedYear, selectedMonth, dayjs().date()),
+                    m
+                  )
+                )}
             </td>
+
 
             {/* DAYS */}
             {days.map((d) => {
@@ -652,7 +655,7 @@ export default function OvertimeMonthGrid({
                 }
               >
                 <div className="flex items-center justify-between">
-                  <span>Giờ Lên Ca</span>
+                  <span>{planMode ? "Ngày cần tăng ca" : "Giờ Lên Ca"}</span>
                   <button
                     onClick={() => toggleSticky("shift")}
                     className={`text-xs p-1 ${stickyCols.shift

@@ -68,9 +68,12 @@ export const CSS = {
   work:
     "bg-white text-gray-800 dark:bg-[#2A2B3C] dark:text-[#D7DAE6]",
 
+  // blocked:
+  //   "!bg-gray-300 !text-red-700 font-bold border-gray-400 " +
+  //   "dark:!bg-gray-600 dark:!text-red-300 dark:border-gray-800",
   blocked:
-    "!bg-gray-300 !text-transparent border-gray-400 " +
-    "dark:!bg-gray-600 dark:!text-transparent dark:border-gray-500",
+    "!text-red-700 font-bold border-gray-400 " +
+    "dark:!text-red-300",
 
 
   /* ===== SUNDAY ===== */
