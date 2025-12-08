@@ -419,26 +419,29 @@ export default function OvertimeMonthGrid({
 
             {/* Shift */}
             <td
-              className={`${CSS.stickyShift} ${stickyCols.shift
-                ? "bg-yellow-50 dark:bg-yellow-900/100"
-                : "bg-transparent"
-                }`}
+              className={`
+              ${CSS.stickyShift}
+              ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/100" : "bg-transparent"}
+              ${planMode && requiredDays < originalRequired ? "text-red-500 font-bold" : ""}
+            `}
               style={
                 stickyCols.shift
                   ? { position: "sticky", left: calcLeftFor("shift"), zIndex: 30 }
                   : undefined
               }
             >
-              {planMode
-                ? requiredDays + " ngày"
-                : getShiftDisplay(
+              {planMode ? (
+                <span className={`${requiredDays < originalRequired ? "text-red-500 font-bold" : ""}`}>
+                  {requiredDays} ngày
+                </span>
+              ) : (
+                getShiftDisplay(
                   m,
                   shiftCfg,
-                  getShiftRec(
-                    formatDateKey(selectedYear, selectedMonth, dayjs().date()),
-                    m
-                  )
-                )}
+                  getShiftRec(formatDateKey(selectedYear, selectedMonth, dayjs().date()), m)
+                )
+              )}
+
             </td>
 
 
@@ -532,7 +535,7 @@ export default function OvertimeMonthGrid({
           {/* Toggle PLAN MODE */}
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-              Chế độ ngày cần tăng ca
+              Dự tính ngày tăng ca
             </span>
 
             <div
@@ -551,7 +554,7 @@ export default function OvertimeMonthGrid({
               }}
               className="px-3 py-1 rounded bg-red-500 text-white text-sm shadow whitespace-nowrap"
             >
-              Reset dự tính
+              Khôi phục
             </button>
           ) : (
             <div className="w-[100px]"></div> // giữ chỗ để ko nhảy UI
