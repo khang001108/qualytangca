@@ -113,6 +113,7 @@ export default function OvertimeMonthGrid({
   const [viewMode, setViewMode] = useState("normal");
   const [shiftCfg, setShiftCfg] = useState({ day: null, night: null });
   const [manualBlockDays, setManualBlockDays] = useState({});
+  const today = dayjs().date();
 
   // MODE CHIA NGÀY CẦN TĂNG CA
   const [planMode, setPlanMode] = useState(false);
@@ -337,7 +338,7 @@ export default function OvertimeMonthGrid({
             const w = dayjs(key).day();
             const weekday = w === 0 ? 7 : w;
 
-            if (day < today) return false;
+            if (day <= today) return false;
             if (day <= lastRealOT) return false;
             if (parseRestDay(m.restDay) === weekday) return false;
 
@@ -467,14 +468,21 @@ export default function OvertimeMonthGrid({
               }
               // Nếu không block → gán OT dự tính
               else if (planMode) {
-                if (daysToAssign.has(d)) {
+                // Có OT thật thì giữ nguyên
+                if (otRec && (otRec.tangCaHomNay > 0 || otRec.thuong > 0)) {
+                  // giữ nguyên tang/thuong từ otRec
+                }
+                // Không có OT thật → dùng OT dự tính
+                else if (daysToAssign.has(d)) {
                   tang = perDayPlan;
                   thuong = 0;
-                } else {
+                }
+                else {
                   tang = 0;
                   thuong = 0;
                 }
               }
+
 
 
               return (
@@ -493,12 +501,15 @@ export default function OvertimeMonthGrid({
                     thuong={thuong}
                     onClick={() => {
                       if (planMode) {
+                        // Không cho click ngày đã qua hoặc ngày hôm nay
+                        if (d <= today) return;
+
                         handleClickPlanMode(d, m);
                       } else {
                         onCellClick?.(key, m, { shiftRec, otRec });
                       }
-
                     }}
+
                   />
                 </td>
               );
@@ -514,31 +525,43 @@ export default function OvertimeMonthGrid({
   return (
     <div className={CSS.container}>
       <div className={CSS.headerBox}>
-        <h3 className={CSS.headerTitle}>
-          Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/
-          {selectedYear}
-        </h3>
 
-        {/* Toggle PLAN MODE */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Chế độ ngày cần tăng ca</span>
-          <input
-            type="checkbox"
-            checked={planMode}
-            onChange={(e) => setPlanMode(e.target.checked)}
-          />
+
+        {/* Nhóm toggle + reset giữ layout cố định */}
+        <div className="flex items-center gap-4 min-w-[240px] justify-end">
+          {/* Toggle PLAN MODE */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+              Chế độ ngày cần tăng ca
+            </span>
+
+            <div
+              className={`toggle-mini ${planMode ? "active" : ""}`}
+              onClick={() => setPlanMode(!planMode)}
+            >
+              <div className="toggle-ball-mini" />
+            </div>
+          </div>
+          {/* Reset chỉ xuất hiện nhưng KHÔNG làm layout thay đổi */}
+          {planMode ? (
+            <button
+              onClick={() => {
+                setManualBlockDays({});
+                saveBlocks({});
+              }}
+              className="px-3 py-1 rounded bg-red-500 text-white text-sm shadow whitespace-nowrap"
+            >
+              Reset dự tính
+            </button>
+          ) : (
+            <div className="w-[100px]"></div> // giữ chỗ để ko nhảy UI
+          )}
+
         </div>
 
-        <button
-          onClick={() => {
-            setManualBlockDays({});
-            saveBlocks({});
-          }}
-          className="px-3 py-1 rounded bg-red-500 text-white text-sm"
-        >
-          Reset dự tính
-        </button>
-
+        <h3 className={CSS.headerTitle}>
+          Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/{selectedYear}
+        </h3>
 
         <select
           value={viewMode}
@@ -551,6 +574,8 @@ export default function OvertimeMonthGrid({
           <option value="otDesc">Giờ tăng ca nhiều nhất</option>
         </select>
       </div>
+
+
 
       <div className={CSS.scrollArea}>
         <table className={CSS.table}>

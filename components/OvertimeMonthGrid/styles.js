@@ -72,8 +72,8 @@ export const CSS = {
   //   "!bg-gray-300 !text-red-700 font-bold border-gray-400 " +
   //   "dark:!bg-gray-600 dark:!text-red-300 dark:border-gray-800",
   blocked:
-    "!text-red-700 font-bold border-gray-400 " +
-    "dark:!text-red-300",
+    "!text-gray-700 font-bold border-gray-400 " +
+    "dark:!text-gray-300",
 
 
   /* ===== SUNDAY ===== */
@@ -83,3 +83,4 @@ export const CSS = {
 
 
 };
+
