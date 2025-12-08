@@ -690,3 +690,11 @@ ca muộn tương tự
 
 thêm 1 combobox kiểu xem
 theo ngày
+
+
+
+✔️ CHỈ CẦN TRẢ LỜI 3 CÂU:
+
+1️⃣ Khi click vào ô "2", muốn nó hiển thị trống màu xám
+2️⃣ manualBlockDays muốn lưu database
+3️⃣ Có một nút Reset dự tính 

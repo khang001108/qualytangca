@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import dayjs from "dayjs";
 import DayCell from "./DayCell";
 import { CSS } from "./styles";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
 /* ========================= HELPERS ========================= */
@@ -157,6 +157,28 @@ export default function OvertimeMonthGrid({
     await setDoc(ref, updated, { merge: true });
   }
 
+  /* ========================= CLICK BLOCK DAY ========================= */
+  const handleClickPlanMode = (day, m) => {
+    const key = `${m.id}_${selectedYear}-${selectedMonth}`;
+
+    const newSet = new Set(manualBlockDays[key] || []);
+
+    if (newSet.has(day)) {
+      newSet.delete(day); // click lần 2 → bỏ block
+    } else {
+      newSet.add(day); // click lần 1 → block
+    }
+
+    const updated = {
+      ...manualBlockDays,
+      [key]: Array.from(newSet),
+    };
+
+    setManualBlockDays(updated);
+    saveBlocks(updated);
+  };
+
+
   /* ----- Load shiftConfig ----- */
   useEffect(() => {
     const load = async () => {
@@ -307,45 +329,42 @@ export default function OvertimeMonthGrid({
           );
 
           const today = dayjs().date();
+          const blockKey = `${m.id}_${selectedYear}-${selectedMonth}`;
 
           const validDays = days.filter((day) => {
             const key = formatDateKey(selectedYear, selectedMonth, day);
             const w = dayjs(key).day();
             const weekday = w === 0 ? 7 : w;
 
-            // (1) Không gán tăng ca cho ngày đã qua
             if (day < today) return false;
-
-            // (2) Không gán vào ngày trước hoặc bằng ngày có OT thật cuối cùng
             if (day <= lastRealOT) return false;
-
-            // (3) Bỏ ngày nghỉ 休
             if (parseRestDay(m.restDay) === weekday) return false;
 
-            // (4) Bỏ ngày đã có OT thực tế
             const ot = getOvertimeForDay(overtimes, key, m);
             if (ot && (Number(ot.tangCaHomNay) > 0 || Number(ot.thuong) > 0)) {
               return false;
             }
 
+            // ✔️ ĐÚNG: check block ở đây
+            if (manualBlockDays[blockKey]?.includes(day)) return false;
+
             return true;
           });
 
-          // 5) chọn đúng số requiredDays từ cuối danh sách hợp lệ
           validDays.slice(0, requiredDays).forEach((d) => {
             daysToAssign.add(d);
           });
         }
 
+
         return (
           <tr key={m.id} className="transition">
             {/* STT */}
             <td
-              className={`${CSS.stickySTT} ${
-                stickyCols.stt
-                  ? "bg-yellow-50 dark:bg-yellow-900/100"
-                  : "bg-transparent"
-              }`}
+              className={`${CSS.stickySTT} ${stickyCols.stt
+                ? "bg-yellow-50 dark:bg-yellow-900/100"
+                : "bg-transparent"
+                }`}
               style={
                 stickyCols.stt
                   ? { position: "sticky", left: calcLeftFor("stt"), zIndex: 30 }
@@ -357,18 +376,17 @@ export default function OvertimeMonthGrid({
 
             {/* Name */}
             <td
-              className={`${CSS.stickyName} ${
-                stickyCols.name
-                  ? "bg-yellow-50 dark:bg-yellow-900/100"
-                  : "bg-transparent"
-              }`}
+              className={`${CSS.stickyName} ${stickyCols.name
+                ? "bg-yellow-50 dark:bg-yellow-900/100"
+                : "bg-transparent"
+                }`}
               style={
                 stickyCols.name
                   ? {
-                      position: "sticky",
-                      left: calcLeftFor("name"),
-                      zIndex: 30,
-                    }
+                    position: "sticky",
+                    left: calcLeftFor("name"),
+                    zIndex: 30,
+                  }
                   : undefined
               }
             >
@@ -377,18 +395,17 @@ export default function OvertimeMonthGrid({
 
             {/* Nick */}
             <td
-              className={`${CSS.stickyNick} ${
-                stickyCols.nick
-                  ? "bg-yellow-50 dark:bg-yellow-900/100"
-                  : "bg-transparent"
-              }`}
+              className={`${CSS.stickyNick} ${stickyCols.nick
+                ? "bg-yellow-50 dark:bg-yellow-900/100"
+                : "bg-transparent"
+                }`}
               style={
                 stickyCols.nick
                   ? {
-                      position: "sticky",
-                      left: calcLeftFor("nick"),
-                      zIndex: 30,
-                    }
+                    position: "sticky",
+                    left: calcLeftFor("nick"),
+                    zIndex: 30,
+                  }
                   : undefined
               }
             >
@@ -397,18 +414,17 @@ export default function OvertimeMonthGrid({
 
             {/* Shift */}
             <td
-              className={`${CSS.stickyShift} ${
-                stickyCols.shift
-                  ? "bg-yellow-50 dark:bg-yellow-900/100"
-                  : "bg-transparent"
-              }`}
+              className={`${CSS.stickyShift} ${stickyCols.shift
+                ? "bg-yellow-50 dark:bg-yellow-900/100"
+                : "bg-transparent"
+                }`}
               style={
                 stickyCols.shift
                   ? {
-                      position: "sticky",
-                      left: calcLeftFor("shift"),
-                      zIndex: 30,
-                    }
+                    position: "sticky",
+                    left: calcLeftFor("shift"),
+                    zIndex: 30,
+                  }
                   : undefined
               }
             >
@@ -429,15 +445,25 @@ export default function OvertimeMonthGrid({
               const otRec = getOvertimeForDay(overtimes, key, m);
 
               const w = dayjs(key).day();
-              const isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
+              let isRest = parseRestDay(m.restDay) === (w === 0 ? 7 : w);
+
 
               let tang = Number(
                 otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0
               );
               let thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
 
-              /* ⚡ PLAN MODE GHI ĐÈ OT TOÀN BỘ */
-              if (planMode) {
+              const blockKey = `${m.id}_${selectedYear}-${selectedMonth}`;
+              const isBlocked = manualBlockDays[blockKey]?.includes(d);
+
+              // Nếu USER block → ép xám, không gán OT
+              if (isBlocked) {
+                tang = 0;
+                thuong = 0;
+                isRest = false;
+              }
+              // Nếu không block → gán OT dự tính
+              else if (planMode) {
                 if (daysToAssign.has(d)) {
                   tang = perDayPlan;
                   thuong = 0;
@@ -447,21 +473,29 @@ export default function OvertimeMonthGrid({
                 }
               }
 
+
               return (
                 <td
                   key={d}
-                  className={`p-0 ${
-                    w === 0
-                      ? "bg-orange-50 dark:bg-orange-900/20"
-                      : "bg-transparent"
-                  }`}
+                  className={`p-0 ${w === 0
+                    ? "bg-orange-50 dark:bg-orange-900/20"
+                    : "bg-transparent"
+                    }`}
                 >
                   <DayCell
                     isRest={isRest}
+                    isBlocked={isBlocked}
                     isCn={w === 0}
                     tang={tang}
                     thuong={thuong}
-                    onClick={() => onCellClick?.(key, m, { shiftRec, otRec })}
+                    onClick={() => {
+                      if (planMode) {
+                        handleClickPlanMode(d, m);
+                      } else {
+                        onCellClick?.(key, m, { shiftRec, otRec });
+                      }
+
+                    }}
                   />
                 </td>
               );
@@ -492,6 +526,17 @@ export default function OvertimeMonthGrid({
           />
         </div>
 
+        <button
+          onClick={() => {
+            setManualBlockDays({});
+            saveBlocks({});
+          }}
+          className="px-3 py-1 rounded bg-red-500 text-white text-sm"
+        >
+          Reset dự tính
+        </button>
+
+
         <select
           value={viewMode}
           onChange={(e) => setViewMode(e.target.value)}
@@ -510,16 +555,15 @@ export default function OvertimeMonthGrid({
             <tr>
               {/* STT */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickySTT} ${
-                  stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
-                }`}
+                className={`${CSS.headerCell} ${CSS.stickySTT} ${stickyCols.stt ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
+                  }`}
                 style={
                   stickyCols.stt
                     ? {
-                        position: "sticky",
-                        left: calcLeftFor("stt"),
-                        zIndex: 40,
-                      }
+                      position: "sticky",
+                      left: calcLeftFor("stt"),
+                      zIndex: 40,
+                    }
                     : undefined
                 }
               >
@@ -527,11 +571,10 @@ export default function OvertimeMonthGrid({
                   <span>STT</span>
                   <button
                     onClick={() => toggleSticky("stt")}
-                    className={`text-xs p-1 ${
-                      stickyCols.stt
-                        ? "text-yellow-500"
-                        : "text-gray-400 dark:text-gray-300"
-                    }`}
+                    className={`text-xs p-1 ${stickyCols.stt
+                      ? "text-yellow-500"
+                      : "text-gray-400 dark:text-gray-300"
+                      }`}
                   >
                     📌
                   </button>
@@ -540,16 +583,15 @@ export default function OvertimeMonthGrid({
 
               {/* NAME */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickyName} ${
-                  stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
-                }`}
+                className={`${CSS.headerCell} ${CSS.stickyName} ${stickyCols.name ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
+                  }`}
                 style={
                   stickyCols.name
                     ? {
-                        position: "sticky",
-                        left: calcLeftFor("name"),
-                        zIndex: 40,
-                      }
+                      position: "sticky",
+                      left: calcLeftFor("name"),
+                      zIndex: 40,
+                    }
                     : undefined
                 }
               >
@@ -557,11 +599,10 @@ export default function OvertimeMonthGrid({
                   <span>HỌ TÊN</span>
                   <button
                     onClick={() => toggleSticky("name")}
-                    className={`text-xs p-1 ${
-                      stickyCols.name
-                        ? "text-yellow-500"
-                        : "text-gray-400 dark:text-gray-300"
-                    }`}
+                    className={`text-xs p-1 ${stickyCols.name
+                      ? "text-yellow-500"
+                      : "text-gray-400 dark:text-gray-300"
+                      }`}
                   >
                     📌
                   </button>
@@ -570,16 +611,15 @@ export default function OvertimeMonthGrid({
 
               {/* NICK */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickyNick} ${
-                  stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
-                }`}
+                className={`${CSS.headerCell} ${CSS.stickyNick} ${stickyCols.nick ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
+                  }`}
                 style={
                   stickyCols.nick
                     ? {
-                        position: "sticky",
-                        left: calcLeftFor("nick"),
-                        zIndex: 40,
-                      }
+                      position: "sticky",
+                      left: calcLeftFor("nick"),
+                      zIndex: 40,
+                    }
                     : undefined
                 }
               >
@@ -587,11 +627,10 @@ export default function OvertimeMonthGrid({
                   <span>Nickname</span>
                   <button
                     onClick={() => toggleSticky("nick")}
-                    className={`text-xs p-1 ${
-                      stickyCols.nick
-                        ? "text-yellow-500"
-                        : "text-gray-400 dark:text-gray-300"
-                    }`}
+                    className={`text-xs p-1 ${stickyCols.nick
+                      ? "text-yellow-500"
+                      : "text-gray-400 dark:text-gray-300"
+                      }`}
                   >
                     📌
                   </button>
@@ -600,16 +639,15 @@ export default function OvertimeMonthGrid({
 
               {/* SHIFT */}
               <th
-                className={`${CSS.headerCell} ${CSS.stickyShift} ${
-                  stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
-                }`}
+                className={`${CSS.headerCell} ${CSS.stickyShift} ${stickyCols.shift ? "bg-yellow-50 dark:bg-yellow-900/100" : ""
+                  }`}
                 style={
                   stickyCols.shift
                     ? {
-                        position: "sticky",
-                        left: calcLeftFor("shift"),
-                        zIndex: 40,
-                      }
+                      position: "sticky",
+                      left: calcLeftFor("shift"),
+                      zIndex: 40,
+                    }
                     : undefined
                 }
               >
@@ -617,11 +655,10 @@ export default function OvertimeMonthGrid({
                   <span>Giờ Lên Ca</span>
                   <button
                     onClick={() => toggleSticky("shift")}
-                    className={`text-xs p-1 ${
-                      stickyCols.shift
-                        ? "text-yellow-500"
-                        : "text-gray-400 dark:text-gray-300"
-                    }`}
+                    className={`text-xs p-1 ${stickyCols.shift
+                      ? "text-yellow-500"
+                      : "text-gray-400 dark:text-gray-300"
+                      }`}
                   >
                     📌
                   </button>
@@ -632,9 +669,8 @@ export default function OvertimeMonthGrid({
               {weekdayLabels.map(({ day, label, weekday }) => (
                 <th
                   key={day}
-                  className={`${CSS.headerCell} ${
-                    weekday === 0 ? "bg-orange-100 dark:bg-orange-900/100" : ""
-                  }`}
+                  className={`${CSS.headerCell} ${weekday === 0 ? "bg-orange-100 dark:bg-orange-900/100" : ""
+                    }`}
                   style={{ width: "36px" }}
                 >
                   <div>{label}</div>
