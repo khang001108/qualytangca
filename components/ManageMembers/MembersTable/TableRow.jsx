@@ -153,17 +153,17 @@ export default function TableRow({
   // TÍNH NGÀY CÒN LẠI
   // ===========================
   const getRemainingDays = () => {
-    const hoursPerDay =
-      shiftConfig?.day?.perDay || 2;   // số giờ tăng ca mỗi ngày
+  const hoursPerDay = m.overtimeLimit?.perDay || 0;
 
-    const remainingHours =
-      (m.overtimeLimit?.monthlyLimit || 0) -
-      (m.overtimeLimit?.workedHours || 0);
+  const remainingHours =
+    (m.overtimeLimit?.monthlyLimit || 0) -
+    (m.overtimeLimit?.workedHours || 0);
 
-    if (remainingHours <= 0) return 0;
+  if (!hoursPerDay || remainingHours <= 0) return 0;
 
-    return Math.ceil(remainingHours / hoursPerDay);
-  };
+  return Math.ceil(remainingHours / hoursPerDay);
+};
+
 
 
   // ===========================

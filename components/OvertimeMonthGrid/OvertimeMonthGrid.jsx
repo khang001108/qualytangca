@@ -94,7 +94,8 @@ function getShiftDisplay(m, shiftCfg, shiftRec) {
 function getRequiredDays(m) {
   const limit = m.overtimeLimit?.monthlyLimit || 0;
   const worked = m.overtimeLimit?.workedHours || 0;
-  const perDay = 2; // cấu hình mặc định
+  const perDay = Number(m.overtimeLimit?.perDay || 0);
+  if (perDay <= 0) return 0;
 
   const remaining = Math.max(0, limit - worked);
   return Math.ceil(remaining / perDay);
@@ -318,7 +319,7 @@ export default function OvertimeMonthGrid({
         ============================ */
         let originalRequired = planMode ? getRequiredDays(m) : 0;
         let requiredDays = originalRequired;
-        let perDayPlan = 2;
+        let perDayPlan = Number(m.overtimeLimit?.perDay || 0);
         let daysToAssign = new Set();
 
         if (planMode) {
@@ -502,6 +503,7 @@ export default function OvertimeMonthGrid({
                     isCn={w === 0}
                     tang={tang}
                     thuong={thuong}
+                    isPastDay={d <= today}
                     onClick={() => {
                       if (planMode) {
                         // Không cho click ngày đã qua hoặc ngày hôm nay

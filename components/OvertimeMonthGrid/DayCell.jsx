@@ -7,8 +7,10 @@ export default function DayCell({
   isCn,
   tang,
   thuong,
+  isPastDay,
   onClick
 }) {
+
   let classes = CSS.baseCell;
   let content = "";
 
@@ -34,7 +36,12 @@ export default function DayCell({
   // 4️⃣ Ô TRỐNG (không OT)
   else {
     classes += ` ${CSS.work}`;
+
+    if (isPastDay) {
+      content = "0";
+    }
   }
+
 
   if (isCn) classes += ` ${CSS.sundayStripe}`;
 

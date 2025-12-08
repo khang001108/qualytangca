@@ -8,8 +8,12 @@ import {
   serverTimestamp,
   deleteDoc,
   getDocs,
+  updateDoc,
   getDoc,
 } from "firebase/firestore";
+// import { updateOvertimeLimits } from "../SectionOvertimeConfig";
+import { updateOvertimeLimits } from "../SectionOvertimeConfig/index";
+
 import { db } from "../../../../lib/firebase";
 import { useEffect } from "react";
 
@@ -163,15 +167,34 @@ export default function LimitTreeView({
           members: membersProcessed,
         };
 
-        await setDoc(doc(db, "overtimeLimits", docId), payload, {
-          merge: true,
-        });
+        await setDoc(doc(db, "overtimeLimits", docId), payload, { merge: true });
+
+        // UPDATE MEMBERS — đúng cách
+        await Promise.all(
+          members.map((m) => {
+            const worked = Number(m.overtimeLimit?.workedHours || 0); // lấy giờ đã làm
+
+            return updateDoc(doc(db, "members", m.id), {
+              "overtimeLimit.monthlyLimit": totalLimit,
+              "overtimeLimit.perDay": perDay,
+              "overtimeLimit.days": days,
+              // 🔥 Thêm cái này để bảng tính lại số ngày cần tăng ca
+              "overtimeLimit.remaining": Math.max(totalLimit - worked, 0),
+            });
+          })
+        );
       });
 
       await Promise.all(promises);
+      // 🔥 Rebuild lại toàn bộ overtimeLimits theo members mới
+      // if (typeof updateOvertimeLimits === "function") {
+      //   await updateOvertimeLimits();
+      // }
+
 
       // RESET STATE HERE
-      resetStates();
+      // resetStates();
+      await loadSavedConfigs();
 
       alert("Đã lưu cấu hình đầy đủ.");
     } catch (err) {
@@ -312,8 +335,8 @@ export default function LimitTreeView({
                             : 0;
                         const bonusTotal =
                           perDay !== null &&
-                          days !== null &&
-                          selectedLimits.includes(limitKey)
+                            days !== null &&
+                            selectedLimits.includes(limitKey)
                             ? days * bonusPerDay
                             : 0;
 
@@ -386,11 +409,10 @@ export default function LimitTreeView({
                               return copy;
                             });
                           }}
-                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${
-                            isActive
-                              ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
-                              : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-700"
-                          }`}
+                          className={`px-2 py-1 rounded-lg text-xs border transition-all duration-200 ${isActive
+                            ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-105"
+                            : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-300 dark:hover:bg-gray-700"
+                            }`}
                         >
                           {opt.days} ngày × {opt.perDay}h
                         </button>
