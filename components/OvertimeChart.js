@@ -59,7 +59,7 @@ const LegendIcon = ({ color }) => (
   </svg>
 );
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, isDark }) => {
   if (!active || !payload || !payload.length) return null;
 
   // mapping màu + icon + label tiếng Việt
@@ -83,18 +83,23 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div
       style={{
-        background: "white",
+        background: isDark ? "#1f2937" : "white",
         padding: "12px 15px",
         borderRadius: 12,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${isDark ? "#4b5563" : "#e5e7eb"}`,
         boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+        color: isDark ? "#e5e7eb" : "#1f2937",
       }}
-      className="dark:bg-gray-800 dark:border-gray-600"
     >
+
       {/* Name */}
-      <p className="font-semibold text-gray-800 dark:text-gray-200 mb-2">
+      <p
+        className="font-semibold mb-2"
+        style={{ color: isDark ? "#e5e7eb" : "#1f2937" }}
+      >
         {label}
       </p>
+
 
       {/* Rows */}
       {filtered.map((item, index) => {
@@ -108,7 +113,7 @@ const CustomTooltip = ({ active, payload, label }) => {
           >
             <div key={index} className="flex items-center gap-2 text-sm">
               <LegendIcon color={style.color} />
-              <span className="text-gray-700 dark:text-gray-300">
+              <span style={{ color: isDark ? "#d1d5db" : "#374151" }}>
                 {style.label}: {item.value} giờ
               </span>
             </div>
@@ -234,7 +239,7 @@ export default function OvertimeChartByMember({
 
             <YAxis tick={{ fontSize: 12, fill: axisColor }} />
 
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip isDark={isDark} />} />
 
             <Legend
               verticalAlign="top"
