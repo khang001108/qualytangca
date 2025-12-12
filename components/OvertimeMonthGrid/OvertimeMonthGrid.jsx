@@ -505,6 +505,7 @@ export default function OvertimeMonthGrid({
                     thuong={thuong}
                     isPastDay={d < today}
                     isToday={d === today}
+                    hasRecordToday={!!otRec || !!shiftRec}
                     onClick={() => {
                       if (planMode) {
                         // Không cho click ngày đã qua hoặc ngày hôm nay
@@ -700,17 +701,25 @@ export default function OvertimeMonthGrid({
               </th>
 
               {/* DAYS */}
-              {weekdayLabels.map(({ day, label, weekday }) => (
-                <th
-                  key={day}
-                  className={`${CSS.headerCell} ${weekday === 0 ? "bg-orange-100 dark:bg-orange-900/100" : ""
-                    }`}
-                  style={{ width: "36px" }}
-                >
-                  <div>{label}</div>
-                  <div className="font-bold">{day}</div>
-                </th>
-              ))}
+              {weekdayLabels.map(({ day, label, weekday }) => {
+                const isToday = day === today;
+
+                return (
+                  <th
+                    key={day}
+                    className={`
+        ${CSS.headerCell}
+        ${weekday === 0 ? "bg-orange-100 dark:bg-orange-900/100" : ""}
+        ${isToday ? CSS.todayHeader : ""}
+      `}
+                    style={{ width: "36px" }}
+                  >
+                    <div>{label}</div>
+                    <div className="font-bold">{day}</div>
+                  </th>
+                );
+              })}
+
             </tr>
           </thead>
 

@@ -26,6 +26,11 @@ export const CSS = {
     "bg-gray-100 text-gray-800 border-b border-gray-300 shadow-sm " +
     "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] w-[36px]",
 
+  todayHeader:
+    "!bg-yellow-300 !text-black font-bold " +
+    "dark:!bg-yellow-500 dark:!text-black",
+
+
   /* =====================================
      LEFT COLUMNS (NO STICKY VERSION)
      WIDTHS: 55 / 160 / 140 / 100
@@ -81,6 +86,7 @@ export const CSS = {
     "!bg-orange-100 !text-orange-700 " +
     "dark:!bg-orange-900/100 dark:!text-orange-200",
 
+  today: "!bg-yellow-300 !text-black font-bold dark:!bg-yellow-500 dark:!text-black",
 
 };
 

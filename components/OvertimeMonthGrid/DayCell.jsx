@@ -8,8 +8,9 @@ export default function DayCell({
   tang,
   thuong,
   isPastDay,
-  onClick,
-  isToday
+  isToday,
+  hasRecordToday, // <-- new prop
+  onClick
 }) {
 
   let classes = CSS.baseCell;
@@ -18,7 +19,7 @@ export default function DayCell({
   // 1️⃣ BLOCK — ô TRỐNG màu xám (dự tính)
   if (isBlocked) {
     classes += ` ${CSS.blocked}`;
-    content = "❌";   // ⭐ Ký hiệu rõ ràng, không phá layout
+    content = "❌";
   }
 
   // 2️⃣ NGHỈ THẬT — hiện chữ 休
@@ -38,22 +39,25 @@ export default function DayCell({
   else {
     classes += ` ${CSS.work}`;
 
-    // Nếu KHÔNG có OT
-    if (tang + thuong === 0) {
-
-      if (isPastDay) {
-        content = "0";       // ngày đã qua → 0
-      } else if (isToday) {
-        content = "";        // ngày hôm nay → để trống
+    if (isToday) {
+      // Nếu hôm nay đã có record (đã chấm công) → hiện 0
+      if (hasRecordToday) {
+        content = "0";
       } else {
-        content = "";        // ngày tương lai → để trống
+        // Hôm nay chưa chấm công → ?
+        content = "❔";
       }
+    }
+    else if (isPastDay) {
+      content = "0"; // ngày đã qua và không có OT => 0
+    }
+    else {
+      content = ""; // ngày tương lai => trống
     }
   }
 
-
-
   if (isCn) classes += ` ${CSS.sundayStripe}`;
+  if (isToday) classes += ` ${CSS.today}`;
 
   return (
     <div
