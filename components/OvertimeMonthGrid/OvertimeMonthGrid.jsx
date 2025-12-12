@@ -339,7 +339,7 @@ export default function OvertimeMonthGrid({
             const w = dayjs(key).day();
             const weekday = w === 0 ? 7 : w;
 
-            if (day <= today) return false;
+            if (day < today) return false;
             if (day <= lastRealOT) return false;
             if (parseRestDay(m.restDay) === weekday) return false;
 
@@ -503,7 +503,8 @@ export default function OvertimeMonthGrid({
                     isCn={w === 0}
                     tang={tang}
                     thuong={thuong}
-                    isPastDay={d <= today}
+                    isPastDay={d < today}
+                    isToday={d === today}
                     onClick={() => {
                       if (planMode) {
                         // Không cho click ngày đã qua hoặc ngày hôm nay
