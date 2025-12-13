@@ -111,7 +111,7 @@ export default function OvertimeMonthGrid({
   selectedYear,
   onCellClick,
 }) {
-  const [viewMode, setViewMode] = useState("normal");
+  const [viewMode, setViewMode] = useState("rest");
   const [shiftCfg, setShiftCfg] = useState({ day: null, night: null });
   const [manualBlockDays, setManualBlockDays] = useState({});
   const today = dayjs().date();
@@ -575,8 +575,8 @@ export default function OvertimeMonthGrid({
           onChange={(e) => setViewMode(e.target.value)}
           className={CSS.headerSelect}
         >
-          <option value="rest">Theo ngày nghỉ</option>
           <option value="normal">Mặc định</option>
+          <option value="rest">Theo ngày nghỉ</option>
           <option value="otAsc">Giờ tăng ca ít nhất</option>
           <option value="otDesc">Giờ tăng ca nhiều nhất</option>
         </select>
