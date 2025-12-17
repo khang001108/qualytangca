@@ -19,7 +19,7 @@ export default function DayCell({
   // 1️⃣ BLOCK — ô TRỐNG màu xám (dự tính)
   if (isBlocked) {
     classes += ` ${CSS.blocked}`;
-    content = "🅾️";
+    content = "0";
   }
 
   // 2️⃣ NGHỈ THẬT — hiện chữ 休
