@@ -15,23 +15,26 @@ export default function DayCell({
   let classes = CSS.baseCell;
   let content = "";
 
-  const totalOT = (tang || 0) + (thuong || 0);
+  // 🔥 FIX QUAN TRỌNG: ÉP SỐ THỰC
+  const otTang = Number(tang) || 0;
+  const otThuong = Number(thuong) || 0;
+  const totalOT = otTang + otThuong;
 
-  // 1️⃣ OT THẬT — ƯU TIÊN CAO NHẤT (đè cả dự tính)
+  // 1️⃣ OT THẬT — ƯU TIÊN TUYỆT ĐỐI
+  // DÙ NGÀY NGHỈ / DỰ TÍNH / HÔM NAY
   if (totalOT > 0) {
     classes += ` ${CSS.ot}`;
-    content = Number(
-      totalOT % 1 === 0 ? totalOT : totalOT.toFixed(1)
-    );
+    content =
+      totalOT % 1 === 0 ? totalOT : totalOT.toFixed(1);
   }
 
-  // 2️⃣ NGHỈ THẬT
+  // 2️⃣ NGHỈ THẬT (chỉ khi KHÔNG có OT)
   else if (isRest) {
     classes += ` ${CSS.rest}`;
     content = "休";
   }
 
-  // 3️⃣ DỰ TÍNH TĂNG CA (BLOCKED)
+  // 3️⃣ DỰ TÍNH TĂNG CA
   else if (isBlocked) {
     classes += ` ${CSS.blocked}`;
     content = "0";
@@ -42,15 +45,12 @@ export default function DayCell({
     classes += ` ${CSS.work}`;
 
     if (isToday) {
-      // Hôm nay
       content = hasRecordToday ? "0" : "❔";
     }
     else if (isPastDay) {
-      // Ngày đã qua
       content = "0";
     }
     else {
-      // Ngày tương lai
       content = "";
     }
   }
