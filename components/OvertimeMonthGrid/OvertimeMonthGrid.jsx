@@ -465,11 +465,20 @@ export default function OvertimeMonthGrid({
               const isBlocked = manualBlockDays[blockKey]?.includes(d);
 
               // Nếu USER block → ép xám, không gán OT
+              // Nếu USER block (nghỉ dự tính)
               if (isBlocked) {
-                tang = 0;
-                thuong = 0;
-                isRest = false;
+                // 🔥 NẾU CÓ OT THẬT → GIỮ OT, KHÔNG ÉP 0
+                if (otRec && (Number(otRec.tangCaHomNay) > 0 || Number(otRec.thuong) > 0)) {
+                  // giữ nguyên tang / thuong
+                }
+                // ❌ CHỈ khi KHÔNG có OT thật mới ép 0
+                else {
+                  tang = 0;
+                  thuong = 0;
+                  isRest = false;
+                }
               }
+
               // Nếu không block → gán OT dự tính
               else if (planMode) {
                 // Có OT thật thì giữ nguyên
