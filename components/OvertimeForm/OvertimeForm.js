@@ -1,23 +1,39 @@
-import { useState, useRef } from "react";
-import { CirclePlus, LogIn, LogOut } from "lucide-react";
-import Toast from "../Toast";
+// components/OvertimeForm/OvertimeForm.js
+// Form chấm công: Check-in / Check-out / Tăng ca khác
+
+import { useState, useRef, useCallback } from "react";
+import { CirclePlus, LogIn, LogOut, Clock, X, ChevronDown } from "lucide-react";
 import useOvertimeParser from "../../hooks/useOvertimeParser/index";
-import ShiftPreviewModal from "./ShiftPreviewModal";
+import ShiftPreviewModal   from "./ShiftPreviewModal";
 import OvertimePreviewModal from "./OvertimePreviewModal";
-import {
-  LEAVE_CODES,
-  LEAVE_MAP,
-} from "../../hooks/useOvertimeParser/parseHelpers";
+import ManualAttendanceAdjust from "./ManualAttendanceAdjust";
+import OtherOvertimeForm    from "./OtherOvertimeForm";
+import { LEAVE_CODES, LEAVE_MAP } from "../../hooks/useOvertimeParser/parseHelpers";
 import { doc, writeBatch } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { getShiftOfMember } from "../../hooks/useOvertimeParser/shiftHelpers";
-import ManualAttendanceAdjust from "./ManualAttendanceAdjust";
+import dayjs from "dayjs";
 
-const sessionToText = (s) => {
-  if (s === "morning") return "sáng";
-  if (s === "afternoon") return "chiều";
-  if (s === "full") return "cả ngày";
-  return "";
+const RAW_TRASH = [
+  /^(\d{1,2}\/\d{1,2})?上下班打卡记录[:：]?$/i,
+  /^上下班打卡[:：]?$/i, /^上下班$/i, /^打卡记录[:：]?$/i,
+  /^考勤记录[:：]?$/i,   /^上班[:：]?$/i,   /^下班[:：]?$/i,
+  /^日期[:：]?$/i,       /^时间[:：]?$/i,   /^考勤[:：]?$/i,
+  /^(\d{1,2})月(\d{1,2})日[:：]?$/i,
+  /^(\d{1,2}\/\d{1,2})[:：]?$/i,
+];
+
+// Mode tabs
+const MODES = [
+  { id: "checkin",  label: "Check-in",     short: "In",   color: "yellow" },
+  { id: "checkout", label: "Check-out",    short: "Out",  color: "green"  },
+  { id: "other",    label: "Tăng ca khác", short: "Khác", color: "purple" },
+];
+
+const modeColors = {
+  checkin:  { border: "border-yellow-400", ring: "focus:ring-yellow-500", btn: "bg-yellow-600 hover:bg-yellow-700" },
+  checkout: { border: "border-green-400",  ring: "focus:ring-green-500",  btn: "bg-green-600 hover:bg-green-700"  },
+  other:    { border: "border-purple-400", ring: "focus:ring-purple-500", btn: "bg-purple-600 hover:bg-purple-700" },
 };
 
 export default function OvertimeForm({
@@ -28,92 +44,59 @@ export default function OvertimeForm({
   selectedMonth,
   selectedYear,
   selectedDate,
+  showToast = () => {},
 }) {
-  const [formOpen, setFormOpen] = useState(false);
-  const [textInput, setTextInput] = useState("");
-  const [mode, setMode] = useState("checkin");
-  const modalRef = useRef();
-  const [toasts, setToasts] = useState([]);
-  const [pendingShiftUpdates, setPendingShiftUpdates] = useState([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [open, setOpen]         = useState(false);
+  const [text, setText]         = useState("");
+  const [mode, setMode]         = useState("checkin");
+  const modalRef                = useRef();
+
+  // Shift preview popup
+  const [pendingShifts, setPendingShifts] = useState([]);
+  const [shiftOpen, setShiftOpen]         = useState(false);
   const [loadingApprove, setLoadingApprove] = useState(false);
-  const [otPreview, setOtPreview] = useState([]);
-  const [otPreviewOpen, setOtPreviewOpen] = useState(false);
-  // popup xử lý thủ công
-  const [manualItem, setManualItem] = useState(null);
-  const [manualPopupOpen, setManualPopupOpen] = useState(false);
-  const [editedTimes, setEditedTimes] = useState({});
+  const [editedTimes, setEditedTimes]     = useState({});
 
-  const showToast = (type, message) => {
-    const id = Date.now() + Math.random();
-    setToasts((p) => [...p, { id, type, message }]);
-  };
+  // OT preview popup
+  const [otPreview, setOtPreview]   = useState([]);
+  const [otOpen, setOtOpen]         = useState(false);
 
-  const removeToast = (id) => {
-    setToasts((p) => p.filter((t) => t.id !== id));
-  };
+  // Manual adjust popup
+  const [manualItem, setManualItem]   = useState(null);
+  const [manualOpen, setManualOpen]   = useState(false);
 
   const { parseText } = useOvertimeParser({
-    user,
-    members,
-    setMembers,
-    setItems,
-    selectedMonth,
-    selectedYear,
-    selectedDate,
+    user, members, setMembers, setItems, selectedMonth, selectedYear, selectedDate,
   });
 
-  const handleConfirmOT = async (editedTimes) => {
-    try {
-      await parseText(textInput, mode, editedTimes);
-      showToast("success", "Đã xử lý tăng ca!");
-      setOtPreviewOpen(false);
-      setFormOpen(false);
-      setTextInput("");
-      setEditedTimes({});
-    } catch (e) {
-      showToast("error", "Lỗi khi xử lý tăng ca!");
-    }
+  const resetForm = () => {
+    setText("");
+    setEditedTimes({});
+    setOtPreview([]);
+    setPendingShifts([]);
   };
 
+  const closeModal = () => { setOpen(false); resetForm(); };
+
+  // ─── Handle Parse ──────────────────────────────────────────
   const handleParse = async () => {
-    if (!textInput.trim()) {
-      showToast("error", "⚠️ Vui lòng nhập dữ liệu chấm công trước.");
+    if (!text.trim()) {
+      showToast("error", "⚠️ Vui lòng nhập dữ liệu chấm công.");
       return;
     }
 
-    let tmpOT = []; // thay otPreview.length = 0
-    let pending = []; // pending ca
+    let lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    lines = lines.filter((l) => !RAW_TRASH.some((p) => p.test(l)));
 
-    let lines = textInput
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
+    const tmpOT   = [];
+    const pending = [];
 
-    const RAW_TRASH_PATTERNS = [
-      /^(\d{1,2}\/\d{1,2})?上下班打卡记录[:：]?$/i,
-      /^上下班打卡[:：]?$/i,
-      /^上下班$/i,
-      /^打卡记录[:：]?$/i,
-      /^考勤记录[:：]?$/i,
-      /^上班[:：]?$/i,
-      /^下班[:：]?$/i,
-      /^日期[:：]?$/i,
-      /^时间[:：]?$/i,
-      /^考勤[:：]?$/i,
-      /^(\d{1,2})月(\d{1,2})日[:：]?$/i,
-      /^(\d{1,2}\/\d{1,2})[:：]?$/i,
-    ];
-
-    lines = lines.filter((l) => !RAW_TRASH_PATTERNS.some((p) => p.test(l)));
-
-    for (let line of lines) {
+    for (const line of lines) {
       const parts = line.split("/");
       if (parts.length < 2) {
         showToast("error", `❌ Sai định dạng: ${line}`);
         return;
       }
-
       const namePart = parts[0].replace(/^\d+\.\s*/, "").trim();
       const timePart = parts[1].trim();
 
@@ -125,543 +108,283 @@ export default function OvertimeForm({
       }
 
       const timeString = timeMatch[0];
-      let [hh, mm] = timeString.split(":").map(Number);
+      let [hh, mm]     = timeString.split(":").map(Number);
       let minutesOfDay = hh * 60 + mm;
 
-      // tìm nhân viên
-      const exact = members.filter(
-        (m) =>
-          (m.realName || "").trim() === namePart ||
-          (m.nickname || "").trim() === namePart
-      );
-
-      let member = null;
-      if (exact.length === 1) member = exact[0];
-      else {
-        const start = members.filter(
-          (m) =>
-            (m.realName || "").trim().startsWith(namePart) ||
-            (m.nickname || "").trim().startsWith(namePart)
-        );
-        if (start.length === 1) member = start[0];
-        else {
-          const include = members.filter(
-            (m) =>
-              (m.realName || "").trim().includes(namePart) ||
-              (m.nickname || "").trim().includes(namePart)
-          );
-          if (include.length === 1) member = include[0];
-          else {
-            showToast("error", `❌ Không tìm thấy nhân viên: ${namePart}`);
-            return;
-          }
-        }
+      // Find member
+      const member = findMember(members, namePart);
+      if (!member) {
+        showToast("error", `❌ Không tìm thấy nhân viên: ${namePart}`);
+        return;
       }
 
       const shiftRec = await getShiftOfMember(member.id, selectedDate);
-      if (!shiftRec || !shiftRec.shift) {
-        showToast(
-          "error",
-          `❌ Ngày ${selectedDate} chưa phân ca cho ${namePart}`
-        );
+      if (!shiftRec?.shift) {
+        showToast("error", `❌ Chưa phân ca cho ${namePart} ngày ${dayjs(selectedDate).format("DD/MM/YYYY")}`);
         return;
       }
-
       if (mode === "checkout" && !shiftRec.lenCa) {
-        showToast("error", `❌ ${namePart} chưa có check-in.`);
+        showToast("error", `❌ ${namePart} chưa check-in.`);
         return;
       }
 
-      const label = shiftRec.shift;
-      const isNight = String(label).toLowerCase().includes("đêm");
+      const isNight = String(shiftRec.shift).toLowerCase().includes("đêm");
+      const toMin   = (s) => { if (!s) return null; const [h,m] = s.split(":").map(Number); return h*60+m; };
 
-      const toMin = (s) => {
-        if (!s) return null;
-        let [h, m] = s.split(":").map(Number);
-        return h * 60 + m;
-      };
-
-      const somInStart = toMin(shiftRec.lenCaSomBatDau);
-      const somInEnd = toMin(shiftRec.lenCaSomKetThuc);
-      const muonInStart = toMin(shiftRec.lenCaMuonBatDau);
-      const muonInEnd = toMin(shiftRec.lenCaMuonKetThuc);
-
-      const somOutStart = toMin(shiftRec.tanCaSomBatDau);
-      const muonOutStart = toMin(shiftRec.tanCaMuonBatDau);
-
-      let chosenVariant = null;
-
-      // ============================ CHECK IN =============================
+      // ── CHECK-IN ──────────────────────────────────────────
       if (mode === "checkin") {
-        if (minutesOfDay >= somInStart && minutesOfDay <= somInEnd) {
-          chosenVariant = "sớm";
-          minutesOfDay = somInEnd;
-        } else if (minutesOfDay >= muonInStart && minutesOfDay <= muonInEnd) {
-          chosenVariant = "muộn";
-          minutesOfDay = muonInEnd;
+        const somStart = toMin(shiftRec.lenCaSomBatDau),  somEnd = toMin(shiftRec.lenCaSomKetThuc);
+        const muonStart= toMin(shiftRec.lenCaMuonBatDau), muonEnd= toMin(shiftRec.lenCaMuonKetThuc);
+        let chosenVariant = null;
+
+        if (minutesOfDay >= somStart && minutesOfDay <= somEnd) {
+          chosenVariant = "sớm"; minutesOfDay = somEnd;
+        } else if (minutesOfDay >= muonStart && minutesOfDay <= muonEnd) {
+          chosenVariant = "muộn"; minutesOfDay = muonEnd;
         } else {
-          showToast(
-            "error",
-            `${namePart} — ${timeString} không nằm trong khung giờ lên ca.`
-          );
+          showToast("error", `${namePart} — ${timeString} không trong khung giờ lên ca.`);
           return;
         }
+
+        const prefix            = isNight ? "lên_ca_đêm_" : "lên_ca_ngày_";
+        const expectedShiftStart = prefix + (chosenVariant === "sớm" ? "sớm" : "muộn");
+        if (shiftRec.shiftStart !== expectedShiftStart) {
+          pending.push({ memberId: member.id, name: namePart, oldShiftStart: shiftRec.shiftStart, newShiftStart: expectedShiftStart });
+        }
       }
 
-      // ============================ CHECK OUT – CA NGÀY =============================
-      if (mode === "checkout" && !isNight) {
-        const checkoutMin = minutesOfDay;
-        let otStart = null;
-        let variant = null;
+      // ── CHECK-OUT ─────────────────────────────────────────
+      if (mode === "checkout") {
+        const somOutStart  = toMin(shiftRec.tanCaSomBatDau);
+        const muonOutStart = toMin(shiftRec.tanCaMuonBatDau);
+        let otStart = null, variant = null;
 
-        if (somOutStart != null && checkoutMin >= somOutStart) {
-          otStart = somOutStart;
-          variant = "sớm";
-        }
-        if (
-          muonOutStart != null &&
-          checkoutMin >= muonOutStart &&
-          (otStart == null ||
-            Math.abs(checkoutMin - muonOutStart) <
-              Math.abs(checkoutMin - otStart))
-        ) {
-          otStart = muonOutStart;
-          variant = "muộn";
-        }
+        if (somOutStart != null && minutesOfDay >= somOutStart)  { otStart = somOutStart;  variant = "sớm";  }
+        if (muonOutStart != null && minutesOfDay >= muonOutStart &&
+            (otStart == null || Math.abs(minutesOfDay - muonOutStart) < Math.abs(minutesOfDay - otStart)))
+          { otStart = muonOutStart; variant = "muộn"; }
 
-        // if (otStart == null) {
-        //   showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
-        //   return;
-        // }
-
-        // if (otMinutes < 1) {
-        //   showToast("error", `${namePart} — không có tăng ca.`);
-        //   return;
-        // }
-
-        const otMinutes = checkoutMin - otStart;
         if (otStart == null) {
-          // không có tăng ca nhưng vẫn được đưa vào preview
-          tmpOT.push({
-            memberId: member.id,
-            name: namePart,
-            nickname: member.nickname || "",
-            checkout: timeString,
-            checkoutMinutes: minutesOfDay,
-            otMinutes: 0,
-            shiftEnd: null,
-            ca: null,
-            error: "notYet",
-          });
+          tmpOT.push({ memberId: member.id, name: namePart, nickname: member.nickname||"", checkout: timeString, checkoutMinutes: minutesOfDay, otMinutes: 0, shiftEnd: null, ca: null, error: "notYet" });
           continue;
         }
-
+        const otMinutes = minutesOfDay - otStart;
         if (otMinutes < 1) {
-          tmpOT.push({
-            memberId: member.id,
-            name: namePart,
-            nickname: member.nickname || "",
-            checkout: timeString,
-            checkoutMinutes: minutesOfDay,
-            otMinutes: 0,
-            shiftEnd: otStart,
-            ca: variant,
-            error: "noOT",
-          });
+          tmpOT.push({ memberId: member.id, name: namePart, nickname: member.nickname||"", checkout: timeString, checkoutMinutes: minutesOfDay, otMinutes: 0, shiftEnd: otStart, ca: variant, error: "noOT" });
           continue;
         }
-
-        tmpOT.push({
-          memberId: member.id,
-          name: namePart,
-          nickname: member.nickname || "",
-          checkout: timeString,
-          checkoutMinutes: minutesOfDay,
-          otMinutes,
-          shiftEnd: otStart,
-          ca: variant,
-        });
-      }
-
-      // ============================ CHECK OUT – CA ĐÊM =============================
-      if (mode === "checkout" && isNight) {
-        const checkoutMin = minutesOfDay;
-
-        const nightSomStart = toMin(shiftRec.tanCaSomBatDau);
-        const nightMuonStart = toMin(shiftRec.tanCaMuonBatDau);
-
-        let otStart = null;
-        let variant = null;
-
-        if (checkoutMin >= nightSomStart) {
-          otStart = nightSomStart;
-          variant = "sớm";
-        }
-
-        if (
-          checkoutMin >= nightMuonStart &&
-          (otStart == null ||
-            Math.abs(checkoutMin - nightMuonStart) <
-              Math.abs(checkoutMin - otStart))
-        ) {
-          otStart = nightMuonStart;
-          variant = "muộn";
-        }
-
-        // if (otStart == null) {
-        //   showToast("error", `${namePart} — chưa tới giờ tăng ca.`);
-        //   return;
-        // }
-
-        // if (otMinutes < 1) {
-        //   showToast("error", `${namePart} — không có tăng ca.`);
-        //   return;
-        // }
-
-        const otMinutes = checkoutMin - otStart;
-        if (otStart == null) {
-          // không có tăng ca nhưng vẫn được đưa vào preview
-          tmpOT.push({
-            memberId: member.id,
-            name: namePart,
-            nickname: member.nickname || "",
-            checkout: timeString,
-            checkoutMinutes: minutesOfDay,
-            otMinutes: 0,
-            shiftEnd: null,
-            ca: null,
-            error: "notYet",
-          });
-          continue;
-        }
-
-        if (otMinutes < 1) {
-          tmpOT.push({
-            memberId: member.id,
-            name: namePart,
-            nickname: member.nickname || "",
-            checkout: timeString,
-            checkoutMinutes: minutesOfDay,
-            otMinutes: 0,
-            shiftEnd: otStart,
-            ca: variant,
-            error: "noOT",
-          });
-          continue;
-        }
-
-        tmpOT.push({
-          memberId: member.id,
-          name: namePart,
-          nickname: member.nickname || "",
-          checkout: timeString,
-          checkoutMinutes: minutesOfDay,
-          otMinutes,
-          shiftEnd: otStart,
-          ca: variant,
-        });
-      }
-
-      // ============================ GỢI Ý PHÂN CA =============================
-      const prefix = isNight ? "lên_ca_đêm_" : "lên_ca_ngày_";
-      const expectedShiftStart =
-        prefix + (chosenVariant === "sớm" ? "sớm" : "muộn");
-
-      if (mode === "checkin" && shiftRec.shiftStart !== expectedShiftStart) {
-        pending.push({
-          memberId: member.id,
-          name: namePart,
-          oldShiftStart: shiftRec.shiftStart,
-          newShiftStart: expectedShiftStart,
-        });
+        tmpOT.push({ memberId: member.id, name: namePart, nickname: member.nickname||"", checkout: timeString, checkoutMinutes: minutesOfDay, otMinutes, shiftEnd: otStart, ca: variant });
       }
     }
 
-    // ============================ MỞ POPUP OT =============================
+    // Open appropriate popup
     if (mode === "checkout" && tmpOT.length > 0) {
-      setOtPreview(tmpOT);
-      setOtPreviewOpen(true);
-      return;
+      setOtPreview(tmpOT); setOtOpen(true); return;
     }
-
-    // ============================ MỞ POPUP UPDATE CA =============================
     if (pending.length > 0) {
-      const dedup = Object.values(
-        pending.reduce((acc, p) => {
-          acc[p.memberId] = p;
-          return acc;
-        }, {})
-      );
-
-      setPendingShiftUpdates(dedup);
-      setPreviewOpen(true);
-      setEditedTimes({});
-      return;
+      const dedup = Object.values(pending.reduce((acc, p) => { acc[p.memberId] = p; return acc; }, {}));
+      setPendingShifts(dedup); setShiftOpen(true); setEditedTimes({}); return;
     }
 
     try {
-      await parseText(textInput, mode, editedTimes);
-      setEditedTimes({});
+      await parseText(text, mode, editedTimes);
+      resetForm();
       showToast("success", "✔ Xử lý chấm công thành công!");
-      setTextInput("");
-      setFormOpen(false);
-    } catch (e) {
+      setOpen(false);
+    } catch {
       showToast("error", "❌ Lỗi xử lý chấm công!");
     }
   };
+
   const handleSkipUpdates = async () => {
-    setPreviewOpen(false);
+    setShiftOpen(false);
     try {
-      await parseText(textInput, mode, editedTimes);
-      setEditedTimes({});
-      showToast("success", "✅ Đã xử lý chấm công (không cập nhật phân ca).");
-      setTextInput("");
-      setFormOpen(false);
-      setPendingShiftUpdates([]);
-      setEditedTimes({});
-    } catch (err) {
-      showToast("error", "❌ Lỗi khi xử lý chấm công!");
-    }
+      await parseText(text, mode, editedTimes);
+      resetForm(); showToast("success", "✅ Xử lý xong (không cập nhật ca)."); setOpen(false);
+    } catch { showToast("error", "❌ Lỗi!"); }
   };
 
   const handleApproveUpdates = async () => {
-    if (!pendingShiftUpdates.length) {
-      setPreviewOpen(false);
-      return;
-    }
-
+    if (!pendingShifts.length) { setShiftOpen(false); return; }
     setLoadingApprove(true);
     const batch = writeBatch(db);
-
-    for (let u of pendingShiftUpdates) {
-      const dateStr = new Date(selectedDate).toISOString().slice(0, 10);
-      const docId = `${dateStr}__${u.memberId}`;
-      const ref = doc(db, "shiftSchedules", docId);
+    for (const u of pendingShifts) {
+      const dateStr = dayjs(selectedDate).format("YYYY-MM-DD");
+      const ref = doc(db, "shiftSchedules", `${dateStr}__${u.memberId}`);
       batch.set(ref, { shiftStart: u.newShiftStart }, { merge: true });
     }
-
+    try { await batch.commit(); } catch { showToast("error", "❌ Lỗi commit ca."); }
+    setShiftOpen(false);
     try {
-      await batch.commit();
-    } catch (e) {
-      showToast("error", "❌ Lỗi commit phân ca.");
-    }
-
-    setPreviewOpen(false);
-
-    try {
-      await parseText(textInput, mode, editedTimes);
-      setEditedTimes({});
-      showToast("success", "✅ Đã cập nhật phân ca & xử lý chấm công!");
-      setTextInput("");
-      setFormOpen(false);
-      setPendingShiftUpdates([]);
-      setEditedTimes({});
-    } catch (e) {
-      showToast("error", "❌ Lỗi final parse!");
-    } finally {
-      setLoadingApprove(false);
-    }
+      await parseText(text, mode, editedTimes);
+      resetForm(); showToast("success", "✅ Cập nhật ca & xử lý xong!"); setOpen(false);
+    } catch { showToast("error", "❌ Lỗi!"); }
+    finally { setLoadingApprove(false); }
   };
 
-  // ============================ JSX RENDER =============================
+  const handleConfirmOT = async (skipList) => {
+    try {
+      await parseText(text, mode, editedTimes, skipList);
+      showToast("success", "✅ Đã lưu tăng ca!");
+      setOtOpen(false); resetForm(); setOpen(false);
+    } catch { showToast("error", "❌ Lỗi lưu tăng ca!"); }
+  };
+
+  const col = modeColors[mode];
+
+  // ── RENDER ──────────────────────────────────────────────────
   return (
     <>
-      <Toast toasts={toasts} onClose={removeToast} />
-
-      <div className="flex justify-end mb-2">
+      {/* Trigger button */}
+      <div className="flex justify-end">
         <button
-          onClick={() => setFormOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 active:scale-95 text-white px-5 py-2.5 rounded-xl shadow-md transition select-none"
         >
-          <CirclePlus className="w-5 h-5" /> Thêm tăng ca
+          <CirclePlus className="w-5 h-5" />
+          <span>Thêm tăng ca</span>
         </button>
       </div>
 
-      {formOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onMouseDown={(e) =>
-            modalRef.current &&
-            !modalRef.current.contains(e.target) &&
-            setFormOpen(false)
-          }
-        >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
+      {/* Modal */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div className="absolute inset-0 glass-overlay" />
           <div
             ref={modalRef}
-            className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-11/12 max-w-xl p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors"
+            className="relative w-full sm:w-11/12 sm:max-w-xl bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-t-3xl sm:rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 animate-fadeSlideUp"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-5">
-              <div className="text-center mb-4 text-sm text-gray-600 dark:text-gray-400">
-                Ngày chấm công:
-                <span className="font-semibold text-orange-600 dark:text-orange-400 ml-1">
-                  {selectedDate
-                    ? new Date(selectedDate).toLocaleDateString("vi-VN")
-                    : "Chưa chọn"}
+            {/* Header */}
+            <div className="flex justify-between items-center px-5 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                📅 Ngày:{" "}
+                <span className="font-semibold text-orange-500">
+                  {selectedDate ? dayjs(selectedDate).format("DD/MM/YYYY") : "Chưa chọn"}
                 </span>
               </div>
-
-              <h3 className="text-lg font-semibold text-orange-600 dark:text-orange-400">
-                Thêm tăng ca
-              </h3>
-
-              <button
-                onClick={() => setFormOpen(false)}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
-              >
-                ✕
+              <h3 className="text-base font-semibold text-orange-600 dark:text-orange-400">Chấm công</h3>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded-lg">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* SWITCH MODE */}
-            <div className="flex justify-center mb-5">
-              <div
-                className="relative flex items-center w-44 h-10 bg-gray-200 dark:bg-gray-800 rounded-full cursor-pointer transition"
-                onClick={() =>
-                  setMode((prev) =>
-                    prev === "checkin" ? "checkout" : "checkin"
-                  )
-                }
-              >
-                <div
-                  className={`absolute top-0 left-0 h-10 w-1/2 rounded-full bg-gradient-to-r ${
-                    mode === "checkin"
-                      ? "from-yellow-500 to-yellow-600"
-                      : "from-green-500 to-green-600"
-                  } shadow-md transform transition-all duration-300 ${
-                    mode === "checkout" ? "translate-x-full" : "translate-x-0"
-                  }`}
-                />
-
-                <div className="flex justify-between items-center w-full px-4 z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <div
-                    className={`flex items-center gap-1 ${
-                      mode === "checkin" ? "text-white" : ""
-                    }`}
+            <div className="px-5 py-4 space-y-4">
+              {/* Mode tabs */}
+              <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                {MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setMode(m.id)}
+                    className={`flex-1 py-2 text-sm font-medium transition
+                      ${mode === m.id
+                        ? m.id === "checkin"  ? "bg-yellow-500 text-white"
+                        : m.id === "checkout" ? "bg-green-600 text-white"
+                        : "bg-purple-600 text-white"
+                        : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
                   >
-                    <LogIn className="w-4 h-4" /> In
-                  </div>
-
-                  <div
-                    className={`flex items-center gap-1 ${
-                      mode === "checkout" ? "text-white" : ""
-                    }`}
-                  >
-                    <LogOut className="w-4 h-4" /> Out
-                  </div>
-                </div>
+                    <span className="sm:hidden">{m.short}</span>
+                    <span className="hidden sm:inline">{m.label}</span>
+                  </button>
+                ))}
               </div>
-            </div>
 
-            <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">
-              Dán dữ liệu chấm công (
-              {mode === "checkin" ? "Lên ca" : "Xuống ca"})
-            </label>
+              {/* Other OT form */}
+              {mode === "other" ? (
+                <OtherOvertimeForm
+                  user={user}
+                  members={members}
+                  selectedDate={selectedDate}
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  showToast={showToast}
+                  onDone={() => { resetForm(); setOpen(false); }}
+                />
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                      Dán dữ liệu ({mode === "checkin" ? "Lên ca" : "Xuống ca"}) — VD: 1.陈明壯/07:54
+                    </label>
+                    <textarea
+                      rows={5}
+                      className={`w-full border-2 rounded-xl p-3 text-sm outline-none transition resize-none bg-white dark:bg-gray-800 dark:text-gray-100 ${col.border} ${col.ring} focus:ring-2`}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder={mode === "checkin"
+                        ? "1.陈明壯/18:52\n2.Nguyen Van A/07:30"
+                        : "1.陈明壯/06:01\n2.Nguyen Van A/17:45"}
+                    />
+                  </div>
 
-            <textarea
-              rows={6}
-              className={`
-                w-full border rounded-lg mb-4 p-3 outline-none transition
-                bg-white dark:bg-gray-800
-                text-gray-800 dark:text-gray-200
-                ${
-                  mode === "checkin"
-                    ? "border-orange-400 focus:ring-2 focus:ring-orange-500"
-                    : "border-green-400 focus:ring-2 focus:ring-green-500"
-                }
-              `}
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder={
-                mode === "checkin"
-                  ? "Dán dữ liệu chấm công (Check-in, ví dụ: 1.陈明壯/18:52)"
-                  : "Dán dữ liệu chấm công (Check-out, ví dụ: 1.陈明壯/06:01)"
-              }
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setFormOpen(false)}
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 transition"
-              >
-                Quay lại
-              </button>
-
-              <button
-                onClick={handleParse}
-                className={`px-5 py-2 rounded-lg text-white shadow-md transition ${
-                  mode === "checkin"
-                    ? "bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800"
-                    : "bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
-                }`}
-              >
-                {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
-              </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={closeModal}
+                      className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={handleParse}
+                      className={`flex-1 py-2.5 rounded-xl text-white text-sm font-medium shadow transition ${col.btn}`}
+                    >
+                      {mode === "checkin" ? "Xử lý Check-in" : "Xử lý Check-out"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* POPUP đổi ca */}
+      {/* Shift preview */}
       <ShiftPreviewModal
-        visible={previewOpen}
-        pending={pendingShiftUpdates}
-        onClose={() => setPreviewOpen(false)}
+        visible={shiftOpen}
+        pending={pendingShifts}
+        onClose={() => setShiftOpen(false)}
         onApprove={handleApproveUpdates}
         onSkip={handleSkipUpdates}
         loading={loadingApprove}
       />
 
-      {/* POPUP xem trước OT */}
+      {/* OT preview */}
       <OvertimePreviewModal
-        visible={otPreviewOpen}
+        visible={otOpen}
         items={otPreview}
-        onClose={() => setOtPreviewOpen(false)}
-        onConfirm={() => handleConfirmOT(editedTimes)}
-        onManualAdjust={(item) => {
-          // bật popup xử lý thủ công
-          setManualItem(item);
-          setManualPopupOpen(true);
-        }}
+        onClose={() => setOtOpen(false)}
+        onConfirm={handleConfirmOT}
+        onManualAdjust={(item) => { setManualItem(item); setManualOpen(true); }}
       />
 
-      {/* POPUP xử lý thủ công */}
+      {/* Manual adjust */}
       <ManualAttendanceAdjust
-        visible={manualPopupOpen}
+        visible={manualOpen}
         item={manualItem}
         leaveMap={LEAVE_MAP}
-        onClose={() => {
-          setManualPopupOpen(false);
-          setManualItem(null); // <--- FIX
-        }}
+        onClose={() => { setManualOpen(false); setManualItem(null); }}
         onSave={(data) => {
-          // 1. update preview UI
           setOtPreview((prev) =>
-            prev.map((it) =>
-              it.memberId === data.memberId
-                ? {
-                    ...it,
-                    error: "fixed",
-                    leaveType: data.leaveType,
-                    leaveLabel: LEAVE_MAP[data.leaveType] || null,
-                    session: data.session,
-                    otMinutes: data.withOT ? data.otHours * 60 : 0,
-                  }
-                : it
-            )
+            prev.map((it) => it.memberId === data.memberId
+              ? { ...it, error: "fixed", leaveType: data.leaveType, leaveLabel: LEAVE_MAP[data.leaveType]||null, session: data.session, otMinutes: data.withOT ? data.otHours * 60 : 0 }
+              : it)
           );
-
-          // 2. QUAN TRỌNG: lưu chỉnh sửa vào editedTimes
-          setEditedTimes((prev) => ({
-            ...prev,
-            [data.memberId]: data,
-          }));
-
-          setManualPopupOpen(false);
+          setEditedTimes((prev) => ({ ...prev, [data.memberId]: data }));
+          setManualOpen(false);
         }}
       />
     </>
   );
+}
+
+// ── Find member helper ─────────────────────────────────────────
+function findMember(members, name) {
+  const exact   = members.filter((m) => (m.realName||"").trim() === name || (m.nickname||"").trim() === name);
+  if (exact.length === 1)   return exact[0];
+  const starts  = members.filter((m) => (m.realName||"").trim().startsWith(name) || (m.nickname||"").trim().startsWith(name));
+  if (starts.length === 1)  return starts[0];
+  const includes = members.filter((m) => (m.realName||"").trim().includes(name) || (m.nickname||"").trim().includes(name));
+  if (includes.length === 1) return includes[0];
+  return null;
 }

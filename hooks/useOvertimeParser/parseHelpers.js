@@ -41,3 +41,10 @@ export function calculateFullMonthLimit(defaultDailyCap = 4) {
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return days * defaultDailyCap;
 }
+// Exported normalize helper
+export function normalizeName(s) {
+  if (!s) return "";
+  return String(s).trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // strip diacritics
+    .replace(/\s+/g, " ");
+}
