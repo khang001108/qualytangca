@@ -8,6 +8,7 @@ import OvertimeSummary from "../components/OvertimeSummary";
 import OvertimeChart from "../components/OvertimeChart";
 import OvertimeMonthInline from "../components/OvertimeMonthInline";
 import OvertimeForm from "../components/OvertimeForm/OvertimeForm";
+import ExportExcel from "../components/ExportExcel";
 import PopupManager from "../components/PopupManager";
 import AccountPopup from "../components/AccountPopup";
 import { auth, db } from "../lib/firebase";
@@ -207,7 +208,7 @@ export default function Home() {
     { id: "form",     el: <OvertimeForm {...commonProps} /> },
     { id: "calendar", el: <OvertimeMonthInline selectedDate={selectedDate} setSelectedDate={setSelectedDate} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear} setSelectedYear={setSelectedYear} shiftSchedules={shiftSchedules} onDateSelect={d => fetchMembersForDate(d.format("YYYY-MM-DD"))} /> },
     { id: "members",  el: <><OverMember {...commonProps} limit={overtimeLimit} /><OvertimeMonthGrid members={members} shiftSchedules={shiftSchedules} overtimes={overtimeItems} selectedMonth={selectedMonth} selectedYear={selectedYear} /></> },
-    { id: "chart",    el: <div ref={chartRef}><OvertimeChart members={members} overtimes={overtimeItems} shiftSchedules={shiftSchedules} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div> },
+    { id: "chart",    el: <div ref={chartRef}><div className="flex justify-end mb-3"><ExportExcel members={members} overtimes={overtimeItems} shiftSchedules={shiftSchedules} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div><OvertimeChart members={members} overtimes={overtimeItems} shiftSchedules={shiftSchedules} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div> },
   ];
 
   return (
