@@ -468,13 +468,71 @@ export default function OvertimeForm({
     <>
       <Toast toasts={toasts} onClose={removeToast} />
 
-      <div className="flex justify-end mb-2">
-        <button
-          onClick={() => setFormOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition"
-        >
-          <CirclePlus className="w-5 h-5" /> Thêm tăng ca
-        </button>
+      {/* ── Card nhập liệu ── */}
+      <div className="card animate-fade-in-up space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-gray-900 dark:text-white text-base">✏️ Nhập liệu tăng ca</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              Ngày:{" "}
+              <span className="font-semibold text-orange-500">
+                {selectedDate
+                  ? new Date(selectedDate).toLocaleDateString("vi-VN")
+                  : "Chưa chọn"}
+              </span>
+            </p>
+          </div>
+          <button
+            onClick={() => setFormOpen(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition text-sm font-medium"
+          >
+            <CirclePlus className="w-4 h-4" /> Thêm tăng ca
+          </button>
+        </div>
+
+        {/* Gợi ý nhanh */}
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3 border border-orange-100 dark:border-orange-800/50">
+          <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-2">💡 Cú pháp nhập nhanh</p>
+          <div className="space-y-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+            <div className="flex gap-2">
+              <span className="font-mono bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 shrink-0">In 7:30</span>
+              <span>→ Check-in lúc 7:30</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-mono bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 shrink-0">Out 20:00</span>
+              <span>→ Check-out lúc 20:00</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="font-mono bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 shrink-0">NV1 In 8:00</span>
+              <span>→ Nhập theo tên nhân viên</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Danh sách thành viên hôm nay */}
+        {members.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+              👥 Nhân viên ({members.length})
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {members.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/60 rounded-lg px-2.5 py-1.5 border border-gray-100 dark:border-gray-700/50"
+                >
+                  <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-[10px] shrink-0">
+                    {(m.nickname || m.realName)?.[0]?.toUpperCase()}
+                  </div>
+                  <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                    {m.nickname || m.realName}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {formOpen && (

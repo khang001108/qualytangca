@@ -6,7 +6,7 @@ import OverMember from "../components/OverMember";
 import OvertimeMonthGrid from "../components/OvertimeMonthGrid/OvertimeMonthGrid";
 import OvertimeSummary from "../components/OvertimeSummary";
 import OvertimeChart from "../components/OvertimeChart";
-import OvertimeMonth from "../components/OvertimeMonth";
+import OvertimeMonthInline from "../components/OvertimeMonthInline";
 import OvertimeForm from "../components/OvertimeForm/OvertimeForm";
 import PopupManager from "../components/PopupManager";
 import AccountPopup from "../components/AccountPopup";
@@ -205,7 +205,7 @@ export default function Home() {
   const sections = [
     { id: "summary",  el: <OvertimeSummary {...commonProps} overtimes={overtimeItems} limit={overtimeLimit} /> },
     { id: "form",     el: <OvertimeForm {...commonProps} /> },
-    { id: "calendar", el: <OvertimeMonth selectedDate={selectedDate} setSelectedDate={setSelectedDate} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear} setSelectedYear={setSelectedYear} shiftSchedules={shiftSchedules} onDateSelect={d => fetchMembersForDate(d.format("YYYY-MM-DD"))} /> },
+    { id: "calendar", el: <OvertimeMonthInline selectedDate={selectedDate} setSelectedDate={setSelectedDate} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear} setSelectedYear={setSelectedYear} shiftSchedules={shiftSchedules} onDateSelect={d => fetchMembersForDate(d.format("YYYY-MM-DD"))} /> },
     { id: "members",  el: <><OverMember {...commonProps} limit={overtimeLimit} /><OvertimeMonthGrid members={members} shiftSchedules={shiftSchedules} overtimes={overtimeItems} selectedMonth={selectedMonth} selectedYear={selectedYear} /></> },
     { id: "chart",    el: <div ref={chartRef}><OvertimeChart members={members} overtimes={overtimeItems} shiftSchedules={shiftSchedules} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div> },
   ];
