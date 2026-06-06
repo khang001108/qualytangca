@@ -124,7 +124,7 @@ export default function PopupManager({
           className="relative bg-white dark:bg-gray-900 text-gray-800 
                      dark:text-gray-200 rounded-2xl w-[95vw] max-w-[1600px] 
                      shadow-2xl border border-gray-200 dark:border-gray-700 
-                     flex flex-col overflow-visible"
+                     flex flex-col overflow-hidden"
         >
           {/* CLOSE BUTTON */}
           <button

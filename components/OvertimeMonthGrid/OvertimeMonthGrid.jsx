@@ -542,53 +542,44 @@ export default function OvertimeMonthGrid({
     <div className={CSS.container}>
       <div className={CSS.headerBox}>
 
+        {/* Dòng 1: Tiêu đề + Select */}
+        <div className="flex items-center justify-between gap-2 w-full">
+          <h3 className={CSS.headerTitle}>
+            Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/{selectedYear}
+          </h3>
+          <select
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+            className={CSS.headerSelect}
+          >
+            <option value="normal">Mặc định</option>
+            <option value="rest">Theo ngày nghỉ</option>
+            <option value="otAsc">Giờ TC ít nhất</option>
+            <option value="otDesc">Giờ TC nhiều nhất</option>
+          </select>
+        </div>
 
-        {/* Nhóm toggle + reset giữ layout cố định */}
-        <div className="flex items-center gap-4 min-w-[240px] justify-end">
-          {/* Toggle PLAN MODE */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-              Dự tính ngày tăng ca
-            </span>
-
-            <div
-              className={`toggle-mini ${planMode ? "active" : ""}`}
-              onClick={() => setPlanMode(!planMode)}
-            >
-              <div className="toggle-ball-mini" />
-            </div>
+        {/* Dòng 2: Toggle dự tính + Khôi phục */}
+        <div className="flex items-center gap-3 w-full pt-1 border-t border-gray-200 dark:border-gray-700/50 mt-1">
+          <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+            📅 Dự tính ngày tăng ca
+          </span>
+          <div
+            className={`toggle-mini ${planMode ? "active" : ""}`}
+            onClick={() => setPlanMode(!planMode)}
+          >
+            <div className="toggle-ball-mini" />
           </div>
-          {/* Reset chỉ xuất hiện nhưng KHÔNG làm layout thay đổi */}
-          {planMode ? (
+          {planMode && (
             <button
-              onClick={() => {
-                setManualBlockDays({});
-                saveBlocks({});
-              }}
-              className="px-3 py-1 rounded bg-red-500 text-white text-sm shadow whitespace-nowrap"
+              onClick={() => { setManualBlockDays({}); saveBlocks({}); }}
+              className="ml-auto px-3 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium shadow transition whitespace-nowrap"
             >
               Khôi phục
             </button>
-          ) : (
-            <div className="w-[100px]"></div> // giữ chỗ để ko nhảy UI
           )}
-
         </div>
 
-        <h3 className={CSS.headerTitle}>
-          Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/{selectedYear}
-        </h3>
-
-        <select
-          value={viewMode}
-          onChange={(e) => setViewMode(e.target.value)}
-          className={CSS.headerSelect}
-        >
-          <option value="normal">Mặc định</option>
-          <option value="rest">Theo ngày nghỉ</option>
-          <option value="otAsc">Giờ tăng ca ít nhất</option>
-          <option value="otDesc">Giờ tăng ca nhiều nhất</option>
-        </select>
       </div>
 
 
