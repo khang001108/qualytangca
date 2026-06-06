@@ -6,14 +6,11 @@ export default function Document() {
       <Head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Tăng Ca" />
-        <meta name="theme-color" content="#6366f1" />
+        <meta name="apple-mobile-web-app-title" content="Quản Lý Tăng Ca" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="/campus-lease-64.ico" />
       </Head>
       <body>
-        {/* Anti-FOUC: apply dark class trước khi React hydrate */}
+        {/* Anti-FOUC dark mode */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             var t = localStorage.getItem('theme');

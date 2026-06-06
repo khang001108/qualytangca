@@ -16,11 +16,14 @@ import { db } from "../../lib/firebase";
 
 import {
   LEAVE_CODES,
+  normalizeName as normalizeFromHelpers,
 } from "./parseHelpers";
 
 // --------------------------- Helpers ---------------------------
 const normalizeName = (s) => {
   if (!s) return "";
+  if (typeof normalizeFromHelpers === "function")
+    return normalizeFromHelpers(s);
   return String(s).trim();
 };
 

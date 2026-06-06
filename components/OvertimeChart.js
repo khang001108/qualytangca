@@ -210,107 +210,113 @@ export default function OvertimeChartByMember({
   }, [members, overtimes, shiftSchedules, selectedMonth, selectedYear]);
 
   return (
-    <div className="w-full max-w-full bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 text-center mb-4">
-        📊 Tổng giờ tăng ca tháng {selectedMonth}/{selectedYear}
-      </h2>
+    <div className="space-y-4 animate-fade-in-up">
 
-      <div className="h-[300px] sm:h-[450px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart
-            data={data}
-            margin={{ top: 40, right: 10, bottom: 60, left: 0 }}
-            onMouseMove={(state) => {
-              if (state && state.activeTooltipIndex != null) {
-                setHoverIndex(state.activeTooltipIndex);
-              }
-            }}
-            onMouseLeave={() => setHoverIndex(null)}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+      {/* ── Header ── */}
+      <div className="card">
+        <h2 className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-1.5 mb-4">
+          📊 Tổng giờ tăng ca — Tháng {selectedMonth}/{selectedYear}
+        </h2>
 
-            <XAxis
-              dataKey="name"
-              interval={0}
-              tick={{ fill: axisColor, fontSize: 12 }}
-              angle={-30}
-              textAnchor="end"
-            />
-
-            <YAxis tick={{ fontSize: 12, fill: axisColor }} />
-
-            <Tooltip content={<CustomTooltip isDark={isDark} />} />
-
-            <Legend
-              verticalAlign="top"
-              align="center"
-              wrapperStyle={{
-                paddingTop: 10,
-                paddingBottom: 20,
-                color: axisColor,
-                fontSize: 13,
+        <div className="h-[260px] sm:h-[360px]">
+          <ResponsiveContainer>
+            <ComposedChart
+              data={data}
+              margin={{ top: 30, right: 8, bottom: 50, left: -10 }}
+              onMouseMove={(state) => {
+                if (state && state.activeTooltipIndex != null) setHoverIndex(state.activeTooltipIndex);
               }}
-            />
+              onMouseLeave={() => setHoverIndex(null)}
+            >
+              <defs>
+                <linearGradient id="otGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={isDark ? 0.85 : 0.95} />
+                  <stop offset="100%" stopColor="#16a34a" stopOpacity={isDark ? 0.25 : 0.4} />
+                </linearGradient>
+              </defs>
 
-            {hoverIndex != null && (
-              <ReferenceLine
-                x={data[hoverIndex].name}
-                stroke="#ef4444"
-                strokeWidth={2}
-                strokeDasharray="5 3"
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+
+              <XAxis
+                dataKey="name"
+                interval={0}
+                tick={{ fill: axisColor, fontSize: 10 }}
+                angle={-25}
+                textAnchor="end"
               />
-            )}
 
-            <Bar
-              dataKey="OT"
-              fill="url(#otGrad)"
-              barSize={40}
-              radius={[8, 8, 0, 0]}
-            />
+              <YAxis tick={{ fontSize: 10, fill: axisColor }} width={28} />
 
-            {/* ⭐ ICON NGỒI TRÊN ĐẦU DOT CỦA ĐƯỜNG OT */}
-            <Line
-              type="monotone"
-              dataKey="OT"
-              stroke="#16a34a"
-              strokeWidth={3}
-              dot={(props) => <CustomDotAvatar {...props} members={members} />}
-              activeDot={false}
-            />
+              <Tooltip content={<CustomTooltip isDark={isDark} />} />
 
-            <Line
-              type="monotone"
-              dataKey="OT_NoBonus"
-              stroke="#3b82f6"
-              strokeWidth={3}
-              dot={{ r: 5, fill: "#3b82f6" }}
-              activeDot={{ r: 7 }}
-            />
+              <Legend
+                verticalAlign="top"
+                align="center"
+                wrapperStyle={{ paddingTop: 4, paddingBottom: 16, color: axisColor, fontSize: 11 }}
+              />
 
-            <Line
-              type="monotone"
-              dataKey="Limit"
-              stroke="#ef4444"
-              strokeWidth={3}
-              dot={false}
-            />
-
-            <defs>
-              <linearGradient id="otGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor="#22c55e"
-                  stopOpacity={isDark ? 0.85 : 0.95}
+              {hoverIndex != null && (
+                <ReferenceLine
+                  x={data[hoverIndex].name}
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  strokeDasharray="5 3"
                 />
-                <stop
-                  offset="100%"
-                  stopColor="#16a34a"
-                  stopOpacity={isDark ? 0.25 : 0.4}
-                />
-              </linearGradient>
-            </defs>
-          </ComposedChart>
-        </ResponsiveContainer>
+              )}
+
+              <Bar dataKey="OT" fill="url(#otGrad)" barSize={28} radius={[6, 6, 0, 0]} />
+              <Line type="monotone" dataKey="OT" stroke="#16a34a" strokeWidth={2.5}
+                dot={(props) => <CustomDotAvatar {...props} members={members} />} activeDot={false} />
+              <Line type="monotone" dataKey="OT_NoBonus" stroke="#3b82f6" strokeWidth={2}
+                dot={{ r: 4, fill: "#3b82f6" }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="Limit" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="6 3" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Card từng thành viên ── */}
+      <div className="card space-y-3">
+        <h3 className="font-bold text-gray-900 dark:text-white text-sm">👤 Chi tiết từng nhân viên</h3>
+        <div className="space-y-2">
+          {[...data].sort((a, b) => b.OT - a.OT).map((d, i) => {
+            const limit = d.Limit;
+            const pct = limit > 0 ? Math.min((d.OT / limit) * 100, 100) : 0;
+            const noBonus = d.OT_NoBonus;
+            const bonus = d.OT - noBonus;
+            const remaining = Math.max(limit - d.OT, 0);
+            const m = members.find(mem => (mem.nickname || mem.realName) === d.name);
+            const match = m ? ICONS.find(ic => ic.name === m.avatar) : null;
+            const Icon = match ? match.icon : null;
+            const color = m?.color || "#6366f1";
+            return (
+              <div key={i} className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-3 border border-gray-100 dark:border-gray-700/50">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "25" }}>
+                    {Icon ? <Icon className="w-4 h-4" style={{ color }} /> : <span className="text-xs font-bold" style={{ color }}>{d.name?.[0]}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{d.name}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+                      <span className="text-green-600 dark:text-green-400 font-medium">OT: {d.OT.toFixed(1)}h</span>
+                      {bonus > 0 && <span className="text-orange-500">Thưởng: +{bonus.toFixed(1)}h</span>}
+                      {limit > 0 && <span className="text-gray-400">Còn: {remaining.toFixed(1)}h</span>}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${pct >= 90 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : pct >= 70 ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400" : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"}`}>
+                    {Math.round(pct)}%
+                  </span>
+                </div>
+                {limit > 0 && (
+                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${pct}%`, backgroundColor: pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : color }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
