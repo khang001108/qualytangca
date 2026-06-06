@@ -210,13 +210,13 @@ export default function OvertimeChartByMember({
   }, [members, overtimes, shiftSchedules, selectedMonth, selectedYear]);
 
   return (
-    <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+    <div className="w-full max-w-full bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
       <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 text-center mb-4">
         📊 Tổng giờ tăng ca tháng {selectedMonth}/{selectedYear}
       </h2>
 
       <div className="h-[300px] sm:h-[450px]">
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
             margin={{ top: 40, right: 10, bottom: 60, left: 0 }}

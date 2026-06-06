@@ -3,7 +3,7 @@ export const CSS = {
   container:
     "rounded-xl bg-white dark:bg-[#1E1E2E] text-gray-900 dark:text-gray-100 p-4 shadow-sm",
 
-  scrollArea: "overflow-auto max-w-full mt-3 rounded-xl",
+  scrollArea: "overtime-grid-scroll overflow-x-auto max-w-full mt-3 rounded-xl",
 
   /* ===== HEADER ===== */
   headerBox:

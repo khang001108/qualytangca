@@ -621,7 +621,7 @@ export default function OvertimeForm({
             <textarea
               rows={6}
               className={`
-                w-full border rounded-lg mb-4 p-3 outline-none transition
+                w-full max-w-full border rounded-xl mb-4 p-3 outline-none transition resize-none
                 bg-white dark:bg-gray-800
                 text-gray-800 dark:text-gray-200
                 ${

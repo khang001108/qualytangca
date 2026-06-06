@@ -265,7 +265,7 @@ export default function Home() {
         </aside>
 
         {/* Main desktop */}
-        <main className="ml-64 flex-1 p-6">
+        <main className="ml-64 flex-1 p-6 overflow-x-hidden min-h-screen">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -289,7 +289,7 @@ export default function Home() {
       </div>
 
       {/* ════ MOBILE LAYOUT ════ */}
-      <div className="md:hidden flex flex-col h-screen">
+      <div className="md:hidden flex flex-col" style={{height: "100dvh"}}>
         {/* Mobile top bar */}
         <header className="shrink-0 flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-10">
           <div className="flex items-center gap-2">
@@ -315,7 +315,7 @@ export default function Home() {
         </header>
 
         {/* Mobile content — scroll độc lập */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto" style={{overflowX: "hidden", minHeight: 0}}>
           <AnimatePresence mode="wait">
             <motion.div key={mobileTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }} className="p-3 pb-4">
               {sections.find(s => s.id === mobileTab)?.el}

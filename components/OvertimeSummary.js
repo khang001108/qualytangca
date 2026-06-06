@@ -138,7 +138,7 @@ export default function OvertimeSummary({
   // RENDER
   // ============================================================
   return (
-    <div className="card animate-fade-in-up">
+    <div className="card animate-fade-in-up overflow-hidden">
       <div className="flex items-center justify-center mb-5 relative">
         <h2 className="font-semibold text-gray-900 dark:text-white text-base">
           🗓 Trạng thái — {dayjs(selectedDate || new Date()).format("DD/MM/YYYY")}
@@ -161,7 +161,7 @@ export default function OvertimeSummary({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SummaryItem
           label="Tăng ca nhiều nhất"
           value={
