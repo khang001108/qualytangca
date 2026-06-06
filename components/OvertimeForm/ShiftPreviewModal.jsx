@@ -1,45 +1,65 @@
-// components/OvertimeForm/ShiftPreviewModal.jsx — Mobile-friendly
-import { X, Loader2, ArrowRight } from "lucide-react";
+import React from "react";
+
+/*
+Props:
+- visible: boolean
+- pending: array of { memberId, name, oldShiftStart, newShiftStart }
+- onClose: () => void
+- onApprove: async () => void
+- onSkip: () => void
+- loading: boolean
+*/
 
 export default function ShiftPreviewModal({ visible, pending = [], onClose, onApprove, onSkip, loading }) {
   if (!visible) return null;
 
-  const friendlyLabel = (s = "") =>
-    s.replace("lên_ca_ngày_", "Ca ngày — ").replace("lên_ca_đêm_", "Ca đêm — ").replace("_", " ");
-
   return (
-    <div className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 glass-overlay" />
-      <div className="relative z-10 w-full sm:w-11/12 sm:max-w-lg bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-t-3xl sm:rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 animate-fadeSlideUp overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 bg-white dark:bg-gray-900 w-11/12 max-w-xl rounded-2xl p-5 shadow-xl">
+        <h3 className="text-lg font-semibold text-orange-600 mb-3">Xác nhận cập nhật phân ca</h3>
 
-        <div className="flex justify-between items-center px-5 py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
-          <h3 className="font-semibold">Cập nhật phân ca?</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/20 transition"><X size={20} /></button>
+        <div className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+          <div>Có <strong>{pending.length}</strong> thay đổi phân ca được phát hiện. Bạn muốn cập nhật vào hệ thống không?</div>
         </div>
 
-        <div className="px-4 py-3 space-y-2.5 max-h-[50vh] overflow-y-auto modal-scroll">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Phát hiện ca làm thay đổi so với hồ sơ:</p>
-          {pending.map((u) => (
-            <div key={u.memberId} className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700">
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900 dark:text-white truncate">{u.name}</div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex-wrap">
-                  <span className="text-red-400 line-through">{friendlyLabel(u.oldShiftStart)}</span>
-                  <ArrowRight size={10} />
-                  <span className="text-green-500">{friendlyLabel(u.newShiftStart)}</span>
+        <div className="max-h-60 overflow-auto mb-4 text-sm">
+          {pending.length === 0 && <div className="text-gray-500">Không có thay đổi nào.</div>}
+          {pending.map((p, i) => (
+            <div key={i} className="flex justify-between items-center gap-3 py-2 border-b last:border-b-0">
+              <div>
+                <div className="font-medium text-amber-500 dark:text-amber-400">{p.name}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-300">
+                  Hiện tại: <span className="text-red-600">{p.oldShiftStart || "Không có"}</span> → Mới: <span className="text-green-600">{p.newShiftStart}</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-          <button onClick={onSkip} disabled={loading} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            Bỏ qua
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+            disabled={loading}
+          >
+            Hủy
           </button>
-          <button onClick={onApprove} disabled={loading} className="flex-1 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium flex items-center justify-center gap-2 transition">
-            {loading ? <Loader2 size={15} className="animate-spin" /> : null}
-            Cập nhật & Lưu
+
+          <button
+            onClick={onSkip}
+            className="px-4 py-2 rounded-lg border bg-yellow-500 dark:bg-yellow-600 text-gray-700 dark:text-gray-200"
+            disabled={loading}
+          >
+            Bỏ qua (Không cập nhật)
+          </button>
+
+          <button
+            onClick={onApprove}
+            className="px-4 py-2 rounded-lg bg-green-600 text-white"
+            disabled={loading}
+          >
+            {loading ? "Đang cập nhật..." : "Cập nhật & Lưu"}
           </button>
         </div>
       </div>

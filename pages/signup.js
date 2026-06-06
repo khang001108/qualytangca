@@ -1,190 +1,104 @@
-// pages/signup.js
-// Trang đăng ký tài khoản cho hệ thống Quản lý tăng ca
-
 import { useState } from "react";
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-  signOut,
-} from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, signOut } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/router";
-import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
+import { UserPlus, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
   const router = useRouter();
 
   const handleSignup = async (e) => {
     e.preventDefault();
-
+    setError(""); setLoading(true);
     try {
-      setError("");
-      setLoading(true);
-
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-
-      // Không dùng tên hiển thị → gán displayName = email
-      await updateProfile(userCredential.user, {
-        displayName: email,
-      });
-
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        email,
-        approved: false,
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(cred.user, { displayName: email });
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email, displayName: email, approved: false, role: "user",
         createdAt: new Date().toISOString(),
       });
-
       await signOut(auth);
-
-      alert("🎉 Đăng ký thành công! Vui lòng chờ quản trị viên duyệt tài khoản.");
-      router.push("/login");
-
+      setDone(true);
     } catch (err) {
-      console.error(err);
-      setError("Tạo tài khoản thất bại: " + err.message);
-    } finally {
-      setLoading(false);
+      const msg = {
+        "auth/email-already-in-use": "Email đã được sử dụng",
+        "auth/weak-password": "Mật khẩu phải có ít nhất 6 ký tự",
+        "auth/invalid-email": "Email không hợp lệ",
+      }[err.code] || "Đăng ký thất bại";
+      setError(msg);
     }
+    setLoading(false);
   };
 
+  if (done) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+      <div className="card max-w-sm w-full text-center animate-scale-in">
+        <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Đăng ký thành công!</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Tài khoản đang chờ quản trị viên duyệt. Bạn sẽ nhận thông báo qua email.
+        </p>
+        <a href="/login" className="btn-indigo w-full inline-block text-center">Về trang đăng nhập</a>
+      </div>
+    </div>
+  );
+
   return (
-    <div
-      className="
-        min-h-screen flex items-center justify-center
-        bg-gray-100 dark:bg-gray-900 transition
-      "
-    >
-      <div
-        className="
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          p-8 rounded-2xl shadow-xl
-          w-[95%] max-w-md
-          transition
-        "
-      >
-        {/* Header */}
-        <div className="flex flex-col items-center mb-6">
-          <div
-            className="
-              bg-blue-600 dark:bg-blue-500 
-              text-white p-3 rounded-full shadow-lg
-            "
-          >
-            <UserPlus className="w-6 h-6" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+      <div className="w-full max-w-sm animate-fade-in-up">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-3xl">🕒</span>
           </div>
-
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-3">
-            Đăng ký tài khoản
-          </h2>
-
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            Hệ thống quản lý tăng ca
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tạo tài khoản</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Đăng ký để sử dụng hệ thống</p>
+        </div>
+        <div className="card">
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div>
+              <label className="label">Email</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input className="input pl-9" type="email" value={email}
+                  onChange={e => setEmail(e.target.value)} placeholder="email@example.com" required />
+              </div>
+            </div>
+            <div>
+              <label className="label">Mật khẩu</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input className="input pl-9 pr-10" type={showPw ? "text" : "password"}
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Ít nhất 6 ký tự" required />
+                <button type="button" onClick={() => setShowPw(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-xl">
+                <AlertCircle size={14} /> {error}
+              </div>
+            )}
+            <button type="submit" disabled={loading} className="btn-indigo w-full flex items-center justify-center gap-2 py-2.5">
+              {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                       : <UserPlus size={16} />}
+              {loading ? "Đang xử lý..." : "Đăng ký"}
+            </button>
+          </form>
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+            Đã có tài khoản?{" "}
+            <a href="/login" className="text-indigo-500 font-semibold hover:underline">Đăng nhập</a>
           </p>
         </div>
-
-        {/* Error */}
-        {error && (
-          <div
-            className="
-              bg-red-50 dark:bg-red-900/20
-              border border-red-200 dark:border-red-700
-              text-red-600 dark:text-red-300
-              text-sm p-2 mb-3 rounded-lg
-            "
-          >
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSignup} className="flex flex-col gap-4">
-
-          {/* Email */}
-          <div className="relative">
-            <Mail className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <input
-              type="email"
-              placeholder="Email đăng nhập"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="
-                w-full pl-10 pr-3 py-2
-                bg-white dark:bg-gray-700
-                border border-gray-300 dark:border-gray-600
-                text-gray-800 dark:text-gray-100
-                rounded-lg
-                focus:border-blue-500 dark:focus:border-blue-400
-                focus:ring-blue-400 dark:focus:ring-blue-500 focus:ring-1
-                outline-none transition
-              "
-              required
-            />
-          </div>
-
-          {/* Password */}
-          <div className="relative">
-            <Lock className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <input
-              type="password"
-              placeholder="Mật khẩu"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="
-                w-full pl-10 pr-3 py-2
-                bg-white dark:bg-gray-700
-                border border-gray-300 dark:border-gray-600
-                text-gray-800 dark:text-gray-100
-                rounded-lg
-                focus:border-blue-500 dark:focus:border-blue-400
-                focus:ring-blue-400 dark:focus:ring-blue-500 focus:ring-1
-                outline-none transition
-              "
-              required
-            />
-          </div>
-
-          {/* Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className={`
-              flex justify-center items-center gap-2
-              bg-blue-600 hover:bg-blue-700
-              dark:bg-blue-500 dark:hover:bg-blue-600
-              text-white p-2 rounded-lg transition font-medium
-              ${loading ? "opacity-70 cursor-not-allowed" : ""}
-            `}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin w-5 h-5" /> Đang xử lý...
-              </>
-            ) : (
-              "Đăng ký"
-            )}
-          </button>
-        </form>
-
-        {/* Link login */}
-        <p className="text-center mt-5 text-gray-600 dark:text-gray-400 text-sm">
-          Đã có tài khoản?{" "}
-          <a
-            href="/login"
-            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-          >
-            Đăng nhập
-          </a>
-        </p>
       </div>
     </div>
   );

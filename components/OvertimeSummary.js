@@ -1,101 +1,205 @@
-// components/OvertimeSummary.js — Mobile-first summary cards
+// components/OvertimeSummary.js
 import { useMemo, useState } from "react";
-import { Trophy, Users, TrendingUp, Eye, EyeOff } from "lucide-react";
+import {
+  Trophy,
+  ArrowDownCircle,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Users,
+} from "lucide-react";
 import dayjs from "dayjs";
 
-function StatCard({ icon, label, value, sub, accent = "indigo" }) {
-  const colors = {
-    indigo: "from-indigo-500 to-indigo-600",
-    orange: "from-orange-500 to-orange-600",
-    green:  "from-green-500 to-green-600",
-    yellow: "from-yellow-500 to-yellow-600",
-  };
-  return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colors[accent]} flex items-center justify-center shrink-0`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</div>
-        <div className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight">{value}</div>
-        {sub && <div className="text-xs text-gray-400 dark:text-gray-500 truncate">{sub}</div>}
+const formatHours = (num) => `${Number(num || 0).toLocaleString()} giờ`;
+
+export default function OvertimeSummary({
+  members = [],
+  overtimes = [],
+  shiftSchedules = {},
+  selectedMonth,
+  selectedYear,
+  selectedDate,
+}) {
+  const [showValues, setShowValues] = useState(true);
+
+  // ============================================================
+  // 🔥 TÍNH OT
+  // ============================================================
+  const data = useMemo(() => {
+    return members.map((m) => {
+      let totalOT = 0;
+
+      const daysInMonth = dayjs(
+        `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`
+      ).daysInMonth();
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateKey = dayjs(
+          `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(
+            d
+          ).padStart(2, "0")}`
+        ).format("YYYY-MM-DD");
+
+        const ot = overtimes.find((o) => {
+          const dk =
+            o.date?.slice(0, 10) ||
+            (typeof o.currentDate === "string"
+              ? o.currentDate.slice(0, 10)
+              : null);
+
+          if (!dk || dk !== dateKey) return false;
+          return (
+            String(o.memberId) === String(m.id) || o.realName === m.realName
+          );
+        });
+
+        if (ot) {
+          totalOT += Number(ot.tangCaHomNay || 0) + Number(ot.thuong || 0);
+          continue;
+        }
+
+        let rec = null;
+
+        if (shiftSchedules[dateKey]) {
+          rec =
+            shiftSchedules[dateKey][m.realName] ||
+            Object.values(shiftSchedules[dateKey]).find(
+              (s) =>
+                String(s.memberId) === String(m.id) || s.realName === m.realName
+            );
+        }
+
+        if (rec) {
+          totalOT += Number(rec.tangCaHomNay || 0) + Number(rec.thuong || 0);
+        }
+      }
+
+      return {
+        name: m.realName,
+        total: totalOT,
+        limit: Number(m.overtimeLimit?.monthlyLimit || 0),
+      };
+    });
+  }, [members, overtimes, shiftSchedules, selectedMonth, selectedYear]);
+
+  // ============================================================
+  // TRÍCH THÔNG TIN
+  // ============================================================
+  const maxData = data.reduce((a, b) => (b.total > a.total ? b : a), {
+    total: -1,
+  });
+
+  const minData = data.reduce((a, b) => (b.total < a.total ? b : a), {
+    total: Infinity,
+  });
+
+  const currentKey = dayjs(selectedDate || new Date()).format("YYYY-MM-DD");
+
+  const presentCount = members.filter((m) => {
+    const rec =
+      shiftSchedules[currentKey]?.[m.realName] ||
+      Object.values(shiftSchedules[currentKey] || {}).find(
+        (v) =>
+          v.realName === m.realName ||
+          String(v.memberId) === String(m.id)
+      );
+  
+    if (!rec) return false;
+    if (rec.type === "leave") return false;
+    return rec.type === "work";
+  }).length;
+  
+
+  const totalMembers = members.length;
+  const monthLimit = Math.max(...data.map((d) => d.limit || 0), 0);
+
+  // ============================================================
+  // COMPONENT ITEM
+  // ============================================================
+  const SummaryItem = ({ label, value, color, icon: Icon, highlight }) => (
+    <div className={`p-4 rounded-xl border-2 transition-all ${
+      highlight
+        ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+        : "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+    }`}>
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${highlight ? "bg-orange-100 dark:bg-orange-900/40" : "bg-white dark:bg-gray-700"}`}>
+          <Icon className={`w-5 h-5 ${color}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{label}</p>
+          <p className={`text-sm font-bold mt-0.5 ${color} truncate`}>{showValues ? value : "••••"}</p>
+        </div>
       </div>
     </div>
   );
-}
 
-export default function OvertimeSummary({ members = [], overtimes = [], shiftSchedules = {}, selectedMonth, selectedYear, selectedDate }) {
-  const [showValues, setShowValues] = useState(true);
-
-  const stats = useMemo(() => {
-    const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2,"0")}-01`).daysInMonth();
-
-    let totalOT = 0, totalMembers = members.length;
-    let topName = "—", topHours = 0;
-
-    members.forEach((m) => {
-      let mOT = 0;
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dk = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2,"0")}-${String(d).padStart(2,"0")}`).format("YYYY-MM-DD");
-        const ot = overtimes.find((o) => {
-          const dk2 = o.date?.slice(0,10);
-          return dk2 === dk && (String(o.memberId) === String(m.id) || o.realName === m.realName);
-        });
-        if (ot) { mOT += Number(ot.tangCaHomNay||0) + Number(ot.thuong||0); continue; }
-        const rec = shiftSchedules[dk]?.[m.realName];
-        if (rec) mOT += Number(rec.tangCaHomNay||0) + Number(rec.thuong||0);
-      }
-      totalOT += mOT;
-      if (mOT > topHours) { topHours = mOT; topName = m.realName || m.nickname || "?"; }
-    });
-
-    // Count unique active dates
-    const activeDays = new Set(
-      overtimes.filter((o) => (Number(o.tangCaHomNay)||0) > 0).map((o) => o.date?.slice(0,10))
-    ).size;
-
-    return { totalOT, totalMembers, topName, topHours, activeDays };
-  }, [members, overtimes, shiftSchedules, selectedMonth, selectedYear]);
-
-  const fmt = (n) => showValues ? `${Number(n||0).toLocaleString()}h` : "***";
-
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-          Tổng quan tháng {selectedMonth}/{selectedYear}
+    <div className="card animate-fade-in-up">
+      <div className="flex items-center justify-center mb-5 relative">
+        <h2 className="font-semibold text-gray-900 dark:text-white text-base">
+          🗓 Trạng thái — {dayjs(selectedDate || new Date()).format("DD/MM/YYYY")}
         </h2>
+
         <button
           onClick={() => setShowValues((v) => !v)}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+          className="
+            absolute right-0 
+            text-gray-600 hover:text-black 
+            dark:text-gray-300 dark:hover:text-white
+            transition
+          "
         >
-          {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          {showValues ? (
+            <EyeOff className="w-6 h-6" />
+          ) : (
+            <Eye className="w-6 h-6" />
+          )}
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          icon={<TrendingUp className="w-5 h-5 text-white" />}
-          label="Tổng giờ tăng ca"
-          value={fmt(stats.totalOT)}
-          accent="indigo"
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <SummaryItem
+          label="Tăng ca nhiều nhất"
+          value={
+            maxData.total >= 0
+              ? `${maxData.name} – ${formatHours(maxData.total)}`
+              : "Không có dữ liệu"
+          }
+          color="text-yellow-600 dark:text-yellow-400"
+          icon={Trophy}
+          highlight
         />
-        <StatCard
-          icon={<Users className="w-5 h-5 text-white" />}
-          label="Nhân viên"
-          value={stats.totalMembers}
-          sub={`${stats.activeDays} ngày OT`}
-          accent="orange"
+
+        <SummaryItem
+          label="Tăng ca ít nhất"
+          value={
+            minData.total !== Infinity
+              ? `${minData.name} – ${formatHours(minData.total)}`
+              : "Không có dữ liệu"
+          }
+          color="text-green-600 dark:text-green-400"
+          icon={ArrowDownCircle}
         />
-        <div className="col-span-2">
-          <StatCard
-            icon={<Trophy className="w-5 h-5 text-white" />}
-            label="Nhiều nhất tháng"
-            value={showValues ? `${stats.topName}` : "***"}
-            sub={showValues ? `${stats.topHours}h tăng ca` : "***"}
-            accent="yellow"
-          />
-        </div>
+
+        <SummaryItem
+          label="Giới hạn tháng"
+          value={formatHours(monthLimit)}
+          color="text-blue-600 dark:text-blue-400"
+          icon={ShieldCheck}
+        />
+
+        <SummaryItem
+          label="Sĩ số"
+          value={`${presentCount}/${totalMembers} (nghỉ ${
+            totalMembers - presentCount
+          })`}
+          color="text-cyan-600 dark:text-cyan-400"
+          icon={Users}
+        />
       </div>
     </div>
   );
