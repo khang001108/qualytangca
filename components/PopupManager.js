@@ -121,23 +121,18 @@ export default function PopupManager({
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.25 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative bg-white dark:bg-gray-900 text-gray-800 
-                     dark:text-gray-200 rounded-2xl w-[95vw] max-w-[1600px] 
-                     shadow-2xl border border-gray-200 dark:border-gray-700 
-                     flex flex-col overflow-visible"
+          className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl w-[95vw] max-w-2xl max-h-[90vh] shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
         >
-          {/* CLOSE BUTTON */}
+          {/* CLOSE BUTTON - luôn hiện ở góc phải */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-gray-500 
-                     dark:text-gray-400 hover:text-gray-800 
-                     dark:hover:text-gray-200"
+            className="absolute top-3 right-3 z-10 p-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-all"
           >
             <X className="w-5 h-5" />
           </button>
 
           {/* HEADER */}
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-5 overflow-y-auto">
             <div className="flex items-center justify-center mb-4 text-purple-600 
                             dark:text-purple-400 font-semibold gap-2">
               <Users className="w-6 h-6" />
