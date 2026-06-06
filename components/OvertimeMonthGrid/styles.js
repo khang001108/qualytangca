@@ -7,7 +7,7 @@ export const CSS = {
 
   /* ===== HEADER ===== */
   headerBox:
-    "flex items-center justify-between mb-4 px-5 py-3 rounded-xl " +
+    "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4 px-3 sm:px-5 py-3 rounded-xl " +
     "bg-[#F7F8FA] border border-gray-200 text-gray-900 shadow-sm " +
     "dark:bg-[#2F3145] dark:border-[#3A3B54] dark:text-gray-100",
 

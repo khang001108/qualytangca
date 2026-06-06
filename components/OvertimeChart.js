@@ -215,11 +215,11 @@ export default function OvertimeChartByMember({
         📊 Tổng giờ tăng ca tháng {selectedMonth}/{selectedYear}
       </h2>
 
-      <div className="h-[450px]">
+      <div className="h-[300px] sm:h-[450px]">
         <ResponsiveContainer>
           <ComposedChart
             data={data}
-            margin={{ top: 40, right: 30, bottom: 60 }}
+            margin={{ top: 40, right: 10, bottom: 60, left: 0 }}
             onMouseMove={(state) => {
               if (state && state.activeTooltipIndex != null) {
                 setHoverIndex(state.activeTooltipIndex);

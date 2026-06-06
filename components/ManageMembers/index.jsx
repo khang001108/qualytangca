@@ -267,61 +267,62 @@ export default function ManageMembers({
   return (
     <div className="space-y-4 text-gray-800 dark:text-gray-200">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 justify-between">
-        <div className="flex items-center gap-2 flex-nowrap">
+      <div className="flex flex-col gap-2">
+        {/* Hàng nút chức năng — wrap tự động trên mobile */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowAssign(true)}
-            className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
             <CalendarArrowUp className="w-4 h-4" /> Phân ca
           </button>
 
           <button
             onClick={() => setShowLimit(true)}
-            className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
             <Clock className="w-4 h-4" /> Giới hạn tăng ca
           </button>
 
           <button
             onClick={() => setShowFormula(true)}
-            className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
             <Settings className="w-4 h-4" /> Cấu hình tăng ca
           </button>
 
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
             <UserPlus className="w-4 h-4" /> Thêm nhân viên
           </button>
 
           <button
             onClick={() => setShowDelete(true)}
-            className="flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
             <Trash2 className="w-4 h-4" /> Xóa nhân viên
           </button>
         </div>
 
-        {/* Tìm kiếm + sắp xếp */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        {/* Tìm kiếm + sắp xếp — stack dọc trên mobile */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Tìm theo tên (nickname hoặc realName)..."
+              placeholder="Tìm theo tên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1 border rounded-md bg-white/70 dark:bg-gray-700/40 text-sm"
+              className="pl-8 pr-3 py-1.5 border rounded-md bg-white/70 dark:bg-gray-700/40 text-sm w-full"
             />
           </div>
 
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value)}
-            className="px-2 py-1 border rounded-md bg-white/70 dark:bg-gray-700 text-sm"
+            className="px-2 py-1.5 border rounded-md bg-white/70 dark:bg-gray-700 text-sm w-full sm:w-auto"
           >
             <option value="lowLimit">Giới hạn giờ thấp nhất</option>
             <option value="highLimit">Giới hạn giờ cao nhất</option>

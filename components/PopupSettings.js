@@ -62,7 +62,7 @@ export default function PopupSettings({ member, setMembers, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl p-6 w-80 shadow-2xl border border-gray-200 dark:border-gray-700 relative animate-fadeIn transition-colors"
+        className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-2xl p-4 sm:p-6 w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm shadow-2xl border border-gray-200 dark:border-gray-700 relative animate-fadeIn transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 text-center mb-3">

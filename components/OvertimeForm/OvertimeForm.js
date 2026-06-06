@@ -490,7 +490,7 @@ export default function OvertimeForm({
 
           <div
             ref={modalRef}
-            className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-11/12 max-w-xl p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors"
+            className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-[calc(100vw-1rem)] sm:w-11/12 max-w-xl p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors max-h-[90vh] overflow-y-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-5">
