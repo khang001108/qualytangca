@@ -158,33 +158,84 @@ export default function OvertimeMonthInline({
 
       {/* Chi tiết ngày được chọn */}
       {selectedKey && (
-        <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-3 space-y-2">
+        <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-3 space-y-3">
           <p className="font-semibold text-sm text-gray-700 dark:text-gray-200">
             📅 {dayjs(selectedDate).format("DD/MM/YYYY")}
           </p>
           {Object.keys(selectedShifts).length === 0 ? (
-            <p className="text-xs text-gray-400 dark:text-gray-500">Không có dữ liệu ca</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 italic">Không có dữ liệu ca</p>
           ) : (
-            <div className="space-y-1">
-              {dayWorkers.length > 0 && (
-                <div>
-                  <p className="text-[11px] text-yellow-600 dark:text-yellow-400 font-medium mb-1">☀️ Ca ngày ({dayWorkers.length})</p>
-                  {dayWorkers.map((s, i) => (
-                    <div key={i} className="text-xs text-gray-600 dark:text-gray-300 pl-2">
-                      • {s.realName || "—"} {s.tangCaHomNay > 0 ? <span className="text-green-600 dark:text-green-400">+{s.tangCaHomNay}h TC</span> : ""}
+            <div className="space-y-3">
+              {[
+                { workers: dayWorkers, label: "Ca ngày", icon: "☀️", color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800" },
+                { workers: nightWorkers, label: "Ca đêm", icon: "🌙", color: "text-indigo-500 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800" },
+              ].map(({ workers, label, icon, color, bg }) =>
+                workers.length > 0 && (
+                  <div key={label} className={`rounded-xl p-2.5 ${bg}`}>
+                    <p className={`text-[11px] font-bold mb-2 ${color}`}>
+                      {icon} {label} ({workers.length} người)
+                    </p>
+                    <div className="space-y-2">
+                      {workers.map((s, i) => {
+                        const checkIn  = s.lastCheckInTime  || s.checkIn  || s.shiftStart || "";
+                        const checkOut = s.lastCheckOutTime || s.checkOut || "";
+                        const ot       = Number(s.tangCaHomNay || 0);
+                        const bonus    = Number(s.thuong || 0);
+                        const type     = s.type;
+                        const isLeave  = type === "leave";
+                        return (
+                          <div key={i} className="flex items-start justify-between gap-2 text-xs">
+                            {/* Tên */}
+                            <span className="font-medium text-gray-800 dark:text-gray-200 min-w-0 truncate">
+                              {s.realName || "—"}
+                            </span>
+
+                            {/* Giờ + thông tin */}
+                            <div className="text-right shrink-0 space-y-0.5">
+                              {isLeave ? (
+                                <span className="text-orange-500 font-semibold">Nghỉ phép</span>
+                              ) : (
+                                <>
+                                  {/* Giờ vào / ra */}
+                                  <div className="flex items-center gap-1 justify-end">
+                                    {checkIn && (
+                                      <span className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-mono text-[10px]">
+                                        ↑ {checkIn}
+                                      </span>
+                                    )}
+                                    {checkOut && (
+                                      <span className="bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-mono text-[10px]">
+                                        ↓ {checkOut}
+                                      </span>
+                                    )}
+                                    {!checkIn && !checkOut && (
+                                      <span className="text-gray-400 dark:text-gray-500 text-[10px]">Chưa điểm danh</span>
+                                    )}
+                                  </div>
+                                  {/* Tăng ca + thưởng */}
+                                  {(ot > 0 || bonus > 0) && (
+                                    <div className="flex gap-1 justify-end">
+                                      {ot > 0 && (
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
+                                          +{ot}h TC
+                                        </span>
+                                      )}
+                                      {bonus > 0 && (
+                                        <span className="text-amber-600 dark:text-amber-400 font-semibold text-[10px]">
+                                          🎁{bonus}h
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
-              {nightWorkers.length > 0 && (
-                <div>
-                  <p className="text-[11px] text-indigo-500 dark:text-indigo-400 font-medium mb-1">🌙 Ca đêm ({nightWorkers.length})</p>
-                  {nightWorkers.map((s, i) => (
-                    <div key={i} className="text-xs text-gray-600 dark:text-gray-300 pl-2">
-                      • {s.realName || "—"} {s.tangCaHomNay > 0 ? <span className="text-green-600 dark:text-green-400">+{s.tangCaHomNay}h TC</span> : ""}
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                )
               )}
             </div>
           )}
