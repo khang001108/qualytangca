@@ -198,18 +198,29 @@ export default function OvertimeForm({
 
       // ============================ CHECK IN =============================
       if (mode === "checkin") {
-        if (minutesOfDay >= somInStart && minutesOfDay <= somInEnd) {
+        const hasWindowConfig =
+          somInStart != null && somInEnd != null &&
+          muonInStart != null && muonInEnd != null;
+
+        if (somInStart != null && somInEnd != null &&
+            minutesOfDay >= somInStart && minutesOfDay <= somInEnd) {
           chosenVariant = "sớm";
           minutesOfDay = somInEnd;
-        } else if (minutesOfDay >= muonInStart && minutesOfDay <= muonInEnd) {
+        } else if (muonInStart != null && muonInEnd != null &&
+                   minutesOfDay >= muonInStart && minutesOfDay <= muonInEnd) {
           chosenVariant = "muộn";
           minutesOfDay = muonInEnd;
-        } else {
+        } else if (hasWindowConfig) {
+          // Khung giờ đã cấu hình nhưng giờ không khớp → cảnh báo nhưng vẫn cho qua
           showToast(
-            "error",
-            `${namePart} — ${timeString} không nằm trong khung giờ lên ca.`
+            "warning",
+            `⚠️ ${namePart} — ${timeString} ngoài khung giờ, đã lưu thực tế.`
           );
-          return;
+          chosenVariant = "other";
+          // Giữ nguyên minutesOfDay (giờ thực tế)
+        } else {
+          // Chưa cấu hình khung giờ → cho qua hoàn toàn
+          chosenVariant = "other";
         }
       }
 
