@@ -16,7 +16,7 @@ export const CSS = {
     "bg-white text-gray-700 border-gray-300 " +
     "dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] transition",
 
-  headerTitle: "text-lg font-bold tracking-wide",
+  headerTitle: "text-base font-bold tracking-wide whitespace-nowrap",
 
   table:
     "table-fixed w-max border-separate border-spacing-0 text-center align-middle",
