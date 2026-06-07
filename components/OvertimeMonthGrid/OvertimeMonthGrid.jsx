@@ -4,6 +4,8 @@ import DayCell from "./DayCell";
 import { CSS } from "./styles";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import { User } from "lucide-react";
+import { ICONS } from "../../utils/iconUtils";
 
 /* ========================= HELPERS ========================= */
 
@@ -678,9 +680,17 @@ function MemberPlanCard({ m, idx, isNight, cellData, planMode, weekdayLabels, to
       {/* Main row — tap to expand */}
       <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none" onClick={() => setOpen(o => !o)}>
         <span className="text-[10px] font-bold text-gray-300 dark:text-gray-600 w-4 shrink-0">{idx + 1}</span>
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300" : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300"}`}>
-          {(m.realName || "?")?.[0]}
-        </div>
+        {(() => {
+          const iconMatch = ICONS.find(ic => ic.name === m.avatar);
+          const MIcon = iconMatch ? iconMatch.icon : User;
+          const mColor = m.color || (isNight ? "#6366f1" : "#f59e0b");
+          return (
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: mColor + "25" }}>
+              <MIcon className="w-3.5 h-3.5" style={{ color: mColor }} />
+            </div>
+          );
+        })()}
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">{m.realName}</p>
           <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight truncate">{m.nickname || ""}</p>

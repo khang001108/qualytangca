@@ -1,10 +1,11 @@
 // MobileCard.jsx — compact single-line card cho mobile
 import React from "react";
 import dayjs from "dayjs";
-import { Moon, SunMedium, BedDouble, ChevronDown, ChevronUp } from "lucide-react";
+import { Moon, SunMedium, BedDouble, ChevronDown, ChevronUp, User } from "lucide-react";
 import { useState } from "react";
 import { db } from "../../../lib/firebase";
 import { doc, updateDoc, setDoc, serverTimestamp, deleteField } from "firebase/firestore";
+import { ICONS } from "../../../utils/iconUtils";
 
 export default function MobileCard({ index, m, setMembers, user, selectedDate, shiftSchedules, shiftConfig }) {
   const [expanded, setExpanded] = useState(false);
@@ -58,10 +59,18 @@ export default function MobileCard({ index, m, setMembers, user, selectedDate, s
         {/* STT */}
         <span className="text-[10px] font-bold text-gray-300 dark:text-gray-600 w-4 shrink-0">{index + 1}</span>
 
-        {/* Avatar initial */}
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300" : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300"}`}>
-          {(m.realName || "?")?.[0]}
-        </div>
+        {/* Avatar icon */}
+        {(() => {
+          const iconMatch = ICONS.find(ic => ic.name === m.avatar);
+          const MIcon = iconMatch ? iconMatch.icon : User;
+          const mColor = m.color || (isNight ? "#6366f1" : "#f59e0b");
+          return (
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: mColor + "25" }}>
+              <MIcon className="w-3.5 h-3.5" style={{ color: mColor }} />
+            </div>
+          );
+        })()}
 
         {/* Tên */}
         <div className="flex-1 min-w-0">

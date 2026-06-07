@@ -1,7 +1,14 @@
 // components/OvertimeMonthInline.js — Lịch inline mobile
 import React from "react";
 import dayjs from "dayjs";
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, User } from "lucide-react";
+
+const AVATAR_COLORS = ["#f59e0b","#6366f1","#10b981","#ef4444","#3b82f6","#8b5cf6","#ec4899","#14b8a6"];
+function nameToColor(name) {
+  let h = 0;
+  for (let i = 0; i < (name||"").length; i++) h = (h * 31 + (name.charCodeAt(i))) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 function toHHMM(minutes) {
   if (minutes == null || isNaN(minutes)) return "--:--";
@@ -136,14 +143,12 @@ export default function OvertimeMonthInline({
                   const isNight = s.shift?.toLowerCase().includes("đêm");
                   const isEarly = s.shiftStart?.includes("sớm");
                   const ot = Number(s.tangCaHomNay || 0);
+                  const avatarColor = nameToColor(s.realName);
                   return (
                     <div key={i} className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-2.5 py-2 border border-yellow-100 dark:border-gray-700">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                        isNight
-                          ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
-                          : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
-                      }`}>
-                        {(s.realName || "?")?.[0]}
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: avatarColor + "25" }}>
+                        <User className="w-3 h-3" style={{ color: avatarColor }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{s.realName || "—"}</p>

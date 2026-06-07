@@ -159,10 +159,14 @@ export default function OvertimeSummary({
         <div className="space-y-1.5">
           {todayData.map(td => {
             const hasData = td.checkIn || td.checkOut || td.note;
+            const iconMatch = ICONS.find(ic => ic.name === td.avatar);
+            const TdIcon = iconMatch ? iconMatch.icon : User;
+            const tdColor = td.color || (td.isNight ? "#6366f1" : "#f59e0b");
             return (
               <div key={td.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border ${hasData ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" : "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700/30"}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${td.isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400" : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"}`}>
-                  {td.name?.[0]}
+                <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: tdColor + "25" }}>
+                  <TdIcon className="w-3.5 h-3.5" style={{ color: tdColor }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{td.name}</p>
