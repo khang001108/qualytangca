@@ -215,8 +215,12 @@ export default function QuickCheckIn({
       s => s.memberId === m.id || s.realName === m.realName
     );
 
-    // ✅ checkinType: đọc từ shiftSchedule (phân ca), fallback "muon"
-    const checkinType = rec?.checkinType || "muon";
+    // ✅ checkinType: đọc từ shiftStart trong shiftSchedules (được ghi lúc phân ca)
+    // "lên_ca_ngày_sớm" / "lên_ca_đêm_sớm" → "som", còn lại → "muon"
+    const shiftStart = rec?.shiftStart || m.shiftStart || "";
+    const checkinType = shiftStart.includes("sớm") || shiftStart.includes("som")
+      ? "som"
+      : rec?.checkinType || "muon";
 
     // check-in: giờ thực tế hoặc default theo checkinType đúng
     const checkInTime = rec?.lenCa || defaultCheckInStr(cfg, checkinType);
