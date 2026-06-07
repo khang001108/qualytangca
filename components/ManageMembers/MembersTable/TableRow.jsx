@@ -2,98 +2,243 @@ import React from "react";
 import dayjs from "dayjs";
 import { Moon, SunMedium } from "lucide-react";
 import { db } from "../../../lib/firebase";
-import { doc, updateDoc, setDoc, serverTimestamp, deleteField } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  setDoc,
+  serverTimestamp,
+  deleteField,
+} from "firebase/firestore";
 
-export default function TableRow({ index, m, setMembers, user, selectedDate, shiftSchedules, shiftConfig }) {
-  const currentDate = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : dayjs().format("YYYY-MM-DD");
+export default function TableRow({
+  index,
+  m,
+  setMembers,
+  user,
+  selectedDate,
+  shiftSchedules,
+  overtimeDates,
+  shiftConfig,
+}) {
+  const fmt = (n) => `${Number(n || 0).toLocaleString()}h`;
 
+  // ===========================
+  // XÁC ĐỊNH NGÀY
+  // ===========================
+  const currentDate = selectedDate
+    ? dayjs(selectedDate).format("YYYY-MM-DD")
+    : dayjs().format("YYYY-MM-DD");
+
+  // ===========================
+  // LOAD CA THỰC TẾ
+  // ===========================
   let shiftName = m.shift;
   let shiftStart = m.shiftStart;
-  const sched = shiftSchedules[currentDate]?.[m.id];
-  if (sched) { shiftName = sched.shift; shiftStart = sched.shiftStart; }
+
+  if (shiftSchedules[currentDate]?.[m.id]) {
+    const item = shiftSchedules[currentDate][m.id];
+    shiftName = item.shift;
+    shiftStart = item.shiftStart;
+  }
+
   shiftStart = shiftStart || m.shiftStart || "08:00";
 
-  const isEarly = shiftStart?.includes("sớm");
-  const isNight = (shiftName || "").toLowerCase().includes("đêm");
-  const cfg = isNight ? shiftConfig?.night : shiftConfig?.day;
+  const isEarly = shiftStart.includes("sớm");
+  const isNightShift = (shiftName || "").toLowerCase().includes("đêm");
+  const cfg = isNightShift ? shiftConfig?.night : shiftConfig?.day;
 
-  const limit   = Number(m.overtimeLimit?.monthlyLimit || 0);
-  const worked  = Number(m.overtimeLimit?.workedHours  || 0);
-  const remain  = Math.max(limit - worked, 0);
+  // ===========================
+  // OVERTIME
+  // ===========================
+  const limit = m.overtimeLimit?.monthlyLimit || 0;
+  const worked = m.overtimeLimit?.workedHours || 0;
+  const remainingHours = (m.overtimeLimit?.monthlyLimit || 0) - (m.overtimeLimit?.workedHours || 0);
 
-  let inTime = null;
-  if (sched) inTime = isEarly ? sched.lenCaSomKetThuc : sched.lenCaMuonKetThuc;
-  if (!inTime) inTime = isEarly ? cfg?.lenCaSomKetThuc : cfg?.lenCaMuonKetThuc;
+  // ===========================
+  // LÊN CA SỚM
+  // ===========================
+  const handleEarlyShiftToggle = async (checked) => {
+    try {
+      const isNight = (shiftName || "").toLowerCase().includes("đêm");
+      const dateStr = currentDate;
 
-  const handleRestDay = async (v) => {
-    setMembers(p => p.map(x => x.id === m.id ? { ...x, restDay: v } : x));
-    await updateDoc(doc(db, "members", m.id), { restDay: v, updatedAt: serverTimestamp() }).catch(console.error);
+      // ƯU TIÊN LẤY DỮ LIỆU HIỆN CÓ TRONG shiftSchedules (đúng nhất)
+      const sched = shiftSchedules[dateStr]?.[m.id] || {};
+
+      const newShiftStart = checked
+        ? isNight
+          ? "lên_ca_đêm_sớm"
+          : "lên_ca_ngày_sớm"
+        : isNight
+          ? "lên_ca_đêm_muộn"
+          : "lên_ca_ngày_muộn";
+
+      let fields = {};
+      let clearFields = {};
+
+      if (checked) {
+        // Lên ca sớm → dùng giờ từ shiftSchedules nếu có, fallback config
+        fields = {
+          lenCaSomBatDau:
+            sched.lenCaSomBatDau || shiftConfig?.day?.lenCaSomBatDau,
+          lenCaSomKetThuc:
+            sched.lenCaSomKetThuc || shiftConfig?.day?.lenCaSomKetThuc,
+        };
+
+        clearFields = {
+          lenCaMuonBatDau: deleteField(),
+          lenCaMuonKetThuc: deleteField(),
+        };
+      } else {
+        // Lên ca muộn → dùng giờ từ shiftSchedules nếu có, fallback config
+        fields = {
+          lenCaMuonBatDau:
+            sched.lenCaMuonBatDau || shiftConfig?.day?.lenCaMuonBatDau,
+          lenCaMuonKetThuc:
+            sched.lenCaMuonKetThuc || shiftConfig?.day?.lenCaMuonKetThuc,
+        };
+
+        clearFields = {
+          lenCaSomBatDau: deleteField(),
+          lenCaSomKetThuc: deleteField(),
+        };
+      }
+
+      // Update UI
+      setMembers((prev) =>
+        prev.map((mem) =>
+          mem.id === m.id
+            ? { ...mem, earlyShift: checked, shiftStart: newShiftStart }
+            : mem
+        )
+      );
+
+      // Update shiftSchedules
+      await setDoc(
+        doc(db, "shiftSchedules", `${dateStr}__${m.id}`),
+        {
+          shift: shiftName,
+          shiftStart: newShiftStart,
+          ...fields,
+          ...clearFields,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("❌ Firestore error:", err);
+      alert("Không thể cập nhật Firestore.");
+    }
   };
 
-  const handleEarly = async (checked) => {
-    const newStart = checked ? (isNight ? "lên_ca_đêm_sớm" : "lên_ca_ngày_sớm") : (isNight ? "lên_ca_đêm_muộn" : "lên_ca_ngày_muộn");
-    const sc = shiftSchedules[currentDate]?.[m.id] || {};
-    const fields = checked
-      ? { lenCaSomBatDau: sc.lenCaSomBatDau || cfg?.lenCaSomBatDau, lenCaSomKetThuc: sc.lenCaSomKetThuc || cfg?.lenCaSomKetThuc }
-      : { lenCaMuonBatDau: sc.lenCaMuonBatDau || cfg?.lenCaMuonBatDau, lenCaMuonKetThuc: sc.lenCaMuonKetThuc || cfg?.lenCaMuonKetThuc };
-    const clear = checked
-      ? { lenCaMuonBatDau: deleteField(), lenCaMuonKetThuc: deleteField() }
-      : { lenCaSomBatDau: deleteField(), lenCaSomKetThuc: deleteField() };
-    setMembers(p => p.map(x => x.id === m.id ? { ...x, earlyShift: checked, shiftStart: newStart } : x));
-    await setDoc(doc(db, "shiftSchedules", `${currentDate}__${m.id}`), { shift: shiftName, shiftStart: newStart, ...fields, ...clear, updatedAt: serverTimestamp() }, { merge: true }).catch(console.error);
+  // ===========================
+  // UPDATE NGÀY NGHỈ
+  // ===========================
+  const handleRestDayChange = async (value) => {
+    try {
+      setMembers((prev) =>
+        prev.map((mem) => (mem.id === m.id ? { ...mem, restDay: value } : mem))
+      );
+
+      await updateDoc(doc(db, "members", m.id), {
+        restDay: value,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("❌ Lỗi cập nhật restDay:", err);
+    }
   };
 
-  const td = "px-1.5 py-2 text-center text-[11px]";
+  // ===========================
+  // TÍNH NGÀY CÒN LẠI
+  // ===========================
+  const getRemainingDays = () => {
+  const hoursPerDay = m.overtimeLimit?.perDay || 0;
 
+  const remainingHours =
+    (m.overtimeLimit?.monthlyLimit || 0) -
+    (m.overtimeLimit?.workedHours || 0);
+
+  if (!hoursPerDay || remainingHours <= 0) return 0;
+
+  return Math.ceil(remainingHours / hoursPerDay);
+};
+
+
+
+  // ===========================
+  // RENDER
+  // ===========================
   return (
-    <tr className="border-t border-gray-100 dark:border-gray-700/60 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-      <td className={`${td} text-gray-400 dark:text-gray-500 font-medium`}>{index + 1}</td>
+    <tr className="hover:bg-purple-100 dark:hover:bg-gray-800 transition-colors border-t border-gray-300 dark:border-gray-700">
+      <td className="p-2 font-medium">{index + 1}</td>
+      <td className="p-2">{m.realName}</td>
+      <td className="p-2">{m.nickname}</td>
 
-      {/* Tên gộp 2 dòng */}
-      <td className="px-2 py-1.5 text-left">
-        <p className="text-[11px] font-semibold text-gray-800 dark:text-gray-100 leading-tight truncate max-w-[80px]">{m.realName}</p>
-        {m.nickname && <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight truncate max-w-[80px]">{m.nickname}</p>}
+      <td className="p-2">
+        {isNightShift ? (
+          <div className="flex items-center justify-center gap-1">
+            <Moon className="w-4 h-4 text-blue-500" />
+            <span>Đêm</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1">
+            <SunMedium className="w-4 h-4 text-yellow-500" />
+            <span>Ngày</span>
+          </div>
+        )}
       </td>
 
-      {/* Ca */}
-      <td className={td}>
-        {isNight
-          ? <Moon className="w-3.5 h-3.5 text-indigo-400 mx-auto" />
-          : <SunMedium className="w-3.5 h-3.5 text-yellow-500 mx-auto" />}
-      </td>
-
-      {/* Nghỉ */}
-      <td className={td}>
+      <td className="p-2">
         <select
           value={m.restDay || "Không"}
-          onChange={e => handleRestDay(e.target.value)}
-          className="text-[10px] bg-gray-100 dark:bg-gray-700 border-0 rounded px-1 py-0.5 max-w-[60px] cursor-pointer outline-none"
+          onChange={(e) => handleRestDayChange(e.target.value)}
+          className="px-2 py-1 rounded-lg bg-gray-200 dark:bg-gray-700 border"
         >
-          {["Không","T2","T3","T4","T5","T6","T7","CN"].map((v, i) => (
-            <option key={v} value={["Không","Thứ 2","Thứ 3","Thứ 4","Thứ 5","Thứ 6","Thứ 7","Chủ nhật"][i]}>{v}</option>
-          ))}
+          <option value="Không">Không</option>
+          <option value="Thứ 2">Thứ 2</option>
+          <option value="Thứ 3">Thứ 3</option>
+          <option value="Thứ 4">Thứ 4</option>
+          <option value="Thứ 5">Thứ 5</option>
+          <option value="Thứ 6">Thứ 6</option>
+          <option value="Thứ 7">Thứ 7</option>
+          <option value="Chủ nhật">Chủ nhật</option>
         </select>
       </td>
 
-      {/* Giờ lên ca */}
-      <td className={`${td} font-mono text-gray-600 dark:text-gray-300`}>{inTime ?? "--"}</td>
+      <td className="p-2">
+        {(() => {
+          let endTime = null;
 
-      {/* Giới hạn */}
-      <td className={`${td} font-bold text-green-600 dark:text-green-400`}>{limit}h</td>
+          // Lấy từ shiftSchedules theo memberId (đúng)
+          const sched = shiftSchedules[currentDate]?.[m.id];
+          if (sched) {
+            endTime = isEarly ? sched.lenCaSomKetThuc : sched.lenCaMuonKetThuc;
+          }
 
-      {/* Đã tăng */}
-      <td className={`${td} font-bold text-yellow-600 dark:text-yellow-400`}>{worked}h</td>
+          // Fallback config
+          if (!endTime) {
+            endTime = isEarly ? cfg?.lenCaSomKetThuc : cfg?.lenCaMuonKetThuc;
+          }
 
-      {/* Còn */}
-      <td className={`${td} font-bold ${remain === 0 ? "text-red-500" : "text-indigo-500 dark:text-indigo-400"}`}>{remain}h</td>
+          return endTime || "--:--";
+        })()}
+      </td>
 
-      {/* Lên sớm checkbox */}
-      <td className={td}>
+      <td className="p-2 text-green-600 font-semibold">{fmt(limit)}</td>
+      <td className="p-2 text-yellow-600 font-semibold">{fmt(worked)}</td>
+      <td className="p-2 text-indigo-700 font-semibold">
+        {fmt(remainingHours)}
+      </td>
+      <td className="p-2 text-orange-500 font-semibold">
+        {getRemainingDays()}
+      </td>
+
+      <td className="p-2">
         <input
           type="checkbox"
           checked={isEarly}
-          onChange={e => handleEarly(e.target.checked)}
-          className="w-3.5 h-3.5 accent-indigo-500 cursor-pointer"
+          onChange={(e) => handleEarlyShiftToggle(e.target.checked)}
         />
       </td>
     </tr>

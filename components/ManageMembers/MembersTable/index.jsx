@@ -65,7 +65,7 @@ export default function MembersTable({
           style={{ maxHeight: "55vh", minHeight: "200px" }}
         >
           <div className="flex-1 overflow-auto">
-            <table className="w-full min-w-[420px] text-sm border-collapse">
+            <table className="w-full min-w-[700px] text-sm border-collapse">
               <TableHeader />
               <tbody className="text-center">
                 {members.length === 0 ? (

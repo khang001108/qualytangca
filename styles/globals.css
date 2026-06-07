@@ -120,28 +120,3 @@ input[type="password"] { -webkit-appearance: none; -moz-appearance: none; }
 @media (hover: none) and (pointer: coarse) {
   .group-hover-show { opacity: 1 !important; }
 }
-
-/* ── Toggle mini (dùng trong OvertimeMonthGrid) ── */
-.toggle-mini {
-  position: relative;
-  width: 40px;
-  height: 22px;
-  background: #d1d5db;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.25s;
-  flex-shrink: 0;
-}
-.toggle-mini.active { background: #6366f1; }
-.toggle-ball-mini {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.25s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-.toggle-mini.active .toggle-ball-mini { transform: translateX(18px); }

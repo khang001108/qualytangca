@@ -269,41 +269,41 @@ export default function ManageMembers({
     <div className="space-y-4 text-gray-800 dark:text-gray-200">
       {/* Toolbar */}
       <div className="flex flex-col gap-2">
-        {/* Nút chức năng — grid 2 cột gọn */}
-        <div className="grid grid-cols-2 gap-1.5">
+        {/* Hàng nút chức năng — wrap tự động trên mobile */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowAssign(true)}
-            className="flex items-center justify-center gap-1.5 bg-purple-500 hover:bg-purple-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
-            <CalendarArrowUp className="w-3.5 h-3.5 shrink-0" /> Phân ca
+            <CalendarArrowUp className="w-4 h-4" /> Phân ca
           </button>
 
           <button
             onClick={() => setShowLimit(true)}
-            className="flex items-center justify-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
-            <Clock className="w-3.5 h-3.5 shrink-0" /> Giới hạn tăng ca
+            <Clock className="w-4 h-4" /> Giới hạn tăng ca
           </button>
 
           <button
             onClick={() => setShowFormula(true)}
-            className="flex items-center justify-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
-            <Settings className="w-3.5 h-3.5 shrink-0" /> Cấu hình tăng ca
+            <Settings className="w-4 h-4" /> Cấu hình tăng ca
           </button>
 
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1 bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
-            <UserPlus className="w-3.5 h-3.5 shrink-0" /> Thêm nhân viên
+            <UserPlus className="w-4 h-4" /> Thêm nhân viên
           </button>
 
           <button
             onClick={() => setShowDelete(true)}
-            className="col-span-2 flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
+            className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm whitespace-nowrap"
           >
-            <Trash2 className="w-3.5 h-3.5 shrink-0" /> Xóa nhân viên
+            <Trash2 className="w-4 h-4" /> Xóa nhân viên
           </button>
         </div>
 

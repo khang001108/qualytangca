@@ -27,11 +27,8 @@ export default function OvertimeForm({
   setMembers,
   setItems,
   selectedMonth,
-  setSelectedMonth,
   selectedYear,
-  setSelectedYear,
   selectedDate,
-  setSelectedDate,
   shiftSchedules = {},
 }) {
   const [formOpen, setFormOpen] = useState(false);
@@ -483,6 +480,9 @@ export default function OvertimeForm({
               <CalendarDays className="w-4 h-4 text-orange-500" />
               Nhập liệu tăng ca
             </h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {selectedDate ? dayjs(selectedDate).format("DD/MM/YYYY") : "Chưa chọn ngày"}
+            </p>
           </div>
           <button
             onClick={() => setFormOpen(true)}
@@ -490,66 +490,6 @@ export default function OvertimeForm({
           >
             <CirclePlus className="w-4 h-4" /> Thêm
           </button>
-        </div>
-
-        {/* Date picker mini — chọn ngày ngay trong form */}
-        <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/50 rounded-xl px-3 py-2">
-          <CalendarDays className="w-4 h-4 text-orange-500 shrink-0" />
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-300 shrink-0">Ngày:</span>
-          <input
-            type="date"
-            value={selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : dayjs().format("YYYY-MM-DD")}
-            onChange={(e) => {
-              if (!e.target.value) return;
-              const d = new Date(e.target.value + "T00:00:00");
-              setSelectedDate?.(d);
-              setSelectedMonth?.(d.getMonth() + 1);
-              setSelectedYear?.(d.getFullYear());
-            }}
-            className="flex-1 min-w-0 text-sm font-semibold text-orange-700 dark:text-orange-400 bg-transparent border-none outline-none cursor-pointer"
-          />
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              onClick={() => {
-                const cur = selectedDate ? dayjs(selectedDate) : dayjs();
-                const prev = cur.subtract(1, "day");
-                const d = prev.toDate();
-                setSelectedDate?.(d);
-                setSelectedMonth?.(prev.month() + 1);
-                setSelectedYear?.(prev.year());
-              }}
-              className="p-1 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-800/40 text-orange-500 transition-colors"
-              title="Ngày trước"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                const cur = selectedDate ? dayjs(selectedDate) : dayjs();
-                const next = cur.add(1, "day");
-                const d = next.toDate();
-                setSelectedDate?.(d);
-                setSelectedMonth?.(next.month() + 1);
-                setSelectedYear?.(next.year());
-              }}
-              className="p-1 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-800/40 text-orange-500 transition-colors"
-              title="Ngày sau"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                const today = new Date();
-                setSelectedDate?.(today);
-                setSelectedMonth?.(today.getMonth() + 1);
-                setSelectedYear?.(today.getFullYear());
-              }}
-              className="px-2 py-0.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold transition-colors"
-              title="Hôm nay"
-            >
-              Hôm nay
-            </button>
-          </div>
         </div>
 
         {/* Cú pháp nhanh */}

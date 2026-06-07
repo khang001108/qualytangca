@@ -205,9 +205,9 @@ export default function Home() {
 
   const sections = [
     { id: "summary",  el: <OvertimeSummary {...commonProps} overtimes={overtimeItems} limit={overtimeLimit} /> },
-    { id: "form",     el: <OvertimeForm {...commonProps} setSelectedDate={setSelectedDate} setSelectedMonth={setSelectedMonth} setSelectedYear={setSelectedYear} /> },
-    { id: "calendar", el: <div className="space-y-4"><OvertimeMonthInline selectedDate={selectedDate} setSelectedDate={setSelectedDate} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear} setSelectedYear={setSelectedYear} shiftSchedules={shiftSchedules} onDateSelect={d => fetchMembersForDate(d.format("YYYY-MM-DD"))} /><OvertimeMonthGrid members={members} shiftSchedules={shiftSchedules} overtimes={overtimeItems} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div> },
-    { id: "members",  el: <OverMember {...commonProps} limit={overtimeLimit} /> },
+    { id: "form",     el: <OvertimeForm {...commonProps} /> },
+    { id: "calendar", el: <OvertimeMonthInline selectedDate={selectedDate} setSelectedDate={setSelectedDate} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} selectedYear={selectedYear} setSelectedYear={setSelectedYear} shiftSchedules={shiftSchedules} onDateSelect={d => fetchMembersForDate(d.format("YYYY-MM-DD"))} /> },
+    { id: "members",  el: <><OverMember {...commonProps} limit={overtimeLimit} /><OvertimeMonthGrid members={members} shiftSchedules={shiftSchedules} overtimes={overtimeItems} selectedMonth={selectedMonth} selectedYear={selectedYear} /></> },
     { id: "chart",    el: <div ref={chartRef}><div className="flex justify-end mb-3"><ExportExcel members={members} overtimes={overtimeItems} shiftSchedules={shiftSchedules} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div><OvertimeChart members={members} overtimes={overtimeItems} shiftSchedules={shiftSchedules} selectedMonth={selectedMonth} selectedYear={selectedYear} /></div> },
   ];
 

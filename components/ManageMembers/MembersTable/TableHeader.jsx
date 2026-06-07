@@ -1,20 +1,43 @@
 import React from "react";
-import { List, BriefcaseBusiness, BedDouble, Hourglass, Timer } from "lucide-react";
+import {
+  List,
+  CircleUser,
+  User,
+  BriefcaseBusiness,
+  ClockArrowUp,
+  Hourglass,
+  ClockFading,
+  CalendarClock,
+  Timer,
+  CalendarDays,
+  BedDouble,
+} from "lucide-react";
 
 export default function TableHeader() {
-  const th = "p-1.5 text-center text-[10px] font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap";
+  const Col = ({ icon: Icon, text, color }) => (
+    <th className="p-2 text-center">
+      <div className="flex items-center justify-center gap-1">
+        <Icon className={`w-4 h-4 ${color}`} />
+        <span>{text}</span>
+      </div>
+    </th>
+  );
+
   return (
-    <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700 z-10 border-b border-gray-200 dark:border-gray-600">
-      <tr>
-        <th className={th}>#</th>
-        <th className={`${th} text-left`}>Tên</th>
-        <th className={th}>Ca</th>
-        <th className={th}>Nghỉ</th>
-        <th className={th}>Lên ca</th>
-        <th className={th}>Giới hạn</th>
-        <th className={th}>Đã TC</th>
-        <th className={th}>Còn</th>
-        <th className={th}>Sớm</th>
+    <thead className="sticky top-0 bg-gray-200 dark:bg-gray-700 
+                      text-gray-700 dark:text-gray-200 font-semibold z-10">
+      <tr className="[&>th]:border-b [&>th]:border-gray-300 dark:[&>th]:border-gray-700">
+        <Col icon={List} text="STT" color="text-blue-500" />
+        <Col icon={CircleUser} text="Tên chính" color="text-blue-500" />
+        <Col icon={User} text="Tên phụ" color="text-blue-500" />
+        <Col icon={BriefcaseBusiness} text="Ca" color="text-blue-500" />
+        <Col icon={BedDouble} text="Nghỉ luân phiên" color="text-pink-500" />
+        <Col icon={ClockArrowUp} text="Lên ca" color="text-blue-500" />
+        <Col icon={Hourglass} text="Giới hạn" color="text-green-500" />
+        <Col icon={ClockFading} text="Đã tăng" color="text-yellow-500" />
+        <Col icon={CalendarClock} text="Giờ còn" color="text-indigo-500" />
+        <Col icon={CalendarDays} text="Ngày còn" color="text-teal-500" />
+        <Col icon={Timer} text="Lên ca sớm" color="text-purple-500" />
       </tr>
     </thead>
   );
