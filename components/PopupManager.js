@@ -122,37 +122,34 @@ export default function PopupManager({
           transition={{ duration: 0.25 }}
           onClick={(e) => e.stopPropagation()}
           className="relative bg-white dark:bg-gray-900 text-gray-800 
-                     dark:text-gray-200 rounded-2xl w-[95vw] max-w-[1600px] 
-                     shadow-2xl border border-gray-200 dark:border-gray-700 
-                     flex flex-col overflow-visible"
+                     dark:text-gray-200 rounded-2xl w-[95vw] max-w-[600px] 
+                     max-h-[88vh] shadow-2xl border border-gray-200 dark:border-gray-700 
+                     flex flex-col overflow-hidden"
         >
-          {/* CLOSE BUTTON */}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 text-gray-500 
-                     dark:text-gray-400 hover:text-gray-800 
-                     dark:hover:text-gray-200"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {/* HEADER */}
-          <div className="flex-1 p-6">
-            <div className="flex items-center justify-center mb-4 text-purple-600 
-                            dark:text-purple-400 font-semibold gap-2">
-              <Users className="w-6 h-6" />
-              <span className="text-xl">Quản lý nhân viên</span>
+          {/* CLOSE BUTTON — sticky top */}
+          <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-gray-100 dark:border-gray-700 shrink-0">
+            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-semibold">
+              <Users className="w-5 h-5" />
+              <span className="text-base">Quản lý nhân viên</span>
             </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">
+          {/* SCROLLABLE BODY */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 text-center">
               Ngày hiện tại:{" "}
-              <span className="font-medium text-indigo-600 dark:text-indigo-400">
+              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
                 {new Date().toLocaleDateString("vi-VN")}
               </span>
             </div>
 
-            <div className="border border-zinc-300 dark:border-zinc-700 
-                            rounded-xl p-4 mb-4">
+            <div className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 mb-3">
               <ManageMembers
                 user={user}
                 selectedMonth={selectedMonth}
