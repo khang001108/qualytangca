@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { CirclePlus, LogIn, LogOut, CalendarDays, Clock, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { CirclePlus, LogIn, LogOut, CalendarDays, Clock, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { ICONS } from "../../utils/iconUtils";
 import dayjs from "dayjs";
 import Toast from "../Toast";
 import useOvertimeParser from "../../hooks/useOvertimeParser/index";
@@ -582,19 +583,28 @@ export default function OvertimeForm({
               <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px] shrink-0">1.Tên NV/HH:MM</code>
               <span className="text-gray-500">→ Có số thứ tự cũng được</span>
             </div>
+            {/* Ví dụ với avatar icon NV */}
             <div className="mt-0.5 bg-white dark:bg-gray-800 rounded-lg p-2 border border-orange-100 dark:border-gray-700">
-              <p className="text-[9px] text-gray-400 dark:text-gray-500 mb-1 font-medium">Ví dụ dán nhiều dòng:</p>
-              <pre className="text-[10px] text-orange-600 dark:text-orange-400 font-mono leading-relaxed">{members.slice(0, 3).map((m, i) => `${i + 1}.${m.realName || m.nickname || `NV${i+1}`}/06:52`).join("\n") || "1.陈明壮/06:52\n2.谭文越/07:53\n3.吴维康/06:51"}</pre>
-            </div>
-            <div className="border-t border-orange-100 dark:border-orange-800/40 pt-1.5 mt-0.5">
-              <p className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 mb-1 uppercase tracking-wide">📋 Nhập số giờ tăng ca thủ công</p>
-              <div className="flex items-start gap-2">
-                <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px] shrink-0">Tên NV / số giờ</code>
-                <span className="text-gray-500">→ Ghi giờ TC cho từng người</span>
-              </div>
-              <div className="mt-1.5 bg-white dark:bg-gray-800 rounded-lg p-2 border border-orange-100 dark:border-gray-700">
-                <p className="text-[9px] text-gray-400 dark:text-gray-500 mb-1 font-medium">Ví dụ nhập nhiều dòng:</p>
-                <pre className="text-[10px] text-orange-600 dark:text-orange-400 font-mono leading-relaxed">{members.slice(0, 3).map((m, i) => `${i + 1}. ${m.realName || m.nickname || `NV${i+1}`} / 2`).join("\n") || "1. Tên NV 1 / 2\n2. Tên NV 2 / 3\n3. Tên NV 3 / 1.5"}</pre>
+              <p className="text-[9px] text-gray-400 dark:text-gray-500 mb-1.5 font-medium">Ví dụ dán nhiều dòng:</p>
+              <div className="space-y-1">
+                {(members.length > 0 ? members.slice(0, 3) : [
+                  { id: "_a", realName: "陈明壮", nickname: "", avatar: "User", color: "#f59e0b" },
+                  { id: "_b", realName: "谭文越", nickname: "", avatar: "User", color: "#6366f1" },
+                  { id: "_c", realName: "吴维康", nickname: "", avatar: "User", color: "#10b981" },
+                ]).map((m, i) => {
+                  const match = ICONS.find(ic => ic.name === m.avatar);
+                  const Icon = match ? match.icon : User;
+                  const color = m.color || "#6366f1";
+                  return (
+                    <div key={m.id} className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-gray-400 w-3 shrink-0">{i + 1}.</span>
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color + "25" }}>
+                        <Icon className="w-2.5 h-2.5" style={{ color }} />
+                      </div>
+                      <code className="text-[10px] text-orange-500 dark:text-orange-400 font-mono">{m.realName || m.nickname || `NV${i+1}`}/06:5{i}</code>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
