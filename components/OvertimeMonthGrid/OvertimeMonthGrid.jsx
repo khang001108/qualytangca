@@ -543,14 +543,14 @@ export default function OvertimeMonthGrid({
       <div className={CSS.headerBox}>
 
         {/* Dòng 1: Tiêu đề + Select */}
-        <div className="flex items-center justify-between gap-2 w-full">
-          <h3 className={CSS.headerTitle}>
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full min-w-0">
+          <h3 className="text-sm font-bold tracking-wide whitespace-nowrap flex-shrink-0">
             Lịch tăng ca - Tháng {String(selectedMonth).padStart(2, "0")}/{selectedYear}
           </h3>
           <select
             value={viewMode}
             onChange={(e) => setViewMode(e.target.value)}
-            className={CSS.headerSelect}
+            className="px-2 py-1.5 rounded-lg text-xs border outline-none cursor-pointer bg-white text-gray-700 border-gray-300 dark:bg-[#2F3145] dark:text-[#E5E7F0] dark:border-[#3A3B54] transition flex-shrink-0 max-w-[140px]"
           >
             <option value="normal">Mặc định</option>
             <option value="rest">Theo ngày nghỉ</option>

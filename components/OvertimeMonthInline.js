@@ -1,7 +1,7 @@
 // components/OvertimeMonthInline.js — Lịch inline mobile
 import React from "react";
 import dayjs from "dayjs";
-import { ChevronLeft, ChevronRight, Clock, Moon, Sun, LogIn, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
 function toHHMM(minutes) {
   if (minutes == null || isNaN(minutes)) return "--:--";
@@ -128,89 +128,40 @@ export default function OvertimeMonthInline({
               Chưa có dữ liệu ca ngày này
             </div>
           ) : (
-            <>
-              {dayWorkers.length > 0 && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-xl p-3 border border-yellow-100 dark:border-yellow-900/30">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <Sun className="w-4 h-4 text-yellow-500" />
-                    <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400">Ca ngày ({dayWorkers.length} người)</span>
-                  </div>
-                  <div className="space-y-2">
-                    {dayWorkers.map((s, i) => {
-                      const isEarly = s.shiftStart?.includes("sớm");
-                      const inTime = isEarly ? toHHMM(s.lenCaSomKetThuc) : toHHMM(s.lenCaMuonKetThuc);
-                      const outTime = toHHMM(s.tanCaKetThuc ?? s.tanCaSomKetThuc);
-                      const ot = Number(s.tangCaHomNay || 0);
-                      return (
-                        <div key={i} className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-2.5 py-2 border border-yellow-100 dark:border-gray-700">
-                          <div className="w-6 h-6 rounded-full bg-yellow-100 dark:bg-yellow-900/40 flex items-center justify-center text-yellow-700 dark:text-yellow-400 font-bold text-[10px] shrink-0">
-                            {(s.realName || "?")?.[0]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{s.realName || "—"}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400">
-                                <LogIn className="w-3 h-3" /> {inTime}
-                              </span>
-                              <span className="flex items-center gap-0.5 text-[10px] text-red-500 dark:text-red-400">
-                                <LogOut className="w-3 h-3" /> {outTime}
-                              </span>
-                              {ot > 0 && (
-                                <span className="text-[10px] font-bold text-orange-500 ml-auto">+{ot}h TC</span>
-                              )}
-                            </div>
-                          </div>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${isEarly ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}>
-                            {isEarly ? "Sớm" : "Muộn"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {nightWorkers.length > 0 && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/30">
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <Moon className="w-4 h-4 text-indigo-400" />
-                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">Ca đêm ({nightWorkers.length} người)</span>
-                  </div>
-                  <div className="space-y-2">
-                    {nightWorkers.map((s, i) => {
-                      const isEarly = s.shiftStart?.includes("sớm");
-                      const inTime = isEarly ? toHHMM(s.lenCaSomKetThuc) : toHHMM(s.lenCaMuonKetThuc);
-                      const outTime = toHHMM(s.tanCaKetThuc ?? s.tanCaSomKetThuc);
-                      const ot = Number(s.tangCaHomNay || 0);
-                      return (
-                        <div key={i} className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-2.5 py-2 border border-indigo-100 dark:border-gray-700">
-                          <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-[10px] shrink-0">
-                            {(s.realName || "?")?.[0]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{s.realName || "—"}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400">
-                                <LogIn className="w-3 h-3" /> {inTime}
-                              </span>
-                              <span className="flex items-center gap-0.5 text-[10px] text-red-500 dark:text-red-400">
-                                <LogOut className="w-3 h-3" /> {outTime}
-                              </span>
-                              {ot > 0 && (
-                                <span className="text-[10px] font-bold text-orange-500 ml-auto">+{ot}h TC</span>
-                              )}
-                            </div>
-                          </div>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${isEarly ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}>
-                            {isEarly ? "Sớm" : "Muộn"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-xl p-3 border border-yellow-100 dark:border-yellow-900/30">
+              <div className="space-y-1.5">
+                {allWorkers.map((s, i) => {
+                  const isNight = s.shift?.toLowerCase().includes("đêm");
+                  const isEarly = s.shiftStart?.includes("sớm");
+                  const ot = Number(s.tangCaHomNay || 0);
+                  return (
+                    <div key={i} className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg px-2.5 py-2 border border-yellow-100 dark:border-gray-700">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                        isNight
+                          ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
+                          : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
+                      }`}>
+                        {(s.realName || "?")?.[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{s.realName || "—"}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">{isNight ? "🌙 Ca đêm" : "☀ Ca ngày"}</p>
+                      </div>
+                      {ot > 0 && (
+                        <span className="text-[10px] font-bold text-orange-500 shrink-0">+{ot}h TC</span>
+                      )}
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
+                        isEarly
+                          ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                      }`}>
+                        {isEarly ? "Sớm" : "Muộn"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}

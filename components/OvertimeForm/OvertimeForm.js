@@ -571,18 +571,29 @@ export default function OvertimeForm({
         {/* Cú pháp nhanh */}
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3 border border-orange-100 dark:border-orange-800/50">
           <p className="text-[11px] font-bold text-orange-700 dark:text-orange-400 mb-2 uppercase tracking-wide">💡 Cú pháp nhập nhanh</p>
-          <div className="grid grid-cols-1 gap-1 text-[11px] text-gray-600 dark:text-gray-300">
+          <div className="grid grid-cols-1 gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
             <div className="flex items-center gap-2">
-              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px]">In 7:30</code>
+              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px] shrink-0">In 7:30</code>
               <span className="text-gray-500">→ Tất cả check-in 7:30</span>
             </div>
             <div className="flex items-center gap-2">
-              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px]">Out 20:00</code>
+              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px] shrink-0">Out 20:00</code>
               <span className="text-gray-500">→ Tất cả check-out 20:00</span>
             </div>
             <div className="flex items-center gap-2">
-              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px]">NV1 In 8:00</code>
+              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px] shrink-0">NV1 In 8:00</code>
               <span className="text-gray-500">→ Nhập theo tên NV</span>
+            </div>
+            <div className="border-t border-orange-100 dark:border-orange-800/40 pt-1.5 mt-0.5">
+              <p className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 mb-1 uppercase tracking-wide">📋 Nhập số giờ tăng ca</p>
+              <div className="flex items-start gap-2">
+                <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px] shrink-0">Tên NV / số giờ</code>
+                <span className="text-gray-500">→ Ghi giờ TC cho từng người</span>
+              </div>
+              <div className="mt-1.5 bg-white dark:bg-gray-800 rounded-lg p-2 border border-orange-100 dark:border-gray-700">
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 mb-1 font-medium">Ví dụ nhập nhiều dòng:</p>
+                <pre className="text-[10px] text-orange-600 dark:text-orange-400 font-mono leading-relaxed">{members.slice(0, 3).map((m, i) => `${i + 1}. ${m.realName || m.nickname || `NV${i+1}`} / 2`).join("\n") || "1. Tên NV 1 / 2\n2. Tên NV 2 / 3\n3. Tên NV 3 / 1.5"}</pre>
+              </div>
             </div>
           </div>
         </div>
