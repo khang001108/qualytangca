@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { CirclePlus, LogIn, LogOut, CalendarDays, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { CirclePlus, LogIn, LogOut, CalendarDays, Clock, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import dayjs from "dayjs";
 import Toast from "../Toast";
 import useOvertimeParser from "../../hooks/useOvertimeParser/index";
@@ -29,6 +29,9 @@ export default function OvertimeForm({
   selectedMonth,
   selectedYear,
   selectedDate,
+  setSelectedDate,
+  setSelectedMonth,
+  setSelectedYear,
   shiftSchedules = {},
 }) {
   const [formOpen, setFormOpen] = useState(false);
@@ -466,12 +469,74 @@ export default function OvertimeForm({
   };
 
   // ============================ JSX RENDER =============================
+  // ── Mini Calendar helpers ──
+  const today = dayjs();
+  const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2,"0")}-01`).daysInMonth();
+  const calDays = Array.from({ length: daysInMonth }, (_, i) =>
+    dayjs(`${selectedYear}-${String(selectedMonth).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`)
+  );
+  const firstDow = dayjs(`${selectedYear}-${selectedMonth}-01`).day();
+  const calStart = firstDow === 0 ? 6 : firstDow - 1;
+  const selectedKey = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : null;
+
+  const handleCalSelect = (dateStr) => {
+    const d = dayjs(dateStr);
+    setSelectedDate?.(d.toDate());
+    setSelectedMonth?.(d.month() + 1);
+    setSelectedYear?.(d.year());
+  };
+  const calPrev = () => { if (selectedMonth === 1) { setSelectedMonth?.(12); setSelectedYear?.(y => y-1); } else setSelectedMonth?.(m => m-1); };
+  const calNext = () => { if (selectedMonth === 12) { setSelectedMonth?.(1); setSelectedYear?.(y => y+1); } else setSelectedMonth?.(m => m+1); };
+
   return (
     <>
       <Toast toasts={toasts} onClose={removeToast} />
 
+      {/* ── Lịch mini chọn ngày ── */}
+      <div className="card animate-fade-in-up space-y-3">
+        <div className="flex items-center justify-between">
+          <button onClick={calPrev} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition">
+            <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </button>
+          <div className="text-center">
+            <p className="font-bold text-gray-900 dark:text-white text-sm">Tháng {selectedMonth}</p>
+            <p className="text-[10px] text-gray-400">{selectedYear}</p>
+          </div>
+          <button onClick={calNext} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition">
+            <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-0.5 text-center">
+          {["T2","T3","T4","T5","T6","T7","CN"].map(d => (
+            <div key={d} className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 py-1">{d}</div>
+          ))}
+          {Array.from({ length: calStart }).map((_, i) => <div key={"e"+i} />)}
+          {calDays.map(d => {
+            const ds = d.format("YYYY-MM-DD");
+            const isToday = ds === today.format("YYYY-MM-DD");
+            const isSel = selectedKey === ds;
+            const hasData = shiftSchedules[ds] && Object.keys(shiftSchedules[ds]).length > 0;
+            return (
+              <button key={ds} onClick={() => handleCalSelect(ds)}
+                className={`aspect-square rounded-lg text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0 leading-none
+                  ${isSel ? "bg-orange-500 text-white shadow-md scale-105" :
+                    isToday ? "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 font-bold" :
+                    "bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"}`}>
+                <span>{d.date()}</span>
+                {hasData && !isSel && <span className="w-1 h-1 rounded-full bg-green-400 mt-0.5" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+          Ngày chọn: <span className="font-semibold text-orange-500">{selectedKey ? dayjs(selectedDate).format("DD/MM/YYYY") : "Chưa chọn"}</span>
+        </p>
+      </div>
+
       {/* ── Card nhập liệu ── */}
-      <div className="card animate-fade-in-up space-y-4">
+      <div className="card space-y-4">
 
         {/* Header + nút */}
         <div className="flex items-center justify-between gap-2">

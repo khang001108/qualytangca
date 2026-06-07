@@ -201,7 +201,7 @@ export default function Home() {
   );
 
   // Shared props
-  const commonProps = { user, members, setMembers, overtimes: overtimeItems, setItems: setOvertimeItems, selectedMonth, selectedYear, selectedDate, shiftSchedules };
+  const commonProps = { user, members, setMembers, overtimes: overtimeItems, setItems: setOvertimeItems, selectedMonth, selectedYear, selectedDate, setSelectedDate, setSelectedMonth, setSelectedYear, shiftSchedules };
 
   const sections = [
     { id: "summary",  el: <OvertimeSummary {...commonProps} overtimes={overtimeItems} limit={overtimeLimit} /> },
