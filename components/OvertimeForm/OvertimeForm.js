@@ -13,6 +13,7 @@ import { doc, writeBatch } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { getShiftOfMember } from "../../hooks/useOvertimeParser/shiftHelpers";
 import ManualAttendanceAdjust from "./ManualAttendanceAdjust";
+import QuickCheckIn from "./QuickCheckIn";
 
 const sessionToText = (s) => {
   if (s === "morning") return "sáng";
@@ -597,6 +598,20 @@ export default function OvertimeForm({
             </div>
           </div>
         </div>
+
+        {/* Chấm công nhanh */}
+        {members.length > 0 && (
+          <QuickCheckIn
+            user={user}
+            members={members}
+            selectedDate={selectedDate}
+            shiftSchedules={shiftSchedules}
+            showToast={showToast}
+            onDone={() => {
+              // trigger re-render bằng cách không làm gì — parent sẽ refetch qua shiftSchedules
+            }}
+          />
+        )}
 
         {/* Danh sách chấm công theo NV */}
         {members.length > 0 && (() => {
