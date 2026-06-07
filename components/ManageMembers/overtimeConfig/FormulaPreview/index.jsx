@@ -146,8 +146,8 @@ export default function FormulaPreview({
           id="shift"
           className="p-4 rounded-xl border bg-white dark:bg-gray-800 shadow-sm"
         >
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="flex-1 min-w-0">
               <div className="font-semibold text-indigo-600">
                 1) Giờ hành chính — công thức
               </div>
@@ -155,7 +155,7 @@ export default function FormulaPreview({
                 Công thức cơ bản:
               </div>
 
-              <pre className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded text-xs mt-2 overflow-auto">
+              <pre className="bg-gray-50 dark:bg-gray-900/50 p-2 rounded text-xs mt-2 overflow-auto whitespace-pre-wrap break-all">
                 {`giờ_sớm = (tanCaSomBatDau - lenCaSomKetThuc) - nghỉGiữaCa
 giờ_muộn = (tanCaMuonBatDau - lenCaMuonKetThuc) - nghỉGiữaCa
 Nếu negative → +24
@@ -163,7 +163,7 @@ Giờ hành chính = giờ_sớm`}
               </pre>
             </div>
 
-            <div className="text-sm text-right">
+            <div className="text-sm sm:text-right bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2 shrink-0">
               <div className="font-medium">Ví dụ (config):</div>
 
               <div className="mt-1">Giờ vào ca: {toHHMM(cfg.start)}</div>

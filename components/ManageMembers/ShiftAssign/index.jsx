@@ -434,8 +434,9 @@ export default function ShiftAssign(props) {
         ref={ref}
         className="
     relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200
-    w-11/12 max-w-5xl p-6 rounded-2xl shadow-2xl 
+    w-[calc(100vw-1rem)] sm:w-11/12 max-w-5xl p-4 sm:p-6 rounded-2xl shadow-2xl 
     border border-gray-200 dark:border-gray-700 z-10 select-none
+    max-h-[90vh] overflow-y-auto
   "
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -471,9 +472,9 @@ export default function ShiftAssign(props) {
           />
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
           {/* LEFT: full list */}
-          <div className="w-1/3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border dark:border-gray-700 max-h-[420px] overflow-auto">
+          <div className="sm:w-1/3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border dark:border-gray-700 max-h-[280px] sm:max-h-[420px] overflow-auto">
             <div className="text-sm font-semibold mb-2">
               Danh sách nhân viên
             </div>

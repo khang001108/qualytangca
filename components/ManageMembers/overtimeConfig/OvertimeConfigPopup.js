@@ -122,7 +122,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
           </div>
 
           {/* BODY */}
-          <div className="flex justify-center gap-3 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
+          <div className="flex flex-wrap justify-center gap-2 py-3 px-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
             {[{ id: "formula", label: "Công thức" },
             { id: "shift", label: "Giờ hành chính" },
             { id: "limit", label: "Giờ tăng ca" },
@@ -130,7 +130,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-md font-medium transition-all duration-300 ${activeTab === tab.id
+                className={`px-3 py-1.5 rounded-md font-medium transition-all duration-300 text-xs sm:text-sm whitespace-nowrap ${activeTab === tab.id
                     ? "bg-indigo-600 text-white shadow-md scale-105"
                     : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
                   }`}
@@ -140,7 +140,7 @@ export default function OvertimeConfigPopup({ user, onClose, showToast }) {
             ))}
           </div>
 
-          <div className="h-[520px] overflow-y-auto rounded-lg relative bg-gray-50 dark:bg-gray-900">
+          <div className="flex-1 overflow-y-auto rounded-lg relative bg-gray-50 dark:bg-gray-900" style={{minHeight: '200px'}}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}

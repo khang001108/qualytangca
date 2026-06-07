@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import PopupCalendar from "./PopupCalendar";
 import PopupSettings from "./PopupSettings";
 import { ICONS } from "../utils/iconUtils";
+import ExportExcel from "./ExportExcel";
 import {
   collection,
   query,
@@ -364,6 +365,15 @@ export default function OverMember({
     <div>
       <h3 className="text-base font-semibold flex items-center gap-2 mb-3 text-gray-700 dark:text-gray-200">
         <User className="w-4 h-4" /> Danh sách nhân viên
+        <div className="ml-auto">
+          <ExportExcel
+            members={members}
+            overtimes={overtimes}
+            shiftSchedules={shiftSchedules}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+          />
+        </div>
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

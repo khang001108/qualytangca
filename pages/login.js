@@ -1,16 +1,9 @@
-// pages/login.js
-// Trang đăng nhập cho ứng dụng Quản lý tăng ca
-
 import { useState, useEffect } from "react";
-import {
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { useRouter } from "next/router";
-import { Eye, EyeOff, LogIn, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, LogIn, Mail, Lock, AlertCircle } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,214 +14,105 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // Nếu đã đăng nhập → chuyển về trang chủ
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
       if (user) router.replace("/");
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, [router]);
 
-  // Xử lý đăng nhập
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-
-      const ref = doc(db, "users", userCredential.user.uid);
-      const snap = await getDoc(ref);
-
-      if (!snap.exists() || !snap.data().approved) {
-        alert("⏳ Tài khoản chưa được duyệt. Vui lòng chờ quản trị viên xác nhận.");
-        await signOut(auth);
-        setLoading(false);
-        return;
-      }
-
-      if (rememberMe) {
-        localStorage.setItem("rememberEmail", email);
-      } else {
-        localStorage.removeItem("rememberEmail");
-      }
-
-      router.push("/");
-    } catch (err) {
-      console.error(err);
-      setError("❌ Sai email hoặc mật khẩu!");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Tự điền email nếu đã nhớ
   useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberEmail");
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
-    }
+    const saved = localStorage.getItem("rememberEmail");
+    if (saved) { setEmail(saved); setRememberMe(true); }
   }, []);
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const snap = await getDoc(doc(db, "users", cred.user.uid));
+      if (!snap.exists() || !snap.data().approved) {
+        alert("⏳ Tài khoản chưa được duyệt. Vui lòng chờ quản trị viên.");
+        await signOut(auth); setLoading(false); return;
+      }
+      if (rememberMe) localStorage.setItem("rememberEmail", email);
+      else localStorage.removeItem("rememberEmail");
+    } catch (err) {
+      const msg = {
+        "auth/invalid-credential": "Email hoặc mật khẩu không đúng",
+        "auth/user-not-found": "Tài khoản không tồn tại",
+        "auth/wrong-password": "Mật khẩu không đúng",
+        "auth/too-many-requests": "Quá nhiều lần thử. Vui lòng thử lại sau",
+      }[err.code] || "Đăng nhập thất bại. Kiểm tra lại thông tin.";
+      setError(msg);
+    }
+    setLoading(false);
+  };
+
   return (
-    <div
-      className="
-        min-h-screen flex items-center justify-center
-        bg-gray-100 dark:bg-gray-900
-        transition-colors
-      "
-    >
-      <div
-        className="
-          bg-white dark:bg-gray-800
-          border border-gray-200 dark:border-gray-700
-          p-8 rounded-2xl shadow-xl
-          w-[95%] max-w-md
-          transition-colors
-        "
-      >
-        {/* Header */}
-        <div className="flex flex-col items-center mb-6">
-          <div
-            className="
-              p-3 rounded-full shadow-lg
-              bg-blue-600 text-white
-              dark:bg-blue-500
-            "
-          >
-            <LogIn className="w-6 h-6" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+      <div className="w-full max-w-sm animate-fade-in-up">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-3xl">🕒</span>
           </div>
-
-          <h2
-            className="
-              text-2xl font-bold mt-3
-              text-gray-800 dark:text-gray-100
-            "
-          >
-            Quản lý tăng ca
-          </h2>
-
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            Đăng nhập hệ thống
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quản Lý Tăng Ca</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Đăng nhập để tiếp tục</p>
         </div>
 
-        {/* Lỗi */}
-        {error && (
-          <div
-            className="
-              bg-red-50 dark:bg-red-900/20
-              border border-red-200 dark:border-red-700
-              text-red-600 dark:text-red-300
-              text-sm p-2 mb-3 rounded-lg
-            "
-          >
-            {error}
-          </div>
-        )}
+        {/* Card */}
+        <div className="card">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="label">Email</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input className="input pl-9" type="email" value={email}
+                  onChange={e => setEmail(e.target.value)} placeholder="email@example.com" required />
+              </div>
+            </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          {/* Email */}
-          <div className="relative">
-            <Mail className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="
-                w-full pl-10 pr-3 py-2
-                border border-gray-300 dark:border-gray-600
-                bg-white dark:bg-gray-700
-                text-gray-800 dark:text-gray-100
-                rounded-lg
-                focus:border-blue-500 dark:focus:border-blue-400
-                focus:ring-1 focus:ring-blue-400 dark:focus:ring-blue-500
-                outline-none transition
-              "
-              required
-            />
-          </div>
+            <div>
+              <label className="label">Mật khẩu</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input className="input pl-9 pr-10" type={showPassword ? "text" : "password"}
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••" required />
+                <button type="button" onClick={() => setShowPassword(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
 
-          {/* Password */}
-          <div className="relative">
-            <Lock className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="remember" checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                className="w-4 h-4 accent-indigo-500 rounded" />
+              <label htmlFor="remember" className="text-sm text-gray-600 dark:text-gray-400">Ghi nhớ đăng nhập</label>
+            </div>
 
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Mật khẩu"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="
-                w-full pl-10 pr-10 py-2
-                border border-gray-300 dark:border-gray-600
-                bg-white dark:bg-gray-700
-                text-gray-800 dark:text-gray-100
-                rounded-lg
-                focus:border-blue-500 dark:focus:border-blue-400
-                focus:ring-1 focus:ring-blue-400 dark:focus:ring-blue-500
-                outline-none transition
-              "
-              required
-            />
+            {error && (
+              <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-xl">
+                <AlertCircle size={14} /> {error}
+              </div>
+            )}
 
-            <button
-              type="button"
-              onClick={() => setShowPassword((p) => !p)}
-              className="
-                absolute right-3 top-2.5
-                text-gray-500 dark:text-gray-400
-                hover:text-gray-700 dark:hover:text-gray-200
-              "
-            >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            <button type="submit" disabled={loading} className="btn-indigo w-full flex items-center justify-center gap-2 py-2.5">
+              {loading ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                       : <LogIn size={16} />}
+              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
-          </div>
+          </form>
 
-          {/* Remember me */}
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="accent-blue-500 dark:accent-blue-400"
-            />
-            Ghi nhớ tài khoản
-          </label>
-
-          {/* Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className={`
-              flex justify-center items-center gap-2
-              bg-blue-600 hover:bg-blue-700
-              dark:bg-blue-500 dark:hover:bg-blue-600
-              text-white p-2 rounded-lg transition font-medium
-              ${loading ? "opacity-60 cursor-not-allowed" : ""}
-            `}
-          >
-            {loading ? "Đang xử lý..." : "Đăng nhập"}
-          </button>
-        </form>
-
-        {/* Signup link */}
-        <p className="text-center mt-5 text-gray-600 dark:text-gray-400 text-sm">
-          Chưa có tài khoản?{" "}
-          <a
-            href="/signup"
-            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-          >
-            Đăng ký ngay
-          </a>
-        </p>
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+            Chưa có tài khoản?{" "}
+            <a href="/signup" className="text-indigo-500 font-semibold hover:underline">Đăng ký</a>
+          </p>
+        </div>
       </div>
     </div>
   );

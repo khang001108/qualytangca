@@ -223,13 +223,16 @@ export default function OvertimeForm({
           chosenVariant = "muộn";
           minutesOfDay = muonEnd;
         } else {
-          showToast(
-            "error",
-            `${namePart} — ${timeString} không nằm trong KHUNG GIỜ LÊN CA.\n` +
-              `Sớm: ${shiftRec.lenCaSomBatDau}-${shiftRec.lenCaSomKetThuc}\n` +
-              `Muộn: ${shiftRec.lenCaMuonBatDau}-${shiftRec.lenCaMuonKetThuc}`
-          );
-          return;
+          // Nếu chưa cấu hình khung giờ hoặc giờ ngoài khung → cảnh báo nhưng vẫn cho qua
+          const hasConfig = somStart != null && somEnd != null && muonStart != null && muonEnd != null;
+          if (hasConfig) {
+            showToast(
+              "warning",
+              `⚠️ ${namePart} — ${timeString} ngoài khung giờ, đã lưu thực tế.`
+            );
+          }
+          chosenVariant = "other";
+          // Giữ nguyên minutesOfDay
         }
       }
 

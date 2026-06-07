@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { CirclePlus, LogIn, LogOut } from "lucide-react";
+import { CirclePlus, LogIn, LogOut, CalendarDays, Clock, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import dayjs from "dayjs";
 import Toast from "../Toast";
 import useOvertimeParser from "../../hooks/useOvertimeParser/index";
 import ShiftPreviewModal from "./ShiftPreviewModal";
@@ -28,6 +29,10 @@ export default function OvertimeForm({
   selectedMonth,
   selectedYear,
   selectedDate,
+  setSelectedDate,
+  setSelectedMonth,
+  setSelectedYear,
+  shiftSchedules = {},
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
@@ -193,18 +198,29 @@ export default function OvertimeForm({
 
       // ============================ CHECK IN =============================
       if (mode === "checkin") {
-        if (minutesOfDay >= somInStart && minutesOfDay <= somInEnd) {
+        const hasWindowConfig =
+          somInStart != null && somInEnd != null &&
+          muonInStart != null && muonInEnd != null;
+
+        if (somInStart != null && somInEnd != null &&
+            minutesOfDay >= somInStart && minutesOfDay <= somInEnd) {
           chosenVariant = "sớm";
           minutesOfDay = somInEnd;
-        } else if (minutesOfDay >= muonInStart && minutesOfDay <= muonInEnd) {
+        } else if (muonInStart != null && muonInEnd != null &&
+                   minutesOfDay >= muonInStart && minutesOfDay <= muonInEnd) {
           chosenVariant = "muộn";
           minutesOfDay = muonInEnd;
-        } else {
+        } else if (hasWindowConfig) {
+          // Khung giờ đã cấu hình nhưng giờ không khớp → cảnh báo nhưng vẫn cho qua
           showToast(
-            "error",
-            `${namePart} — ${timeString} không nằm trong khung giờ lên ca.`
+            "warning",
+            `⚠️ ${namePart} — ${timeString} ngoài khung giờ, đã lưu thực tế.`
           );
-          return;
+          chosenVariant = "other";
+          // Giữ nguyên minutesOfDay (giờ thực tế)
+        } else {
+          // Chưa cấu hình khung giờ → cho qua hoàn toàn
+          chosenVariant = "other";
         }
       }
 
@@ -464,17 +480,189 @@ export default function OvertimeForm({
   };
 
   // ============================ JSX RENDER =============================
+  // ── Mini Calendar helpers ──
+  const today = dayjs();
+  const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2,"0")}-01`).daysInMonth();
+  const calDays = Array.from({ length: daysInMonth }, (_, i) =>
+    dayjs(`${selectedYear}-${String(selectedMonth).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`)
+  );
+  const firstDow = dayjs(`${selectedYear}-${selectedMonth}-01`).day();
+  const calStart = firstDow === 0 ? 6 : firstDow - 1;
+  const selectedKey = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : null;
+
+  const handleCalSelect = (dateStr) => {
+    const d = dayjs(dateStr);
+    setSelectedDate?.(d.toDate());
+    setSelectedMonth?.(d.month() + 1);
+    setSelectedYear?.(d.year());
+  };
+  const calPrev = () => { if (selectedMonth === 1) { setSelectedMonth?.(12); setSelectedYear?.(y => y-1); } else setSelectedMonth?.(m => m-1); };
+  const calNext = () => { if (selectedMonth === 12) { setSelectedMonth?.(1); setSelectedYear?.(y => y+1); } else setSelectedMonth?.(m => m+1); };
+
   return (
     <>
       <Toast toasts={toasts} onClose={removeToast} />
 
-      <div className="flex justify-end mb-2">
-        <button
-          onClick={() => setFormOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition"
-        >
-          <CirclePlus className="w-5 h-5" /> Thêm tăng ca
-        </button>
+      {/* ── Lịch mini chọn ngày ── */}
+      <div className="card animate-fade-in-up space-y-3">
+        <div className="flex items-center justify-between">
+          <button onClick={calPrev} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition">
+            <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </button>
+          <div className="text-center">
+            <p className="font-bold text-gray-900 dark:text-white text-sm">Tháng {selectedMonth}</p>
+            <p className="text-[10px] text-gray-400">{selectedYear}</p>
+          </div>
+          <button onClick={calNext} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition">
+            <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-0.5 text-center">
+          {["T2","T3","T4","T5","T6","T7","CN"].map(d => (
+            <div key={d} className="text-[9px] font-semibold text-gray-400 dark:text-gray-500 py-1">{d}</div>
+          ))}
+          {Array.from({ length: calStart }).map((_, i) => <div key={"e"+i} />)}
+          {calDays.map(d => {
+            const ds = d.format("YYYY-MM-DD");
+            const isToday = ds === today.format("YYYY-MM-DD");
+            const isSel = selectedKey === ds;
+            const hasData = shiftSchedules[ds] && Object.keys(shiftSchedules[ds]).length > 0;
+            return (
+              <button key={ds} onClick={() => handleCalSelect(ds)}
+                className={`aspect-square rounded-lg text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0 leading-none
+                  ${isSel ? "bg-orange-500 text-white shadow-md scale-105" :
+                    isToday ? "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 font-bold" :
+                    "bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"}`}>
+                <span>{d.date()}</span>
+                {hasData && !isSel && <span className="w-1 h-1 rounded-full bg-green-400 mt-0.5" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+          Ngày chọn: <span className="font-semibold text-orange-500">{selectedKey ? dayjs(selectedDate).format("DD/MM/YYYY") : "Chưa chọn"}</span>
+        </p>
+      </div>
+
+      {/* ── Card nhập liệu ── */}
+      <div className="card space-y-4">
+
+        {/* Header + nút */}
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="font-bold text-gray-900 dark:text-white text-base flex items-center gap-1.5">
+              <CalendarDays className="w-4 h-4 text-orange-500" />
+              Nhập liệu tăng ca
+            </h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {selectedDate ? dayjs(selectedDate).format("DD/MM/YYYY") : "Chưa chọn ngày"}
+            </p>
+          </div>
+          <button
+            onClick={() => setFormOpen(true)}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-3 py-2 rounded-xl shadow-md transition text-sm font-medium shrink-0"
+          >
+            <CirclePlus className="w-4 h-4" /> Thêm
+          </button>
+        </div>
+
+        {/* Cú pháp nhanh */}
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3 border border-orange-100 dark:border-orange-800/50">
+          <p className="text-[11px] font-bold text-orange-700 dark:text-orange-400 mb-2 uppercase tracking-wide">💡 Cú pháp nhập nhanh</p>
+          <div className="grid grid-cols-1 gap-1 text-[11px] text-gray-600 dark:text-gray-300">
+            <div className="flex items-center gap-2">
+              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px]">In 7:30</code>
+              <span className="text-gray-500">→ Tất cả check-in 7:30</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px]">Out 20:00</code>
+              <span className="text-gray-500">→ Tất cả check-out 20:00</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded text-orange-600 dark:text-orange-400 font-mono text-[10px]">NV1 In 8:00</code>
+              <span className="text-gray-500">→ Nhập theo tên NV</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Danh sách chấm công theo NV */}
+        {members.length > 0 && (() => {
+          const dateStr = selectedDate ? dayjs(selectedDate).format("YYYY-MM-DD") : dayjs().format("YYYY-MM-DD");
+          return (
+            <div>
+              <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Chấm công ngày {dayjs(dateStr).format("DD/MM")} ({members.length} NV)
+              </p>
+              <div className="space-y-1.5">
+                {members.map((m) => {
+                  // Tìm dữ liệu chấm công từ shiftSchedules
+                  const sched = shiftSchedules?.[dateStr];
+                  let rec = null;
+                  if (sched) {
+                    rec = Object.values(sched).find(s => s.memberId === m.id || s.realName === m.realName);
+                  }
+                  const checkIn = rec?.lenCa || "";
+                  const checkOut = rec?.xuongCa || "";
+                  const ot = Number(rec?.tangCaHomNay || 0);
+                  const note = rec?.note || "";
+                  const isNight = rec?.shift?.toLowerCase().includes("đêm");
+                  const hasData = checkIn || checkOut || note;
+
+                  return (
+                    <div key={m.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border transition-all ${
+                      hasData
+                        ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                        : "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700/30"
+                    }`}>
+                      {/* Avatar */}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                        isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
+                                : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
+                      }`}>
+                        {(m.nickname || m.realName)?.[0]?.toUpperCase()}
+                      </div>
+
+                      {/* Tên */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{m.realName}</p>
+                        {note ? (
+                          <p className="text-[10px] text-orange-500 dark:text-orange-400 truncate">{note}</p>
+                        ) : hasData ? (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-0.5">
+                              <LogIn className="w-3 h-3" />{checkIn || "--"}
+                            </span>
+                            <span className="text-[10px] text-red-500 dark:text-red-400 flex items-center gap-0.5">
+                              <LogOut className="w-3 h-3" />{checkOut || "--"}
+                            </span>
+                            {ot > 0 && <span className="text-[10px] font-bold text-orange-500">+{ot}h</span>}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">Chưa chấm công</p>
+                        )}
+                      </div>
+
+                      {/* Status icon */}
+                      <div className="shrink-0">
+                        {checkOut ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : checkIn ? (
+                          <LogIn className="w-4 h-4 text-blue-400" />
+                        ) : note ? (
+                          <AlertCircle className="w-4 h-4 text-orange-400" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-gray-200 dark:border-gray-600" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {formOpen && (
@@ -490,7 +678,7 @@ export default function OvertimeForm({
 
           <div
             ref={modalRef}
-            className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-11/12 max-w-xl p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors"
+            className="relative bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 w-[calc(100vw-1rem)] sm:w-11/12 max-w-xl p-4 sm:p-6 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-10 transition-colors max-h-[90vh] overflow-y-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-5">

@@ -7,6 +7,7 @@ import OvertimeConfigPopup from "./overtimeConfig/OvertimeConfigPopup";
 import MembersTable from "./MembersTable";
 import useMembersData from "./hooks/useMembersData";
 import { useOvertimeConfig } from "../../hooks/useOvertimeConfig";
+import ExportExcel from "../ExportExcel";
 
 import { updateOvertimeLimits } from "./overtimeConfig/SectionOvertimeConfig";
 import dayjs from "dayjs";
@@ -267,61 +268,62 @@ export default function ManageMembers({
   return (
     <div className="space-y-4 text-gray-800 dark:text-gray-200">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 justify-between">
-        <div className="flex items-center gap-2 flex-nowrap">
+      <div className="flex flex-col gap-2">
+        {/* Nút chức năng — grid 2 cột gọn */}
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             onClick={() => setShowAssign(true)}
-            className="flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center justify-center gap-1.5 bg-purple-500 hover:bg-purple-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
           >
-            <CalendarArrowUp className="w-4 h-4" /> Phân ca
+            <CalendarArrowUp className="w-3.5 h-3.5 shrink-0" /> Phân ca
           </button>
 
           <button
             onClick={() => setShowLimit(true)}
-            className="flex items-center gap-1 bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center justify-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
           >
-            <Clock className="w-4 h-4" /> Giới hạn tăng ca
+            <Clock className="w-3.5 h-3.5 shrink-0" /> Giới hạn tăng ca
           </button>
 
           <button
             onClick={() => setShowFormula(true)}
-            className="flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center justify-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
           >
-            <Settings className="w-4 h-4" /> Cấu hình tăng ca
+            <Settings className="w-3.5 h-3.5 shrink-0" /> Cấu hình tăng ca
           </button>
 
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
           >
-            <UserPlus className="w-4 h-4" /> Thêm nhân viên
+            <UserPlus className="w-3.5 h-3.5 shrink-0" /> Thêm nhân viên
           </button>
 
           <button
             onClick={() => setShowDelete(true)}
-            className="flex items-center gap-1 bg-red-500 text-white px-3 py-1 rounded-lg text-sm"
+            className="col-span-2 flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-2 py-2 rounded-lg text-xs font-medium transition"
           >
-            <Trash2 className="w-4 h-4" /> Xóa nhân viên
+            <Trash2 className="w-3.5 h-3.5 shrink-0" /> Xóa nhân viên
           </button>
         </div>
 
-        {/* Tìm kiếm + sắp xếp */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        {/* Tìm kiếm + sắp xếp — stack dọc trên mobile */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Tìm theo tên (nickname hoặc realName)..."
+              placeholder="Tìm theo tên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1 border rounded-md bg-white/70 dark:bg-gray-700/40 text-sm"
+              className="pl-8 pr-3 py-1.5 border rounded-md bg-white/70 dark:bg-gray-700/40 text-sm w-full"
             />
           </div>
 
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value)}
-            className="px-2 py-1 border rounded-md bg-white/70 dark:bg-gray-700 text-sm"
+            className="px-2 py-1.5 border rounded-md bg-white/70 dark:bg-gray-700 text-sm w-full sm:w-auto"
           >
             <option value="lowLimit">Giới hạn giờ thấp nhất</option>
             <option value="highLimit">Giới hạn giờ cao nhất</option>

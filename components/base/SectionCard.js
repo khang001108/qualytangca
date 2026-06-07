@@ -1,36 +1,34 @@
-// components/base/SectionCard.js
-// Card hiển thị một phần cấu hình với tiêu đề và biểu tượng
-
-
 import React from "react";
 import { motion } from "framer-motion";
 
-export default function SectionCard({ icon: Icon, title, color, children }) {
-  if (!color) color = "indigo";
-
+export default function SectionCard({ icon: Icon, title, color = "indigo", children }) {
   const colorMap = {
-    indigo:
-      "border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 text-indigo-600",
-    yellow:
-      "border-yellow-200 hover:border-yellow-400 hover:bg-yellow-50 text-yellow-600",
-    red: "border-red-200 hover:border-red-400 hover:bg-red-50 text-red-600",
-    green:
-      "border-green-200 hover:border-green-400 hover:bg-green-50 text-green-600",
+    indigo: { icon: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/30" },
+    yellow: { icon: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/30" },
+    red:    { icon: "text-red-600 dark:text-red-400",       bg: "bg-red-50 dark:bg-red-900/30" },
+    green:  { icon: "text-green-600 dark:text-green-400",   bg: "bg-green-50 dark:bg-green-900/30" },
   };
+  const { icon: iconColor, bg } = colorMap[color] || colorMap.indigo;
 
-  return React.createElement(
-    motion.div,
-    {
-      className:
-        "border rounded-xl p-4 mb-4 transition " + (colorMap[color] || ""),
-      whileHover: { scale: 1.01 },
-    },
-    React.createElement(
-      "div",
-      { className: "flex items-center gap-2 mb-3 font-semibold" },
-      Icon ? React.createElement(Icon, { className: "w-5 h-5" }) : null,
-      React.createElement("span", null, title)
-    ),
-    children
+  return (
+    <motion.div
+      className="card mb-4"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      whileHover={{ y: -1 }}
+    >
+      {(Icon || title) && (
+        <div className="flex items-center gap-2 mb-3">
+          {Icon && (
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${bg}`}>
+              <Icon className={`w-4 h-4 ${iconColor}`} />
+            </div>
+          )}
+          {title && <span className="font-semibold text-gray-900 dark:text-white text-sm">{title}</span>}
+        </div>
+      )}
+      {children}
+    </motion.div>
   );
 }
