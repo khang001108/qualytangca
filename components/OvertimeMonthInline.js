@@ -51,7 +51,7 @@ export default function OvertimeMonthInline({
   return (
     <div className="card animate-fade-in-up space-y-4">
       {/* Header tháng/năm */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-1 max-w-sm mx-auto w-full">
         <button onClick={prevMonth} className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-600 dark:text-gray-300 transition">
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -65,6 +65,7 @@ export default function OvertimeMonthInline({
       </div>
 
       {/* Lịch */}
+      <div className="max-w-sm mx-auto w-full">
       <div className="grid grid-cols-7 gap-1 text-center text-xs">
         {["T2","T3","T4","T5","T6","T7","CN"].map(d => (
           <div key={d} className="py-1.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px]">{d}</div>
@@ -103,6 +104,7 @@ export default function OvertimeMonthInline({
             </button>
           );
         })}
+      </div>
       </div>
 
       {/* Chú thích */}
