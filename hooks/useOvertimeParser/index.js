@@ -660,7 +660,7 @@ export default function useOvertimeParser({
 
               if (!alreadyCounted) {
                 // mark otCounted so reruns don't double count
-                await upsertShiftSchedule(dateStr, member, { otCounted: true });
+                await upsertShiftSchedule(dateStr, member, { otCounted: true, tangCaHomNay: addHours });
               }
             }
           }
