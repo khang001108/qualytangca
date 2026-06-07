@@ -659,7 +659,7 @@ export default function useOvertimeParser({
               await updateOvertimeLimitsMember(memberLimit, member.id, patch);
 
               if (!alreadyCounted) {
-                // mark otCounted so reruns don't double count
+                // mark otCounted + ghi tangCaHomNay để OvertimeSummary hiển thị đúng
                 await upsertShiftSchedule(dateStr, member, { otCounted: true, tangCaHomNay: addHours });
               }
             }
