@@ -1,6 +1,7 @@
 // components/OvertimeForm/QuickCheckIn.jsx
 import { useState, useEffect, useCallback } from "react";
-import { LogIn, LogOut, CheckCircle2, ChevronDown, ChevronUp, Zap } from "lucide-react";
+import { LogIn, LogOut, CheckCircle2, ChevronDown, ChevronUp, Zap, User } from "lucide-react";
+import { ICONS } from "../../utils/iconUtils";
 import dayjs from "dayjs";
 import {
   loadShiftConfigs,
@@ -336,11 +337,16 @@ export default function QuickCheckIn({
               const alreadyOut = !!rec?.xuongCa;
               const existingOT = Number(rec?.tangCaHomNay || 0);
 
+              const iconMatch = ICONS.find(ic => ic.name === m.avatar);
+              const MemberIcon = iconMatch ? iconMatch.icon : User;
+              const memberColor = m.color || (isNight ? "#6366f1" : "#f59e0b");
+
               return (
                 <div key={m.id} className="flex items-center gap-2 rounded-xl px-2.5 py-2 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50">
-                  {/* Avatar */}
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600" : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700"}`}>
-                    {(m.nickname || m.realName)?.[0]?.toUpperCase()}
+                  {/* Avatar icon */}
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: memberColor + "25" }}>
+                    <MemberIcon className="w-3.5 h-3.5" style={{ color: memberColor }} />
                   </div>
 
                   {/* Tên + preview */}

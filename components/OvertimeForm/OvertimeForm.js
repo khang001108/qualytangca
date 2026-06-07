@@ -647,18 +647,20 @@ export default function OvertimeForm({
                   const isNight = rec?.shift?.toLowerCase().includes("đêm");
                   const hasData = checkIn || checkOut || note;
 
+                  const iconMatch = ICONS.find(ic => ic.name === m.avatar);
+                  const MemberIcon = iconMatch ? iconMatch.icon : User;
+                  const memberColor = m.color || (isNight ? "#6366f1" : "#f59e0b");
+
                   return (
                     <div key={m.id} className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border transition-all ${
                       hasData
                         ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
                         : "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700/30"
                     }`}>
-                      {/* Avatar */}
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                        isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
-                                : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
-                      }`}>
-                        {(m.nickname || m.realName)?.[0]?.toUpperCase()}
+                      {/* Avatar icon */}
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: memberColor + "25" }}>
+                        <MemberIcon className="w-4 h-4" style={{ color: memberColor }} />
                       </div>
 
                       {/* Tên */}
