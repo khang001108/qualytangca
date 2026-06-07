@@ -1,9 +1,4 @@
 // components/OvertimeForm/QuickCheckIn.jsx
-// Chấm công nhanh: tick lên ca / xuống ca hàng loạt
-// Check-in = giờ thực tế trong shiftSchedule (hoặc giữa cửa sổ muộn)
-// Check-out = officialEnd + perDay*60
-// OT hours  = perDay từ overtimeLimits config (không tính lại)
-
 import { useState, useEffect, useCallback } from "react";
 import { LogIn, LogOut, CheckCircle2, ChevronDown, ChevronUp, Zap } from "lucide-react";
 import dayjs from "dayjs";
@@ -13,87 +8,141 @@ import {
   minutesToHHMM,
 } from "../../hooks/useOvertimeParser/shiftHelpers";
 import {
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  collection,
-  serverTimestamp,
-  updateDoc,
+  doc, setDoc, getDoc, getDocs, collection,
+  serverTimestamp, updateDoc,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
-// ---------- helpers ----------
-/** officialEnd + perDay*60 → checkout string */
-function calcCheckout(officialEndMin, perDay, isNight) {
+// ─── Helpers ──────────────────────────────────────────────────
+/** officialEnd (phút) + perDay*60 → "HH:MM" */
+function calcCheckoutStr(officialEndMin, perDay, isNight) {
   if (officialEndMin == null || !perDay) return null;
   let out = officialEndMin + Math.round(perDay * 60);
-  if (isNight && out >= 24 * 60) out = out % (24 * 60);
+  if (isNight) out = out % (24 * 60);
   return minutesToHHMM(out);
 }
 
-// Upsert shiftSchedule doc
+/** Giờ lên ca mặc định theo checkinType + cfg */
+function defaultCheckInStr(cfg, checkinType) {
+  if (!cfg) return null;
+  if (checkinType === "som") {
+    const mid = Math.round(
+      (timeToMinutes(cfg.lenCaSomBatDau) + timeToMinutes(cfg.lenCaSomKetThuc)) / 2
+    );
+    return minutesToHHMM(mid);
+  }
+  const mid = Math.round(
+    (timeToMinutes(cfg.lenCaMuonBatDau) + timeToMinutes(cfg.lenCaMuonKetThuc)) / 2
+  );
+  return minutesToHHMM(mid);
+}
+
+/** officialEnd theo checkinType */
+function getOfficialEnd(cfg, checkinType) {
+  if (!cfg) return null;
+  return checkinType === "som"
+    ? timeToMinutes(cfg.tanCaSomBatDau)
+    : timeToMinutes(cfg.tanCaMuonBatDau);
+}
+
+// ─── Firestore ops ────────────────────────────────────────────
 async function upsertShift(dateStr, member, data) {
   const docId = `${dateStr}__${member.id}`;
   const ref = doc(db, "shiftSchedules", docId);
-  try {
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
-    } else {
-      await setDoc(ref, {
-        memberId: member.id,
-        realName: member.realName,
-        nickname: member.nickname || "",
-        shift: member.shift || "ngày",
-        date: dateStr,
-        ...data,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-  } catch (e) {
-    console.warn("upsertShift error", e);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+  } else {
+    await setDoc(ref, {
+      memberId: member.id,
+      realName: member.realName,
+      nickname: member.nickname || "",
+      shift: member.shift || "ngày",
+      date: dateStr,
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
   }
 }
 
-// Lưu overtime record + update workedHours
-async function saveOvertimeRecord(userId, member, dateStr, otHours, checkIn, checkOut) {
+async function loadBonusConfig() {
+  try {
+    const snap = await getDoc(doc(db, "bonusConfig", "main"));
+    return snap.exists() ? snap.data() : {};
+  } catch { return {}; }
+}
+
+async function loadLimitDoc(monthlyLimit) {
+  if (!monthlyLimit) return null;
+  try {
+    const snap = await getDoc(doc(db, "overtimeLimits", `limit_${monthlyLimit}`));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  } catch { return null; }
+}
+
+/** Tính bonus giống hệt parser gốc */
+function calcBonus(bonus, member, addHours) {
+  try {
+    const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
+    const limitKey = String(memberLimit || 0);
+    const bonusEnabled = Boolean(bonus?.batThuongTangCa);
+    const bonusEvery = Number(bonus?.thuongSauBaoNhieuTieng || 0);
+    const bonusAmount = Number(bonus?.congThemBaoNhieuGio || 0);
+    const selectedLimits = bonus?.cacNhanhDuocThuong || [];
+    const noBonus = (bonus?.cacMaKhongThuong || []);
+
+    const isNoBonus = noBonus.includes(member.realName) || noBonus.includes(member.nickname);
+    const isLimitSelected = selectedLimits.includes(limitKey);
+
+    if (bonusEnabled && !isNoBonus && isLimitSelected && bonusEvery > 0 && bonusAmount > 0) {
+      return addHours >= bonusEvery ? bonusAmount : 0;
+    }
+  } catch { /* ignore */ }
+  return 0;
+}
+
+/** Lưu overtime record + update workedHours */
+async function saveOTRecord(userId, member, dateStr, otHours, bonusGiven, checkIn, checkOut) {
   if (otHours <= 0) return;
   const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
   const memberWorked = Number(member.overtimeLimit?.workedHours || 0);
-  const addHours =
-    memberLimit > 0 ? Math.min(otHours, Math.max(memberLimit - memberWorked, 0)) : otHours;
+  const addHours = memberLimit > 0
+    ? Math.min(otHours, Math.max(memberLimit - memberWorked, 0))
+    : otHours;
   if (addHours <= 0) return;
 
-  // update workedHours trong members collection
+  // update members doc
   try {
-    const memRef = doc(db, "members", member.id);
-    await updateDoc(memRef, {
+    await updateDoc(doc(db, "members", member.id), {
       "overtimeLimit.workedHours": memberWorked + addHours,
       "overtimeLimit.remaining": Math.max(memberLimit - memberWorked - addHours, 0),
     });
-  } catch (e) {
-    console.warn("updateWorkedHours error", e);
-  }
+  } catch { /* ignore */ }
 
-  // update overtimeLimits doc
+  // update overtimeLimits member entry
   try {
     if (memberLimit > 0) {
-      const limitRef = doc(db, "overtimeLimits", `limit_${memberLimit}`);
-      const limitSnap = await getDoc(limitRef);
-      if (limitSnap.exists()) {
-        const mList = limitSnap.data().members || [];
-        const idx = mList.findIndex((m) => m.id === member.id);
+      const limitDoc = await loadLimitDoc(memberLimit);
+      if (limitDoc) {
+        const mList = limitDoc.members || [];
+        const idx = mList.findIndex(m => m.id === member.id);
         if (idx >= 0) {
-          mList[idx] = { ...mList[idx], workedHours: memberWorked + addHours };
-          await updateDoc(limitRef, { members: mList });
+          const ex = mList[idx];
+          const newGioDaLam = Number(ex.gioDaLam || 0) + addHours;
+          const totalPlan = Number(ex.tongGioKeHoach || limitDoc.limit || 0);
+          mList[idx] = {
+            ...ex,
+            gioDaLam: newGioDaLam,
+            gioConLai: Math.max(totalPlan - newGioDaLam, 0),
+            soNgayDaLam: Number(ex.soNgayDaLam || 0) + 1,
+            ngayConLai: Math.max(Number(ex.ngayConLai ?? limitDoc.days ?? 0) - 1, 0),
+          };
+          await updateDoc(doc(db, "overtimeLimits", `limit_${memberLimit}`), { members: mList });
         }
       }
     }
-  } catch (e) {
-    console.warn("updateOvertimeLimits error", e);
-  }
+  } catch { /* ignore */ }
 
   // overtime record
   const otRef = doc(collection(db, "overtimes"));
@@ -106,9 +155,9 @@ async function saveOvertimeRecord(userId, member, dateStr, otHours, checkIn, che
     checkIn: checkIn || null,
     checkOut: checkOut || null,
     tangCaHomNay: addHours,
-    thuong: 0,
+    thuong: bonusGiven,
     addedHours: addHours,
-    bonusGiven: 0,
+    bonusGiven,
     shift: member.shift || "",
     createdAt: serverTimestamp(),
   });
@@ -117,29 +166,25 @@ async function saveOvertimeRecord(userId, member, dateStr, otHours, checkIn, che
   await upsertShift(dateStr, member, { otCounted: true, tangCaHomNay: addHours });
 }
 
-// Load perDay từ overtimeLimits cho 1 member
+// ─── Load perDay cho từng member ──────────────────────────────
 async function loadPerDay(member) {
-  const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
-  if (!memberLimit) return null;
+  const ml = Number(member.overtimeLimit?.monthlyLimit || 0);
+  if (!ml) return null;
   try {
-    const snap = await getDoc(doc(db, "overtimeLimits", `limit_${memberLimit}`));
+    const snap = await getDoc(doc(db, "overtimeLimits", `limit_${ml}`));
     if (snap.exists()) return Number(snap.data().perDay || 0) || null;
-  } catch (e) { /* ignore */ }
+  } catch { /* ignore */ }
   return null;
 }
 
-// ---------- Component ----------
+// ─── Component ────────────────────────────────────────────────
 export default function QuickCheckIn({
-  user,
-  members = [],
-  selectedDate,
-  shiftSchedules = {},
-  onDone,
-  showToast,
+  user, members = [], selectedDate, shiftSchedules = {}, onDone, showToast,
 }) {
   const [open, setOpen] = useState(false);
   const [shiftCfg, setShiftCfg] = useState({ day: null, night: null });
-  const [perDayMap, setPerDayMap] = useState({}); // memberId → perDay (số)
+  const [bonusCfg, setBonusCfg] = useState({});
+  const [perDayMap, setPerDayMap] = useState({});
   const [checkedIn, setCheckedIn] = useState({});
   const [checkedOut, setCheckedOut] = useState({});
   const [saving, setSaving] = useState(false);
@@ -148,101 +193,72 @@ export default function QuickCheckIn({
     ? dayjs(selectedDate).format("YYYY-MM-DD")
     : dayjs().format("YYYY-MM-DD");
 
-  // Load shift config
   useEffect(() => {
     loadShiftConfigs().then(setShiftCfg);
+    loadBonusConfig().then(setBonusCfg);
   }, []);
 
-  // Load perDay cho từng NV khi mở panel
   useEffect(() => {
     if (!open || members.length === 0) return;
     const map = {};
-    Promise.all(
-      members.map(async (m) => {
-        const pd = await loadPerDay(m);
-        map[m.id] = pd;
-      })
-    ).then(() => setPerDayMap({ ...map }));
+    Promise.all(members.map(async (m) => {
+      map[m.id] = await loadPerDay(m);
+    })).then(() => setPerDayMap({ ...map }));
   }, [open, members]);
 
-  /** Tính thông tin hiển thị cho 1 NV */
+  /** Tính đầy đủ thông tin 1 NV */
   function getMemberInfo(m) {
     const isNight = m.shift?.toLowerCase().includes("đêm");
     const cfg = isNight ? shiftCfg.night : shiftCfg.day;
     const sched = shiftSchedules?.[dateStr] || {};
     const rec = Object.values(sched).find(
-      (s) => s.memberId === m.id || s.realName === m.realName
+      s => s.memberId === m.id || s.realName === m.realName
     );
-    const perDay = perDayMap[m.id] ?? null;
 
-    // check-in: ưu tiên giờ thực tế, không thì dùng giữa cửa sổ muộn
-    let checkInTime = rec?.lenCa || null;
-    let checkinType = rec?.checkinType || "muon";
-    if (!checkInTime && cfg) {
-      const mid = Math.round(
-        (timeToMinutes(cfg.lenCaMuonBatDau) + timeToMinutes(cfg.lenCaMuonKetThuc)) / 2
-      );
-      checkInTime = minutesToHHMM(mid);
-      checkinType = "muon";
-    }
+    // ✅ checkinType: đọc từ shiftSchedule (phân ca), fallback "muon"
+    const checkinType = rec?.checkinType || "muon";
 
-    // officialEnd = tanCa...BatDau tuỳ checkinType
-    let officialEndMin = null;
-    if (cfg) {
-      officialEndMin =
-        checkinType === "som"
-          ? timeToMinutes(cfg.tanCaSomBatDau)
-          : timeToMinutes(cfg.tanCaMuonBatDau);
-    }
+    // check-in: giờ thực tế hoặc default theo checkinType đúng
+    const checkInTime = rec?.lenCa || defaultCheckInStr(cfg, checkinType);
 
-    // check-out = officialEnd + perDay*60
-    const checkOutTime =
-      perDay && officialEndMin != null
-        ? calcCheckout(officialEndMin, perDay, isNight)
-        : rec?.xuongCa || null;
-
+    // officialEnd theo checkinType đúng
+    const officialEndMin = getOfficialEnd(cfg, checkinType);
     const officialEndStr = officialEndMin != null ? minutesToHHMM(officialEndMin) : null;
 
-    return {
-      isNight,
-      rec,
-      checkInTime,
-      checkOutTime,
-      officialEndStr,
-      perDay,
-      checkinType,
-    };
+    // perDay từ config
+    const perDay = perDayMap[m.id] ?? null;
+
+    // check-out = officialEnd + perDay*60
+    const checkOutTime = perDay && officialEndMin != null
+      ? calcCheckoutStr(officialEndMin, perDay, isNight)
+      : rec?.xuongCa || null;
+
+    // bonus preview
+    const bonusGiven = perDay ? calcBonus(bonusCfg, m, perDay) : 0;
+
+    return { isNight, rec, checkInTime, checkOutTime, officialEndStr, perDay, checkinType, bonusGiven };
   }
 
-  const allCheckedIn = members.length > 0 && members.every((m) => checkedIn[m.id]);
-  const allCheckedOut = members.length > 0 && members.every((m) => checkedOut[m.id]);
+  const allCheckedIn = members.length > 0 && members.every(m => checkedIn[m.id]);
+  const allCheckedOut = members.length > 0 && members.every(m => checkedOut[m.id]);
 
   const toggleAllIn = () => {
     const val = !allCheckedIn;
-    const next = {};
-    members.forEach((m) => (next[m.id] = val));
-    setCheckedIn(next);
+    setCheckedIn(Object.fromEntries(members.map(m => [m.id, val])));
   };
-
   const toggleAllOut = () => {
     const val = !allCheckedOut;
-    const next = {};
-    members.forEach((m) => (next[m.id] = val));
-    setCheckedOut(next);
+    setCheckedOut(Object.fromEntries(members.map(m => [m.id, val])));
   };
 
   const handleSave = useCallback(async () => {
-    const anySelected = members.some((m) => checkedIn[m.id] || checkedOut[m.id]);
-    if (!anySelected) {
-      showToast("error", "⚠️ Chưa chọn ai để chấm công.");
-      return;
-    }
+    const anySelected = members.some(m => checkedIn[m.id] || checkedOut[m.id]);
+    if (!anySelected) { showToast("error", "⚠️ Chưa chọn ai để chấm công."); return; }
     setSaving(true);
     try {
-      let countIn = 0, countOut = 0, countOT = 0;
-
+      let countIn = 0, countOut = 0, countOT = 0, countBonus = 0;
       for (const m of members) {
-        const { checkInTime, checkOutTime, perDay, rec, checkinType, isNight } = getMemberInfo(m);
+        const { checkInTime, checkOutTime, perDay, rec, checkinType, bonusGiven } = getMemberInfo(m);
 
         if (checkedIn[m.id]) {
           await upsertShift(dateStr, m, {
@@ -255,30 +271,19 @@ export default function QuickCheckIn({
         }
 
         if (checkedOut[m.id] && checkOutTime) {
-          await upsertShift(dateStr, m, {
-            xuongCa: checkOutTime,
-            type: "work",
-          });
+          await upsertShift(dateStr, m, { xuongCa: checkOutTime, type: "work" });
           countOut++;
 
           if (perDay && perDay > 0 && !rec?.otCounted) {
-            await saveOvertimeRecord(
-              user.uid,
-              m,
-              dateStr,
-              perDay,
-              checkInTime,
-              checkOutTime
-            );
+            await saveOTRecord(user.uid, m, dateStr, perDay, bonusGiven, checkInTime, checkOutTime);
             countOT += perDay;
+            countBonus += bonusGiven;
           }
         }
       }
 
-      showToast(
-        "success",
-        `✅ Đã chấm: ${countIn} lên ca, ${countOut} xuống ca${countOT > 0 ? `, +${countOT}h TC` : ""}`
-      );
+      const bonusStr = countBonus > 0 ? ` (+${countBonus}h thưởng)` : "";
+      showToast("success", `✅ ${countIn} lên ca, ${countOut} xuống ca${countOT > 0 ? `, +${countOT}h TC${bonusStr}` : ""}`);
       setCheckedIn({});
       setCheckedOut({});
       onDone?.();
@@ -289,118 +294,71 @@ export default function QuickCheckIn({
       setSaving(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkedIn, checkedOut, members, dateStr, shiftCfg, shiftSchedules, perDayMap, user]);
+  }, [checkedIn, checkedOut, members, dateStr, shiftCfg, shiftSchedules, perDayMap, bonusCfg, user]);
 
-  const selectedCount = members.filter((m) => checkedIn[m.id] || checkedOut[m.id]).length;
+  const selectedCount = members.filter(m => checkedIn[m.id] || checkedOut[m.id]).length;
 
   return (
     <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 overflow-hidden">
-      {/* Header toggle */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-2 px-3 py-2.5 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition text-left"
       >
         <Zap className="w-4 h-4 text-blue-500 shrink-0" />
         <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex-1">
           Chấm công nhanh
         </span>
-        <span className="text-[10px] text-blue-400 dark:text-blue-500 mr-1">
-          {selectedCount}/{members.length} NV
-        </span>
-        {open ? (
-          <ChevronUp className="w-4 h-4 text-blue-400" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-blue-400" />
-        )}
+        <span className="text-[10px] text-blue-400 mr-1">{selectedCount}/{members.length} NV</span>
+        {open ? <ChevronUp className="w-4 h-4 text-blue-400" /> : <ChevronDown className="w-4 h-4 text-blue-400" />}
       </button>
 
       {open && (
         <div className="bg-white dark:bg-gray-900 px-3 py-3 space-y-3">
-          {/* Tất cả lên ca / xuống ca */}
+          {/* Tất cả */}
           <div className="flex gap-2">
-            <button
-              onClick={toggleAllIn}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-xs font-semibold transition ${
-                allCheckedIn
-                  ? "bg-green-500 border-green-500 text-white"
-                  : "border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
-              }`}
-            >
+            <button onClick={toggleAllIn} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-xs font-semibold transition ${allCheckedIn ? "bg-green-500 border-green-500 text-white" : "border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50"}`}>
               <LogIn className="w-3.5 h-3.5" /> Tất cả lên ca
             </button>
-            <button
-              onClick={toggleAllOut}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-xs font-semibold transition ${
-                allCheckedOut
-                  ? "bg-red-500 border-red-500 text-white"
-                  : "border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-              }`}
-            >
+            <button onClick={toggleAllOut} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 text-xs font-semibold transition ${allCheckedOut ? "bg-red-500 border-red-500 text-white" : "border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-50"}`}>
               <LogOut className="w-3.5 h-3.5" /> Tất cả xuống ca
             </button>
           </div>
 
-          {/* Danh sách NV */}
+          {/* Danh sách */}
           <div className="space-y-1.5">
-            {members.map((m) => {
-              const {
-                isNight,
-                rec,
-                checkInTime,
-                checkOutTime,
-                officialEndStr,
-                perDay,
-              } = getMemberInfo(m);
-
+            {members.map(m => {
+              const { isNight, rec, checkInTime, checkOutTime, officialEndStr, perDay, bonusGiven } = getMemberInfo(m);
               const alreadyIn = !!rec?.lenCa;
               const alreadyOut = !!rec?.xuongCa;
               const existingOT = Number(rec?.tangCaHomNay || 0);
 
               return (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-2 rounded-xl px-2.5 py-2 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50"
-                >
+                <div key={m.id} className="flex items-center gap-2 rounded-xl px-2.5 py-2 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50">
                   {/* Avatar */}
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                      isNight
-                        ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400"
-                        : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400"
-                    }`}
-                  >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${isNight ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600" : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700"}`}>
                     {(m.nickname || m.realName)?.[0]?.toUpperCase()}
                   </div>
 
-                  {/* Tên + giờ preview */}
+                  {/* Tên + preview */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
-                      {m.realName}
-                    </p>
+                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{m.realName}</p>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {/* Giờ check-in sẽ dùng */}
                       {(checkedIn[m.id] || alreadyIn) && (
-                        <span className="text-[9px] text-green-600 dark:text-green-400 flex items-center gap-0.5">
-                          <LogIn className="w-2.5 h-2.5" />
-                          {alreadyIn ? rec.lenCa : checkInTime}
+                        <span className="text-[9px] text-green-600 flex items-center gap-0.5">
+                          <LogIn className="w-2.5 h-2.5" />{alreadyIn ? rec.lenCa : checkInTime}
                         </span>
                       )}
-                      {/* Giờ check-out sẽ dùng */}
                       {(checkedOut[m.id] || alreadyOut) && (
-                        <span className="text-[9px] text-red-500 dark:text-red-400 flex items-center gap-0.5">
-                          <LogOut className="w-2.5 h-2.5" />
-                          {alreadyOut ? rec.xuongCa : checkOutTime || "--"}
+                        <span className="text-[9px] text-red-500 flex items-center gap-0.5">
+                          <LogOut className="w-2.5 h-2.5" />{alreadyOut ? rec.xuongCa : (checkOutTime || "--")}
                         </span>
                       )}
-                      {/* OT preview */}
                       {existingOT > 0 && (
-                        <span className="text-[9px] font-bold text-orange-500">
-                          +{existingOT}h TC ✓
-                        </span>
+                        <span className="text-[9px] font-bold text-orange-500">+{existingOT}h TC ✓</span>
                       )}
                       {checkedOut[m.id] && perDay && !existingOT && (
                         <span className="text-[9px] font-bold text-orange-400">
-                          → +{perDay}h TC (sau {officialEndStr})
+                          → +{perDay}h TC{bonusGiven > 0 ? ` +${bonusGiven}h thưởng` : ""} (sau {officialEndStr})
                         </span>
                       )}
                       {checkedOut[m.id] && !perDay && !existingOT && (
@@ -411,16 +369,11 @@ export default function QuickCheckIn({
 
                   {/* Nút lên ca */}
                   <button
-                    onClick={() =>
-                      setCheckedIn((p) => ({ ...p, [m.id]: !p[m.id] }))
-                    }
-                    title="Lên ca"
+                    onClick={() => setCheckedIn(p => ({ ...p, [m.id]: !p[m.id] }))}
                     className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition shrink-0 ${
-                      checkedIn[m.id]
-                        ? "bg-green-500 border-green-500 text-white"
-                        : alreadyIn
-                        ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-500"
-                        : "border-gray-300 dark:border-gray-600 text-gray-300 hover:border-green-400"
+                      checkedIn[m.id] ? "bg-green-500 border-green-500 text-white"
+                      : alreadyIn ? "bg-green-50 border-green-300 text-green-500"
+                      : "border-gray-300 dark:border-gray-600 text-gray-300 hover:border-green-400"
                     }`}
                   >
                     <LogIn className="w-3.5 h-3.5" />
@@ -428,16 +381,11 @@ export default function QuickCheckIn({
 
                   {/* Nút xuống ca */}
                   <button
-                    onClick={() =>
-                      setCheckedOut((p) => ({ ...p, [m.id]: !p[m.id] }))
-                    }
-                    title="Xuống ca"
+                    onClick={() => setCheckedOut(p => ({ ...p, [m.id]: !p[m.id] }))}
                     className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition shrink-0 ${
-                      checkedOut[m.id]
-                        ? "bg-red-500 border-red-500 text-white"
-                        : alreadyOut
-                        ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-400"
-                        : "border-gray-300 dark:border-gray-600 text-gray-300 hover:border-red-400"
+                      checkedOut[m.id] ? "bg-red-500 border-red-500 text-white"
+                      : alreadyOut ? "bg-red-50 border-red-300 text-red-400"
+                      : "border-gray-300 dark:border-gray-600 text-gray-300 hover:border-red-400"
                     }`}
                   >
                     <LogOut className="w-3.5 h-3.5" />
@@ -447,26 +395,22 @@ export default function QuickCheckIn({
             })}
           </div>
 
-          {/* Nút lưu */}
+          {/* Lưu */}
           {selectedCount > 0 && (
             <button
               onClick={handleSave}
               disabled={saving}
               className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs font-bold shadow-md transition flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {saving ? (
-                <span className="animate-pulse">Đang lưu...</span>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  Lưu chấm công ({selectedCount} NV)
-                </>
-              )}
+              {saving
+                ? <span className="animate-pulse">Đang lưu...</span>
+                : <><CheckCircle2 className="w-4 h-4" /> Lưu chấm công ({selectedCount} NV)</>
+              }
             </button>
           )}
 
-          <p className="text-[9px] text-gray-400 dark:text-gray-500 text-center">
-            Check-out = tan ca HC + số giờ TC cấu hình · Ca đêm/ngày theo phân công NV
+          <p className="text-[9px] text-gray-400 text-center">
+            Check-out = tan ca HC + giờ TC config · Thưởng tự động theo cấu hình
           </p>
         </div>
       )}
