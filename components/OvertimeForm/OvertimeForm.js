@@ -529,18 +529,44 @@ export default function OvertimeForm({
             const ds = d.format("YYYY-MM-DD");
             const isToday = ds === today.format("YYYY-MM-DD");
             const isSel = selectedKey === ds;
-            const hasData = shiftSchedules[ds] && Object.keys(shiftSchedules[ds]).length > 0;
+            const shiftMap = shiftSchedules[ds] || {};
+            const vals = Object.values(shiftMap);
+            const hasAny = vals.length > 0;
+            let hasLenCa = false, hasXuongCa = false;
+            vals.forEach(s => {
+              if (s.lenCa) hasLenCa = true;
+              if (s.xuongCa) hasXuongCa = true;
+            });
+            const hasDay = vals.some(s => !s.shift?.toLowerCase().includes("đêm"));
+            const hasNight = vals.some(s => s.shift?.toLowerCase().includes("đêm"));
+
+            let cellCls = "h-8 w-full rounded-lg text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0 leading-none ";
+            if (isSel) cellCls += "bg-orange-500 text-white shadow-md ";
+            else if (isToday) cellCls += "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 font-bold ";
+            else if (hasAny && hasDay && hasNight) cellCls += "bg-gradient-to-br from-yellow-50 to-indigo-50 dark:from-yellow-900/30 dark:to-indigo-900/30 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 ";
+            else if (hasAny && hasNight) cellCls += "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 ";
+            else if (hasAny && hasDay) cellCls += "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700 ";
+            else cellCls += "bg-gray-50 dark:bg-gray-800/60 text-gray-500 dark:text-gray-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 ";
+
             return (
-              <button key={ds} onClick={() => handleCalSelect(ds)}
-                className={`aspect-square rounded-lg text-[11px] font-medium transition-all flex flex-col items-center justify-center gap-0 leading-none
-                  ${isSel ? "bg-orange-500 text-white shadow-md scale-105" :
-                    isToday ? "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 font-bold" :
-                    "bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 hover:bg-orange-50 dark:hover:bg-orange-900/20"}`}>
+              <button key={ds} onClick={() => handleCalSelect(ds)} className={cellCls}>
                 <span>{d.date()}</span>
-                {hasData && !isSel && <span className="w-1 h-1 rounded-full bg-green-400 mt-0.5" />}
+                {hasAny && !isSel && (
+                  <div className="flex items-center gap-0.5 mt-0.5">
+                    {hasLenCa && <span className="w-1 h-1 rounded-full bg-green-500 inline-block" />}
+                    {hasXuongCa && <span className="w-1 h-1 rounded-full bg-blue-400 inline-block" />}
+                    {!hasLenCa && !hasXuongCa && <span className="w-1 h-1 rounded-full bg-orange-400 inline-block" />}
+                  </div>
+                )}
               </button>
             );
           })}
+        </div>
+
+        <div className="flex items-center gap-3 justify-center flex-wrap text-[9px] text-gray-400 dark:text-gray-500 pt-1 border-t border-gray-100 dark:border-gray-800">
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"/>Lên ca</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"/>Xuống ca</span>
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block"/>Chưa chấm</span>
         </div>
 
         <p className="text-center text-xs text-gray-500 dark:text-gray-400">
