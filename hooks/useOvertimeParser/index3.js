@@ -47,8 +47,7 @@ function minutesToHHMM(min) {
 
 function minutesToFlooredHours(min) {
   if (!Number.isFinite(min) || min <= 0) return 0;
-  // Làm tròn xuống theo bội 0.5h (30 phút)
-  return Math.floor(min / 30) / 2;
+  return Math.floor(min / 60);
 }
 
 // inclusive range, supports wrap-around if end < start (e.g., 20:00 -> 04:00)
@@ -660,8 +659,8 @@ export default function useOvertimeParser({
               await updateOvertimeLimitsMember(memberLimit, member.id, patch);
 
               if (!alreadyCounted) {
-                // mark otCounted so reruns don't double count
-                await upsertShiftSchedule(dateStr, member, { otCounted: true });
+                // mark otCounted + ghi tangCaHomNay để OvertimeSummary hiển thị đúng
+                await upsertShiftSchedule(dateStr, member, { otCounted: true, tangCaHomNay: addHours });
               }
             }
           }
