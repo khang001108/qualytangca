@@ -61,7 +61,9 @@ export async function loadShiftConfigs() {
 
 export async function getShiftOfMember(memberId, selectedDate) {
   if (!selectedDate) return null;
-  const dateStr = new Date(selectedDate).toISOString().slice(0, 10);
+  // Dùng local date để tránh lệch timezone khi dùng toISOString()
+  const d = new Date(selectedDate);
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const docId = `${dateStr}__${memberId}`;
   try {
     const ref = doc(db, "shiftSchedules", docId);
