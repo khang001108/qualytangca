@@ -529,9 +529,11 @@ export default function useOvertimeParser({
         const memberLimit = Number(member.overtimeLimit?.monthlyLimit || 0);
         const memberWorked = Number(member.overtimeLimit?.workedHours || 0);
         const memberRemaining = Math.max(memberLimit - memberWorked, 0);
+        const perDayCap = Number(member.overtimeLimit?.perDay || 0);
 
-        const addHours =
-          memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
+        let addHours = memberLimit > 0 ? Math.min(otHours, memberRemaining) : otHours;
+        // Giới hạn OT tối đa mỗi ngày (perDay)
+        if (perDayCap > 0) addHours = Math.min(addHours, perDayCap);
         if (addHours <= 0) continue;
 
         // Prevent double-count: if shiftRec.otCounted is true -> skip adding hours but still may write ot record
