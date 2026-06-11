@@ -463,6 +463,10 @@ export default function OvertimeMonthGrid({
               );
               let thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
 
+              // Cap tang theo perDay nếu data cũ chưa được capped
+              const perDayCap = Number(m.overtimeLimit?.perDay || 0);
+              if (perDayCap > 0 && tang > perDayCap) tang = perDayCap;
+
               const blockKey = `${m.id}_${selectedYear}-${selectedMonth}`;
               const isBlocked = manualBlockDays[blockKey]?.includes(d);
 
@@ -630,6 +634,9 @@ export default function OvertimeMonthGrid({
                     const isBlocked = planMode && manualBlockDays[blockKey]?.includes(d);
                     let tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
                     let thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
+                    // Cap tang theo perDay nếu data cũ chưa được capped
+                    const perDayCap = Number(m.overtimeLimit?.perDay || 0);
+                    if (perDayCap > 0 && tang > perDayCap) tang = perDayCap;
                     if (!isRest && !isBlocked && planMode) {
                       if (!otRec || (tang === 0 && thuong === 0)) {
                         tang = daysToAssign.has(d) ? perDayPlan : 0; thuong = 0;
@@ -734,8 +741,11 @@ function MemberPlanCard({ m, idx, isNight, cellData, planMode, weekdayLabels, to
                 if (isOT && !isBlocked) {
                   cls = planMode
                     ? "bg-emerald-400 dark:bg-emerald-600 text-white font-bold cursor-pointer hover:bg-emerald-500"
-                    : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-bold";
-                  txt = planMode ? "✓" : `${(tang + thuong).toFixed(0)}h`;
+                    : isToday
+                      ? "bg-blue-400 text-white font-bold"
+                      : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-bold";
+                  const totalH = tang + thuong;
+                  txt = planMode ? "✓" : `${totalH % 1 === 0 ? totalH : totalH.toFixed(1)}h`;
                 }
                 if (w === 0 && !isOT && !isRest && !isToday) { cls = "bg-orange-100 dark:bg-orange-900/20 text-orange-400"; }
                 if (isBlocked) { cls = "bg-gray-200 dark:bg-gray-600/60 text-gray-400 opacity-50 line-through cursor-pointer"; txt = "✗"; }
