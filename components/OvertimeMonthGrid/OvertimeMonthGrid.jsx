@@ -626,4 +626,195 @@ export default function OvertimeMonthGrid({
                     perDayPlan = Number(m.overtimeLimit?.perDay || 0);
                     const origRequired = getRequiredDays(m, bonusConfig);
                     const validDays = days.filter(d => {
-        
+                      const key = formatDateKey(selectedYear, selectedMonth, d);
+                      const w = dayjs(key).day(); const wd = w === 0 ? 7 : w;
+                      if (d < todayN || d <= lastRealOT) return false;
+                      if (parseRestDay(m.restDay) === wd) return false;
+                      const ot = getOvertimeForDay(overtimes, key, m);
+                      if (ot && (Number(ot.tangCaHomNay) > 0 || Number(ot.thuong) > 0)) return false;
+                      if (manualBlockDays[blockKey]?.includes(d)) return false;
+                      return true;
+                    });
+                    requiredDays = Math.min(origRequired, validDays.length);
+                    validDays.slice(0, requiredDays).forEach(d => daysToAssign.add(d));
+                  }
+
+                  const cellData = weekdayLabels.map(({ day: d, weekday: w }) => {
+                    const key = formatDateKey(selectedYear, selectedMonth, d);
+                    const shiftRec = getShiftRec(key, m);
+                    const otRec = getOvertimeForDay(overtimes, key, m);
+                    const isRest = shiftRec?.type === "leave" || shiftRec?.type === "rest";
+                    const isBlocked = planMode && manualBlockDays[blockKey]?.includes(d);
+                    let tang = Number(otRec?.tangCaHomNay ?? shiftRec?.tangCaHomNay ?? 0);
+                    let thuong = Number(otRec?.thuong ?? shiftRec?.thuong ?? 0);
+                    // Cap tang theo perDay nếu data cũ chưa được capped
+                    const perDayCap = Number(m.overtimeLimit?.perDay || 0);
+                    if (perDayCap > 0 && tang > perDayCap) tang = perDayCap;
+                    if (!isRest && !isBlocked && planMode) {
+                      if (!otRec || (tang === 0 && thuong === 0)) {
+                        tang = daysToAssign.has(d) ? perDayPlan : 0; thuong = 0;
+                      }
+                    }
+                    return { day: d, weekday: w, key, isRest, isBlocked, tang, thuong, hasRecord: !!otRec || !!shiftRec };
+                  });
+
+                  const workedHours = Number(m.overtimeLimit?.workedHours || 0);
+                  const limitH = Number(m.overtimeLimit?.monthlyLimit || 0);
+                  const remain = Math.max(limitH - workedHours, 0);
+                  const pct = limitH > 0 ? Math.min((workedHours / limitH) * 100, 100) : 0;
+                  const barColor = pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : night ? "#6366f1" : "#eab308";
+                  const otDaysCount = daysToAssign.size + cellData.filter(c => !planMode && (c.tang > 0 || c.thuong > 0)).length;
+
+                  return (
+                    <MemberPlanCard
+                      key={m.id}
+                      m={m} idx={idx} isNight={night}
+                      cellData={cellData} planMode={planMode}
+                      weekdayLabels={weekdayLabels} today={today}
+                      manualBlockDays={manualBlockDays} blockKey={blockKey}
+                      setManualBlockDays={setManualBlockDays} saveBlocks={saveBlocks}
+                      workedHours={workedHours} limitH={limitH} remain={remain}
+                      pct={pct} barColor={barColor} otDaysCount={otDaysCount}
+                      requiredDays={requiredDays} bonusConfig={bonusConfig}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Card từng nhân viên ──
+function MemberPlanCard({ m, idx, isNight, cellData, planMode, weekdayLabels, today,
+  manualBlockDays, blockKey, setManualBlockDays, saveBlocks,
+  workedHours, limitH, remain, pct, barColor, otDaysCount, requiredDays, bonusConfig }) {
+  const [open, setOpen] = useState(false);
+
+  const perDay = Number(m.overtimeLimit?.perDay || 0);
+  let bonusPerDay = 0;
+  if (bonusConfig?.batThuongTangCa) {
+    const threshold = Number(bonusConfig.thuongSauBaoNhieuTieng || 0);
+    const bonusAmt = Number(bonusConfig.congThemBaoNhieuGio || 0);
+    if (bonusAmt > 0 && perDay >= threshold) bonusPerDay = bonusAmt;
+  }
+  const effectivePerDay = perDay + bonusPerDay;
+  const projectedTotal = planMode && requiredDays > 0
+    ? (workedHours + requiredDays * effectivePerDay)
+    : null;
+
+  return (
+    <div className={`bg-white dark:bg-gray-800/80 border rounded-xl overflow-hidden transition-all ${open ? (isNight ? "border-indigo-300 dark:border-indigo-700" : "border-yellow-300 dark:border-yellow-700") : "border-gray-100 dark:border-gray-700/60"}`}>
+
+      {/* Main row — tap to expand */}
+      <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none" onClick={() => setOpen(o => !o)}>
+        <span className="text-[10px] font-bold text-gray-300 dark:text-gray-600 w-4 shrink-0">{idx + 1}</span>
+        {(() => {
+          const iconMatch = ICONS.find(ic => ic.name === m.avatar);
+          const MIcon = iconMatch ? iconMatch.icon : User;
+          const mColor = m.color || (isNight ? "#6366f1" : "#f59e0b");
+          return (
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: mColor + "25" }}>
+              <MIcon className="w-3.5 h-3.5" style={{ color: mColor }} />
+            </div>
+          );
+        })()}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">{m.realName}</p>
+          <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight truncate">{m.nickname || ""}</p>
+        </div>
+        <div className="text-right shrink-0 mr-1">
+          <p className="text-[10px] font-bold leading-tight">
+            <span className={isNight ? "text-indigo-500 dark:text-indigo-400" : "text-yellow-600 dark:text-yellow-400"}>{workedHours}h</span>
+            <span className="text-gray-300 dark:text-gray-600 font-normal">/{limitH}h</span>
+          </p>
+          {planMode && (
+            <p className="text-[9px] text-green-500 dark:text-green-400">
+              {requiredDays} ngày × {effectivePerDay % 1 === 0 ? effectivePerDay : effectivePerDay.toFixed(1)}h
+            </p>
+          )}
+          {planMode && bonusPerDay > 0 && (
+            <p className="text-[9px] text-orange-400 dark:text-orange-300 leading-tight">
+              ({perDay}h+{bonusPerDay}h thưởng)
+            </p>
+          )}
+          {planMode && projectedTotal !== null && (
+            <p className="text-[9px] text-blue-400 dark:text-blue-300 leading-tight">
+              → dự tính {projectedTotal % 1 === 0 ? projectedTotal : projectedTotal.toFixed(1)}h
+            </p>
+          )}
+          {limitH > 0 && (
+            <div className="w-14 h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mt-0.5 ml-auto">
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+            </div>
+          )}
+        </div>
+        <span className="text-gray-400 text-[10px] shrink-0">{open ? "▲" : "▼"}</span>
+      </div>
+
+      {/* Expanded: day cells */}
+      {open && (
+        <div className="border-t border-gray-100 dark:border-gray-700/50 px-2 py-2.5 bg-gray-50/50 dark:bg-gray-800/20">
+          <div className="overflow-x-auto">
+            {/* Day headers */}
+            <div className="flex gap-0.5 min-w-max mb-1">
+              {weekdayLabels.map(({ day, label, weekday }) => (
+                <div key={day} className={`w-8 text-center text-[8px] font-bold leading-tight shrink-0 ${weekday === 0 ? "text-orange-400" : "text-gray-400 dark:text-gray-500"} ${day === today ? "text-blue-500 dark:text-blue-400" : ""}`}>
+                  <div>{label}</div><div className="font-normal">{day}</div>
+                </div>
+              ))}
+            </div>
+            {/* Day cells */}
+            <div className="flex gap-0.5 min-w-max">
+              {cellData.map(({ day: d, weekday: w, isRest, isBlocked, tang, thuong }) => {
+                const isOT = (tang > 0 || thuong > 0) && !isRest;
+                const isToday = d === today;
+                let cls = "bg-gray-100 dark:bg-gray-700/60 text-gray-400 dark:text-gray-500";
+                let txt = "—";
+                if (isToday) { cls = "bg-blue-400 text-white font-bold"; txt = d; }
+                if (isRest)  { cls = "bg-sky-100 dark:bg-sky-900/30 text-sky-500 dark:text-sky-400 font-medium"; txt = "N"; }
+                if (isOT && !isBlocked) {
+                  cls = planMode
+                    ? "bg-emerald-400 dark:bg-emerald-600 text-white font-bold cursor-pointer hover:bg-emerald-500"
+                    : isToday
+                      ? "bg-blue-400 text-white font-bold"
+                      : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-bold";
+                  const totalH = tang + thuong;
+                  txt = planMode ? "✓" : `${totalH % 1 === 0 ? totalH : totalH.toFixed(1)}h`;
+                }
+                if (w === 0 && !isOT && !isRest && !isToday) { cls = "bg-orange-100 dark:bg-orange-900/20 text-orange-400"; }
+                if (isBlocked) { cls = "bg-gray-200 dark:bg-gray-600/60 text-gray-400 opacity-50 line-through cursor-pointer"; txt = "✗"; }
+
+                return (
+                  <div key={d} onClick={() => {
+                    if (!planMode || d <= today) return;
+                    const cur = manualBlockDays[blockKey] || [];
+                    const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d];
+                    const nb = { ...manualBlockDays, [blockKey]: next };
+                    setManualBlockDays(nb); saveBlocks(nb);
+                  }}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-[9px] shrink-0 transition-all select-none ${cls}`}>
+                    {txt}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Chú thích */}
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-[9px] text-gray-400 dark:text-gray-500">
+            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-emerald-400 inline-block" />TC</span>
+            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-sky-100 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 inline-block" />Nghỉ</span>
+            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-orange-100 inline-block" />CN</span>
+            <span className="flex items-center gap-0.5"><span className="w-2.5 h-2.5 rounded bg-blue-400 inline-block" />Hôm nay</span>
+            {planMode && <span className="ml-auto text-orange-400 font-medium">Tap ô xanh để block</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
